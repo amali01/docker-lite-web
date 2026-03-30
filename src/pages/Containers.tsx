@@ -503,7 +503,7 @@ export default function Containers() {
                         </td>
                         <td className="p-3 relative">
                           {expandedGroups[entry.project] && (
-                            <div className="absolute left-[20px] top-[31px] bottom-0 w-px bg-border/70 z-0" />
+                            <div className="absolute left-[20px] top-[31px] bottom-0 w-px bg-primary/50 z-0" />
                           )}
                           <button
                             type="button"
@@ -573,11 +573,11 @@ export default function Containers() {
                               />
                             </td>
                             <td className="p-3 relative">
-                              <div className="absolute left-[20px] top-0 h-[20px] w-px bg-border/70 z-0" />
+                              <div className="absolute left-[20px] top-0 h-[20px] w-px bg-primary/50 z-0" />
                               {index !== arr.length - 1 && (
-                                <div className="absolute left-[20px] top-[20px] bottom-0 w-px bg-border/70 z-0" />
+                                <div className="absolute left-[20px] top-[20px] bottom-0 w-px bg-primary/50 z-0" />
                               )}
-                              <div className="absolute left-[20px] top-[20px] w-4 h-px bg-border/70 z-0" />
+                              <div className="absolute left-[20px] top-[20px] w-[20px] h-px bg-primary/50 z-0" />
                               <div className="flex items-start gap-2 pl-6 relative z-10">
                                 <div className="mt-1 h-2 w-2 rounded-full border border-primary/60 bg-background shrink-0" />
                                 <div>
@@ -629,10 +629,16 @@ export default function Containers() {
           </div>
         </td>
                     <td className="p-3">
-  {container.netIO && container.netIO.includes("/") ? (
-    <div className="flex flex-col text-[10px] font-mono leading-tight">
-      <span className="text-emerald-500" title="Upload">↑ {container.netIO.split("/")[1].trim()}</span>
-      <span className="text-blue-500" title="Download">↓ {container.netIO.split("/")[0].trim()}</span>
+  {container.netIO && (container.netIO.includes(",") || container.netIO.includes("/")) ? (
+    <div className="flex flex-col text-[12px] font-mono leading-[1.3] text-muted-foreground w-max">
+      <div className="text-blue-400 flex items-center gap-1" title="Download">
+        <span className="w-3 text-center">↓</span>
+        <span>{container.netIO.includes(",") ? container.netIO.split(",")[0].replace(/[↓,]/g, "").trim() : container.netIO.split("/")[0].trim()}</span>
+      </div>
+      <div className="text-emerald-400 flex items-center gap-1" title="Upload">
+        <span className="w-3 text-center">↑</span>
+        <span>{container.netIO.includes(",") ? container.netIO.split(",")[1].replace(/[↑,]/g, "").trim() : container.netIO.split("/")[1].trim()}</span>
+      </div>
     </div>
   ) : (
     <div className="font-mono text-muted-foreground text-sm">{container.netIO ?? "—"}</div>
@@ -718,10 +724,16 @@ export default function Containers() {
           </div>
         </td>
                     <td className="p-3">
-  {container.netIO && container.netIO.includes("/") ? (
-    <div className="flex flex-col text-[10px] font-mono leading-tight">
-      <span className="text-emerald-500" title="Upload">↑ {container.netIO.split("/")[1].trim()}</span>
-      <span className="text-blue-500" title="Download">↓ {container.netIO.split("/")[0].trim()}</span>
+  {container.netIO && (container.netIO.includes(",") || container.netIO.includes("/")) ? (
+    <div className="flex flex-col text-[12px] font-mono leading-[1.3] text-muted-foreground w-max">
+      <div className="text-blue-400 flex items-center gap-1" title="Download">
+        <span className="w-3 text-center">↓</span>
+        <span>{container.netIO.includes(",") ? container.netIO.split(",")[0].replace(/[↓,]/g, "").trim() : container.netIO.split("/")[0].trim()}</span>
+      </div>
+      <div className="text-emerald-400 flex items-center gap-1" title="Upload">
+        <span className="w-3 text-center">↑</span>
+        <span>{container.netIO.includes(",") ? container.netIO.split(",")[1].replace(/[↑,]/g, "").trim() : container.netIO.split("/")[1].trim()}</span>
+      </div>
     </div>
   ) : (
     <div className="font-mono text-muted-foreground text-sm">{container.netIO ?? "—"}</div>
