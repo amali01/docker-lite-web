@@ -179,14 +179,29 @@ export default function Dashboard() {
             <tbody>
               {containers.map((container) => (
                 <tr key={container.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                  <td className="p-3 font-mono font-medium text-foreground">{container.name}</td>
-                  <td className="p-3 font-mono text-muted-foreground">{container.image}</td>
+                  <td className="p-3 font-mono font-medium text-foreground">
+                    <div
+                      className="max-w-[8rem] truncate md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]"
+                      title={container.name}
+                    >
+                      {container.name}
+                    </div>
+                  </td>
+                  <td className="p-3 font-mono text-muted-foreground">
+                    <div
+                      className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]"
+                      title={container.image}
+                    >
+                      {container.image}
+                    </div>
+                  </td>
                   <td className="p-3"><StatusBadge status={container.status} /></td>
                   <td className="p-3 font-mono text-muted-foreground">{formatMetric(container.cpuPercent)}</td>
                   <td className="p-3 font-mono text-muted-foreground">{formatMetric(container.memUsage)}</td>
                   <td className="p-3 font-mono text-muted-foreground text-[11px]">{container.ports || "—"}</td>
-                  <td className="p-3">
+                  <td className="p-2 sm:p-3">
                     <ContainerActionButtons
+                      compact
                       container={container}
                       logsActive={logsContainer?.id === container.id}
                       onAction={(action, currentContainer) => void handleAction(action, currentContainer)}

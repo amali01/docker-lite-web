@@ -104,6 +104,12 @@ describe("Dashboard", () => {
     });
   });
 
+  it("adds hover titles for container name and image values", async () => {
+    renderWithProviders(<Dashboard />);
+    expect(await screen.findByTitle("nginx-proxy")).toBeInTheDocument();
+    expect(screen.getByTitle("nginx:alpine")).toBeInTheDocument();
+  });
+
   it("shows dashboard container actions", async () => {
     renderWithProviders(<Dashboard />);
     const rowText = await screen.findByText("postgres-db");

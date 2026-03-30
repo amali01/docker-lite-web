@@ -77,6 +77,12 @@ describe("Containers Page", () => {
     expect(await screen.findByText("Run Container")).toBeInTheDocument();
   });
 
+  it("adds hover titles for container name and image values", async () => {
+    renderWithProviders(<Containers />);
+    expect(await screen.findByTitle("nginx-proxy")).toBeInTheDocument();
+    expect(screen.getByTitle("nginx:alpine")).toBeInTheDocument();
+  });
+
   it("shows action buttons without hover", async () => {
     renderWithProviders(<Containers />);
     await screen.findByText("nginx-proxy");

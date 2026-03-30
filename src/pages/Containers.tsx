@@ -149,10 +149,22 @@ export default function Containers() {
               {filtered.map((container) => (
                 <tr key={container.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                   <td className="p-3">
-                    <div className="font-mono font-medium text-foreground">{container.name}</div>
+                    <div
+                      className="font-mono font-medium text-foreground max-w-[8rem] truncate md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]"
+                      title={container.name}
+                    >
+                      {container.name}
+                    </div>
                     <div className="font-mono text-[10px] text-muted-foreground">{container.id}</div>
                   </td>
-                  <td className="p-3 font-mono text-muted-foreground">{container.image}</td>
+                  <td className="p-3 font-mono text-muted-foreground">
+                    <div
+                      className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]"
+                      title={container.image}
+                    >
+                      {container.image}
+                    </div>
+                  </td>
                   <td className="p-3">
                     <StatusBadge status={container.status} />
                     <div className="font-mono text-[10px] text-muted-foreground mt-0.5">{container.state}</div>
