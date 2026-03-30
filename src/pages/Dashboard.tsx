@@ -269,7 +269,7 @@ export default function Dashboard() {
                 <th className="text-left p-3">Image</th>
                 <th className="text-left p-3">Status</th>
                 <th className="text-left p-3">CPU</th>
-                <th className="text-left p-3">Memory</th>
+                <th className="text-center p-3">Memory</th>
                 <th className="text-left p-3">Ports</th>
                 <th className="sticky right-0 z-20 bg-card text-right p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)]">
                   Actions
@@ -319,7 +319,30 @@ export default function Dashboard() {
                           <td className="p-3 font-mono text-muted-foreground"><div className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]" title={container.image}>{container.image}</div></td>
                           <td className="p-3"><StatusBadge status={container.status} /></td>
                           <td className="p-3 font-mono text-muted-foreground">{formatMetric(container.cpuPercent)}</td>
-                          <td className="p-3 font-mono text-muted-foreground">{formatMetric(container.memUsage)}</td>
+                          <td className="p-3 text-center align-middle">
+          <div className="flex flex-col items-center justify-center" title={container.memUsage || "N/A"}>
+            <div className="relative w-10 h-5 flex items-end justify-center mb-1">
+              <svg viewBox="0 0 100 50" className="absolute top-0 left-0 w-full h-full overflow-visible">
+                <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" className="stroke-muted/30" strokeWidth="12" strokeLinecap="round" />
+                <path 
+                  d="M 10 50 A 40 40 0 0 1 90 50" 
+                  fill="none" 
+                  className={`transition-all duration-500 ease-in-out ${(container.memPercent || 0) > 80 ? 'stroke-destructive' : 'stroke-primary'}`} 
+                  strokeWidth="12" 
+                  strokeLinecap="round" 
+                  strokeDasharray="125.6" 
+                  strokeDashoffset={125.6 - ((container.memPercent || 0) / 100) * 125.6} 
+                />
+              </svg>
+              <span className="text-[10px] font-mono leading-none z-10 font-bold translate-y-[2px]">
+                {container.memPercent ? container.memPercent.toFixed(0) : "0"}%
+              </span>
+            </div>
+            <span className="text-[10px] text-muted-foreground font-mono leading-none">
+              {container.memUsage ? container.memUsage.replace(/\s*\/.*/, "").trim() : "—"}
+            </span>
+          </div>
+        </td>
                           <td className="p-3 font-mono text-muted-foreground text-[11px]"><PortLinks ports={container.ports} /></td>
                           <td className="sticky right-0 z-10 bg-card p-2 sm:p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
                             <ContainerActionButtons compact container={container} logsActive={logsContainer?.id === container.id} terminalActive={terminalContainer?.id === container.id} onAction={(action, currentContainer) => void handleAction(action, currentContainer)} />
@@ -337,7 +360,30 @@ export default function Dashboard() {
                     <td className="p-3 font-mono text-muted-foreground"><div className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]" title={container.image}>{container.image}</div></td>
                     <td className="p-3"><StatusBadge status={container.status} /></td>
                     <td className="p-3 font-mono text-muted-foreground">{formatMetric(container.cpuPercent)}</td>
-                    <td className="p-3 font-mono text-muted-foreground">{formatMetric(container.memUsage)}</td>
+                    <td className="p-3 text-center align-middle">
+          <div className="flex flex-col items-center justify-center" title={container.memUsage || "N/A"}>
+            <div className="relative w-10 h-5 flex items-end justify-center mb-1">
+              <svg viewBox="0 0 100 50" className="absolute top-0 left-0 w-full h-full overflow-visible">
+                <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" className="stroke-muted/30" strokeWidth="12" strokeLinecap="round" />
+                <path 
+                  d="M 10 50 A 40 40 0 0 1 90 50" 
+                  fill="none" 
+                  className={`transition-all duration-500 ease-in-out ${(container.memPercent || 0) > 80 ? 'stroke-destructive' : 'stroke-primary'}`} 
+                  strokeWidth="12" 
+                  strokeLinecap="round" 
+                  strokeDasharray="125.6" 
+                  strokeDashoffset={125.6 - ((container.memPercent || 0) / 100) * 125.6} 
+                />
+              </svg>
+              <span className="text-[10px] font-mono leading-none z-10 font-bold translate-y-[2px]">
+                {container.memPercent ? container.memPercent.toFixed(0) : "0"}%
+              </span>
+            </div>
+            <span className="text-[10px] text-muted-foreground font-mono leading-none">
+              {container.memUsage ? container.memUsage.replace(/\s*\/.*/, "").trim() : "—"}
+            </span>
+          </div>
+        </td>
                     <td className="p-3 font-mono text-muted-foreground text-[11px]"><PortLinks ports={container.ports} /></td>
                     <td className="sticky right-0 z-10 bg-card p-2 sm:p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
                       <ContainerActionButtons compact container={container} logsActive={logsContainer?.id === container.id} terminalActive={terminalContainer?.id === container.id} onAction={(action, currentContainer) => void handleAction(action, currentContainer)} />
