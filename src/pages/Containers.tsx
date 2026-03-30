@@ -85,7 +85,7 @@ export default function Containers() {
     setExpandedMonitoring(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const [visibilityFilter, setVisibilityFilter] = useState<"all" | "running">("all");
+  const [visibilityFilter, setVisibilityFilter] = useState<"all" | "running" | "stopped">("all");
   const [terminalContainer, setTerminalContainer] = useState<ContainerSummary | null>(null);
   const [logsContainer, setLogsContainer] = useState<ContainerSummary | null>(null);
   const [runDialogOpen, setRunDialogOpen] = useState(false);
@@ -102,7 +102,7 @@ export default function Containers() {
   const containers = containersQuery.data ?? [];
   const normalizedFilter = filter.toLowerCase();
   const filtered = containers.filter((container) => {
-    const matchesVisibility = visibilityFilter === "all" || container.status === "running";
+    const matchesVisibility = visibilityFilter === "all" || container.status === visibilityFilter;
     const matchesText =
       container.name.toLowerCase().includes(normalizedFilter) ||
       container.image.toLowerCase().includes(normalizedFilter);
@@ -356,7 +356,7 @@ export default function Containers() {
           type="single"
           value={visibilityFilter}
           onValueChange={(value) => {
-            if (value === "all" || value === "running") {
+            if (value === "all" || value === "running" || value === "stopped") {
               setVisibilityFilter(value);
             }
           }}
@@ -364,11 +364,14 @@ export default function Containers() {
           size="sm"
           className="justify-start md:justify-end"
         >
-          <ToggleGroupItem value="all" className="font-mono text-[11px] uppercase tracking-wide" aria-label="Show all containers">
-            Show all
+          <ToggleGroupItem value="all" className="font-mono text-[11px] tracking-wide" aria-label="Show all containers">
+            All
           </ToggleGroupItem>
-          <ToggleGroupItem value="running" className="font-mono text-[11px] uppercase tracking-wide" aria-label="Show running containers">
-            Only running
+          <ToggleGroupItem value="running" className="font-mono text-[11px] tracking-wide" aria-label="Show running containers">
+            Running
+          </ToggleGroupItem>
+          <ToggleGroupItem value="stopped" className="font-mono text-[11px] tracking-wide" aria-label="Show stopped containers">
+            Stopped
           </ToggleGroupItem>
         </ToggleGroup>
         {hasSelection && (
