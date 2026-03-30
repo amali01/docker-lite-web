@@ -27,6 +27,10 @@ const runContainerSchema = z.object({
   ),
 });
 
+const composeProjectSchema = z.object({
+  project: z.string().min(1),
+});
+
 export function createContainersRouter(backend: DockerBackend) {
   const router = Router();
 
@@ -73,6 +77,36 @@ export function createContainersRouter(backend: DockerBackend) {
   router.delete("/:id", async (request, response, next) => {
     try {
       await backend.removeContainer(request.params.id);
+      response.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/compose/:project/start", async (request, response, next) => {
+    try {
+      const { project } = composeProjectSchema.parse(request.params);
+      await backend.startComposeProject(project);
+      response.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/compose/:project/stop", async (request, response, next) => {
+    try {
+      const { project } = composeProjectSchema.parse(request.params);
+      await backend.stopComposeProject(project);
+      response.status(204).send();
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.delete("/compose/:project", async (request, response, next) => {
+    try {
+      const { project } = composeProjectSchema.parse(request.params);
+      await backend.removeComposeProject(project);
       response.status(204).send();
     } catch (error) {
       next(error);

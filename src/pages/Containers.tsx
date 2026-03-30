@@ -12,10 +12,13 @@ import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   useContainers,
+  useRemoveComposeProject,
   useRemoveContainer,
   useRestartContainer,
   useRunContainer,
+  useStartComposeProject,
   useStartContainer,
+  useStopComposeProject,
   useStopContainer,
 } from "@/hooks/use-containers";
 import { useTableSelection } from "@/hooks/use-table-selection";
@@ -55,6 +58,9 @@ export default function Containers() {
   const stopMutation = useStopContainer();
   const restartMutation = useRestartContainer();
   const removeMutation = useRemoveContainer();
+  const startComposeProjectMutation = useStartComposeProject();
+  const stopComposeProjectMutation = useStopComposeProject();
+  const removeComposeProjectMutation = useRemoveComposeProject();
   const containers = containersQuery.data ?? [];
   const normalizedFilter = filter.toLowerCase();
   const filtered = containers.filter((container) => {
@@ -192,6 +198,33 @@ export default function Containers() {
       const message = error instanceof Error ? error.message : "Unable to run container";
       toast.error(message);
       throw error;
+    }
+  };
+
+  const handleGroupAction = async (action: "start" | "stop" | "remove", project: string, projectContainers: ContainerSummary[]) => {
+    try {
+      if (action === "start") {
+        await startComposeProjectMutation.mutateAsync(project);
+        toast.success(`Started compose stack ${project}`);
+        return;
+      }
+
+      if (action === "stop") {
+        await stopComposeProjectMutation.mutateAsync(project);
+        toast.success(`Stopped compose stack ${project}`);
+        return;
+      }
+
+      await removeComposeProjectMutation.mutateAsync(project);
+
+      if (logsContainer && projectContainers.some((container) => container.id === logsContainer.id)) {
+        setLogsContainer(null);
+      }
+
+      toast.success(`Deleted compose stack ${project}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Compose stack action failed";
+      toast.error(message);
     }
   };
 
@@ -407,7 +440,34 @@ export default function Containers() {
                         <td className="p-3 font-mono text-muted-foreground">—</td>
                         <td className="p-3 font-mono text-muted-foreground">—</td>
                         <td className="p-3 font-mono text-muted-foreground text-[11px]">—</td>
-                        <td className="sticky right-0 z-10 bg-muted/20 p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted/30" />
+                        <td className="sticky right-0 z-10 bg-muted/20 p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted/30">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              type="button"
+                              onClick={() => void handleGroupAction("start", entry.project, entry.containers)}
+                              className="rounded p-1.5 text-success transition-colors hover:bg-success/10"
+                              title="Start stack"
+                            >
+                              <Play className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleGroupAction("stop", entry.project, entry.containers)}
+                              className="rounded p-1.5 text-destructive transition-colors hover:bg-destructive/10"
+                              title="Stop stack"
+                            >
+                              <Square className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void handleGroupAction("remove", entry.project, entry.containers)}
+                              className="rounded p-1.5 text-destructive transition-colors hover:bg-destructive/10"
+                              title="Delete stack"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                       {expandedGroups[entry.project] &&
                         entry.containers.map((container) => (

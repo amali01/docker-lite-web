@@ -97,4 +97,23 @@ describe("DockLite backend app", () => {
     expect(selectedResponse.status).toBe(200);
     expect(selectedResponse.body.endpoint).toBe(nextTarget.endpoint);
   });
+
+  it("stops all containers in a compose project", async () => {
+    process.env.DOCKLITE_ADAPTER = "mock";
+    const backend = new EngineController();
+    const app = createApp(backend);
+
+    const stopResponse = await request(app).post("/api/containers/compose/app-stack/stop");
+    expect(stopResponse.status).toBe(204);
+
+    const containersResponse = await request(app).get("/api/containers");
+    expect(containersResponse.status).toBe(200);
+
+    const composeContainers = containersResponse.body.filter(
+      (container: { composeProject: string | null }) => container.composeProject === "app-stack",
+    );
+
+    expect(composeContainers.length).toBeGreaterThan(0);
+    expect(composeContainers.every((container: { status: string }) => container.status === "stopped")).toBe(true);
+  });
 });
