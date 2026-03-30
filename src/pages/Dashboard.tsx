@@ -1,12 +1,23 @@
+import { useState } from "react";
 import { Box, HardDrive, Image, Network, Server } from "lucide-react";
 import { ApiState } from "@/components/ApiState";
+import { ContainerActionButtons } from "@/components/ContainerActionButtons";
+import { ContainerLogs } from "@/components/ContainerLogs";
+import { toast } from "sonner";
 import { StatCard } from "@/components/StatCard";
 import { StatusBadge } from "@/components/StatusBadge";
-import { useContainers } from "@/hooks/use-containers";
+import {
+  useContainers,
+  useRemoveContainer,
+  useRestartContainer,
+  useStartContainer,
+  useStopContainer,
+} from "@/hooks/use-containers";
 import { useEngineInfo } from "@/hooks/use-engine";
 import { useImages } from "@/hooks/use-images";
 import { useNetworks } from "@/hooks/use-networks";
 import { useVolumes } from "@/hooks/use-volumes";
+import { ContainerSummary } from "@/lib/api/types";
 
 function formatMetric(value: string | number | null) {
   if (value == null || value === "") {
@@ -17,8 +28,13 @@ function formatMetric(value: string | number | null) {
 }
 
 export default function Dashboard() {
+  const [logsContainer, setLogsContainer] = useState<ContainerSummary | null>(null);
   const engineQuery = useEngineInfo();
   const containersQuery = useContainers();
+  const startMutation = useStartContainer();
+  const stopMutation = useStopContainer();
+  const restartMutation = useRestartContainer();
+  const removeMutation = useRemoveContainer();
   const imagesQuery = useImages();
   const volumesQuery = useVolumes();
   const networksQuery = useNetworks();
@@ -49,6 +65,47 @@ export default function Dashboard() {
   const networks = networksQuery.data!;
   const running = containers.filter((container) => container.status === "running").length;
   const stopped = containers.filter((container) => container.status === "stopped").length;
+
+  const handleAction = async (action: "start" | "stop" | "restart" | "remove" | "logs" | "terminal", container: ContainerSummary) => {
+    try {
+      if (action === "start") {
+        await startMutation.mutateAsync(container.id);
+        toast.success(`Started ${container.name}`);
+        return;
+      }
+
+      if (action === "stop") {
+        await stopMutation.mutateAsync(container.id);
+        toast.success(`Stopped ${container.name}`);
+        return;
+      }
+
+      if (action === "restart") {
+        await restartMutation.mutateAsync(container.id);
+        toast.success(`Restarted ${container.name}`);
+        return;
+      }
+
+      if (action === "remove") {
+        await removeMutation.mutateAsync(container.id);
+        if (logsContainer?.id === container.id) {
+          setLogsContainer(null);
+        }
+        toast.success(`Removed ${container.name}`);
+        return;
+      }
+
+      if (action === "logs") {
+        setLogsContainer((current) => (current?.id === container.id ? null : container));
+        return;
+      }
+
+      toast.info("Container exec terminal is not implemented yet.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Docker action failed";
+      toast.error(message);
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -116,6 +173,7 @@ export default function Dashboard() {
                 <th className="text-left p-3">CPU</th>
                 <th className="text-left p-3">Memory</th>
                 <th className="text-left p-3">Ports</th>
+                <th className="text-right p-3">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -127,12 +185,27 @@ export default function Dashboard() {
                   <td className="p-3 font-mono text-muted-foreground">{formatMetric(container.cpuPercent)}</td>
                   <td className="p-3 font-mono text-muted-foreground">{formatMetric(container.memUsage)}</td>
                   <td className="p-3 font-mono text-muted-foreground text-[11px]">{container.ports || "—"}</td>
+                  <td className="p-3">
+                    <ContainerActionButtons
+                      container={container}
+                      logsActive={logsContainer?.id === container.id}
+                      onAction={(action, currentContainer) => void handleAction(action, currentContainer)}
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
+
+      {logsContainer && (
+        <ContainerLogs
+          containerId={logsContainer.id}
+          containerName={logsContainer.name}
+          onClose={() => setLogsContainer(null)}
+        />
+      )}
     </div>
   );
 }

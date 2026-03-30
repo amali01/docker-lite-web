@@ -13,7 +13,20 @@ export interface EngineInfo {
   rootDir: string;
   serverTime: string;
   endpoint: string;
+  selectedEngineId?: string;
   errorMessage?: string;
+}
+
+export interface EngineTarget {
+  id: string;
+  label: string;
+  endpoint: string;
+  active: boolean;
+  available: boolean;
+}
+
+export interface SelectEnginePayload {
+  targetId: string;
 }
 
 export interface ContainerSummary {

@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { FileText, Play, Plus, RotateCcw, Search, Square, Terminal, Trash2 } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { ApiState } from "@/components/ApiState";
+import { ContainerActionButtons } from "@/components/ContainerActionButtons";
 import { ContainerLogs } from "@/components/ContainerLogs";
 import { RunContainerDialog } from "@/components/RunContainerDialog";
 import { StatusBadge } from "@/components/StatusBadge";
@@ -146,7 +147,7 @@ export default function Containers() {
             </thead>
             <tbody>
               {filtered.map((container) => (
-                <tr key={container.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors group">
+                <tr key={container.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
                   <td className="p-3">
                     <div className="font-mono font-medium text-foreground">{container.name}</div>
                     <div className="font-mono text-[10px] text-muted-foreground">{container.id}</div>
@@ -160,33 +161,11 @@ export default function Containers() {
                   <td className="p-3 font-mono text-muted-foreground">{container.memUsage ?? "—"}</td>
                   <td className="p-3 font-mono text-muted-foreground text-[11px]">{container.ports || "—"}</td>
                   <td className="p-3">
-                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {container.status === "stopped" ? (
-                        <button onClick={() => void handleAction("start", container)} className="p-1.5 rounded hover:bg-success/10 text-success" title="Start">
-                          <Play className="w-3.5 h-3.5" />
-                        </button>
-                      ) : (
-                        <button onClick={() => void handleAction("stop", container)} className="p-1.5 rounded hover:bg-destructive/10 text-destructive" title="Stop">
-                          <Square className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      <button onClick={() => void handleAction("restart", container)} className="p-1.5 rounded hover:bg-primary/10 text-primary" title="Restart">
-                        <RotateCcw className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => void handleAction("logs", container)}
-                        className={`p-1.5 rounded hover:bg-muted ${logsContainer?.id === container.id ? "text-primary bg-primary/10" : "text-muted-foreground"}`}
-                        title="Logs"
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => void handleAction("terminal", container)} className="p-1.5 rounded hover:bg-muted text-muted-foreground" title="Terminal">
-                        <Terminal className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={() => void handleAction("remove", container)} className="p-1.5 rounded hover:bg-destructive/10 text-destructive" title="Remove">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                    <ContainerActionButtons
+                      container={container}
+                      logsActive={logsContainer?.id === container.id}
+                      onAction={(action, currentContainer) => void handleAction(action, currentContainer)}
+                    />
                   </td>
                 </tr>
               ))}

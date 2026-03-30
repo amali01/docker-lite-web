@@ -4,15 +4,28 @@ import {
   CreateNetworkPayload,
   CreateVolumePayload,
   EngineInfo,
+  EngineTarget,
   ImageSummary,
   NetworkSummary,
   PullImagePayload,
   RunContainerPayload,
+  SelectEnginePayload,
   VolumeSummary,
 } from "./types";
 
 export function getEngineInfo(baseUrl?: string) {
   return apiRequest<EngineInfo>("/api/engine", { baseUrl });
+}
+
+export function listEngineTargets() {
+  return apiRequest<EngineTarget[]>("/api/engine/targets");
+}
+
+export function selectEngineTarget(payload: SelectEnginePayload) {
+  return apiRequest<EngineInfo>("/api/engine/select", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export function listContainers() {

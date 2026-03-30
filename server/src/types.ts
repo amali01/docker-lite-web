@@ -4,10 +4,12 @@ import type {
   CreateNetworkPayload,
   CreateVolumePayload,
   EngineInfo,
+  EngineTarget,
   ImageSummary,
   NetworkSummary,
   PullImagePayload,
   RunContainerPayload,
+  SelectEnginePayload,
   VolumeSummary,
 } from "../../src/lib/api/types";
 
@@ -17,10 +19,12 @@ export type {
   CreateNetworkPayload,
   CreateVolumePayload,
   EngineInfo,
+  EngineTarget,
   ImageSummary,
   NetworkSummary,
   PullImagePayload,
   RunContainerPayload,
+  SelectEnginePayload,
   VolumeSummary,
 };
 
@@ -42,6 +46,11 @@ export interface DockerBackend {
   listNetworks(): Promise<NetworkSummary[]>;
   createNetwork(payload: CreateNetworkPayload): Promise<NetworkSummary>;
   removeNetwork(id: string): Promise<void>;
+}
+
+export interface EngineSwitcher {
+  listTargets(): Promise<EngineTarget[]>;
+  selectTarget(targetId: string): Promise<EngineInfo>;
 }
 
 export class BackendError extends Error {
