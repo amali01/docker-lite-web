@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Box, Container, HardDrive, LayoutDashboard, Network, Image, Settings } from "lucide-react";
+import { Box, HardDrive, LayoutDashboard, Network, Image, Settings } from "lucide-react";
 import { useEngineInfo } from "@/hooks/use-engine";
 import { cn } from "@/lib/utils";
 
@@ -21,8 +21,8 @@ export function AppSidebar() {
       {/* Logo */}
       <div className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded bg-primary flex items-center justify-center">
-            <Container className="w-4.5 h-4.5 text-primary-foreground" />
+          <div className="w-8 h-8 rounded bg-primary flex items-center justify-center" aria-label="DockLite mark">
+            <img src="/container-logo.svg" alt="DockLite logo" className="w-5 h-5" />
           </div>
           <div>
             <h1 className="text-sm font-mono font-bold text-sidebar-accent-foreground tracking-tight">DockLite</h1>
