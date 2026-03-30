@@ -289,7 +289,7 @@ export default function Dashboard() {
                         </td>
                         <td className="p-3 relative">
                           {expandedGroups[entry.project] && (
-                            <div className="absolute left-[20px] top-[31px] bottom-0 w-px bg-border/70 z-0" />
+                            <div className="absolute left-[20px] top-[31px] bottom-0 w-px bg-primary/50 z-0" />
                           )}
                           <button type="button" onClick={() => toggleGroup(entry.project)} className="flex items-center gap-2 text-left relative z-10">
                             {expandedGroups[entry.project] ? <ChevronDown className="h-4 w-4 text-primary" /> : <ChevronRight className="h-4 w-4 text-primary" />}
@@ -317,11 +317,11 @@ export default function Dashboard() {
                         <tr key={container.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors">
                           <td className="p-3"><Checkbox aria-label={`Select dashboard container ${container.name}`} checked={selection.selectedIds.includes(container.id)} onCheckedChange={(checked) => selection.toggleOne(container.id, checked === true)} /></td>
                           <td className="p-3 relative">
-                            <div className="absolute left-[20px] top-0 bottom-1/2 w-px bg-border/70 z-0" />
+                            <div className="absolute left-[20px] top-0 bottom-1/2 w-px bg-primary/50 z-0" />
                             {index !== arr.length - 1 && (
-                              <div className="absolute left-[20px] top-1/2 bottom-0 w-px bg-border/70 z-0" />
+                              <div className="absolute left-[20px] top-1/2 bottom-0 w-px bg-primary/50 z-0" />
                             )}
-                            <div className="absolute left-[20px] top-1/2 w-4 h-px bg-border/70 z-0" />
+                            <div className="absolute left-[20px] top-1/2 w-[20px] h-px bg-primary/50 z-0" />
                             <div className="flex items-center gap-2 pl-6 relative z-10">
                               <div className="h-2 w-2 rounded-full border border-primary/60 bg-background shrink-0" />
                               <div className="font-mono font-medium text-foreground max-w-[8rem] truncate md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]" title={container.name}>{(() => { const n = (entry.project && container.name.startsWith(entry.project + "-")) ? container.name.replace(entry.project + "-", "") : container.name; return (typeof n === "string" && n.length > 20) ? n.substring(0, 20) + "…" : n; })()}</div>
