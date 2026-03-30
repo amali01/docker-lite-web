@@ -66,6 +66,15 @@ export function createContainersRouter(backend: DockerBackend) {
     }
   });
 
+  
+  router.post("/:id/rebuild", async (request, response, next) => {
+    try {
+      response.json(await backend.rebuildContainer(request.params.id));
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.post("/:id/restart", async (request, response, next) => {
     try {
       response.json(await backend.restartContainer(request.params.id));

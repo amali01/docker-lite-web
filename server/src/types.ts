@@ -35,6 +35,7 @@ export interface DockerBackend {
   startContainer(id: string): Promise<ContainerSummary>;
   stopContainer(id: string): Promise<ContainerSummary>;
   restartContainer(id: string): Promise<ContainerSummary>;
+  rebuildContainer(id: string): Promise<ContainerSummary>;
   removeContainer(id: string): Promise<void>;
   startComposeProject(project: string): Promise<void>;
   stopComposeProject(project: string): Promise<void>;

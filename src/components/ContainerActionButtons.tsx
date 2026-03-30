@@ -1,4 +1,4 @@
-import { FileText, Play, RotateCcw, Square, Terminal, Trash2 } from "lucide-react";
+import { FileText, Play, RotateCcw, Square, Terminal, Trash2, ArrowUpCircle } from "lucide-react";
 import { ContainerSummary } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
@@ -7,7 +7,7 @@ interface ContainerActionButtonsProps {
   compact?: boolean;
   logsActive?: boolean;
   terminalActive?: boolean;
-  onAction: (action: "start" | "stop" | "restart" | "remove" | "logs" | "terminal", container: ContainerSummary) => void;
+  onAction: (action: "start" | "stop" | "restart" | "remove" | "logs" | "terminal" | "rebuild", container: ContainerSummary) => void;
 }
 
 export function ContainerActionButtons({ container, compact = false, logsActive, terminalActive, onAction }: ContainerActionButtonsProps) {
@@ -28,6 +28,9 @@ export function ContainerActionButtons({ container, compact = false, logsActive,
           <Square className={iconClassName} />
         </button>
       )}
+            <button onClick={() => onAction("rebuild", container)} className={cn(buttonClassName, "hover:bg-primary/10 text-primary")} title="Update & Rebuild">
+        <ArrowUpCircle className={iconClassName} />
+      </button>
       <button onClick={() => onAction("restart", container)} className={cn(buttonClassName, "hover:bg-primary/10 text-primary")} title="Restart">
         <RotateCcw className={iconClassName} />
       </button>

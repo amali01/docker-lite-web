@@ -13,6 +13,7 @@ import {
   useContainers,
   useRemoveContainer,
   useRestartContainer,
+  useRebuildContainer,
   useStartContainer,
   useStopContainer,
 } from "@/hooks/use-containers";
@@ -77,6 +78,7 @@ export default function Dashboard() {
   const startMutation = useStartContainer();
   const stopMutation = useStopContainer();
   const restartMutation = useRestartContainer();
+  const rebuildMutation = useRebuildContainer();
   const removeMutation = useRemoveContainer();
   const imagesQuery = useImages();
   const volumesQuery = useVolumes();
@@ -141,11 +143,12 @@ export default function Dashboard() {
   const running = containers.filter((c) => c.status === "running").length;
   const stopped = containers.filter((c) => c.status === "stopped").length;
 
-  const handleAction = async (action: "start" | "stop" | "restart" | "remove" | "logs" | "terminal", container: ContainerSummary) => {
+  const handleAction = async (action: "start" | "stop" | "restart" | "remove" | "logs" | "terminal" | "rebuild", container: ContainerSummary) => {
     try {
       if (action === "start") { await startMutation.mutateAsync(container.id); toast.success(`Started ${container.name}`); return; }
       if (action === "stop") { await stopMutation.mutateAsync(container.id); toast.success(`Stopped ${container.name}`); return; }
       if (action === "restart") { await restartMutation.mutateAsync(container.id); toast.success(`Restarted ${container.name}`); return; }
+      if (action === "rebuild") { await rebuildMutation.mutateAsync(container.id); toast.success(`Rebuilding ${container.name}...`); return; }
       if (action === "remove") {
         await removeMutation.mutateAsync(container.id);
         if (logsContainer?.id === container.id) setLogsContainer(null);

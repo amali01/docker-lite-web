@@ -131,3 +131,9 @@ export function removeNetwork(id: string) {
     method: "DELETE",
   });
 }
+
+export function rebuildContainer(id: string) {
+  return apiRequest<ContainerSummary>(`/api/containers/${id}/rebuild`, {
+    method: "POST",
+  });
+}
