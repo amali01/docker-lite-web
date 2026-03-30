@@ -4,7 +4,9 @@ import { toast } from "sonner";
 import { ApiState } from "@/components/ApiState";
 import { PromptDialog } from "@/components/PromptDialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { useTableSelection } from "@/hooks/use-table-selection";
 import { useCreateVolume, useRemoveVolume, useVolumes } from "@/hooks/use-volumes";
 
 export default function Volumes() {
@@ -13,6 +15,9 @@ export default function Volumes() {
   const volumesQuery = useVolumes();
   const createMutation = useCreateVolume();
   const removeMutation = useRemoveVolume();
+  const volumes = volumesQuery.data ?? [];
+  const filtered = volumes.filter((volume) => volume.name.toLowerCase().includes(filter.toLowerCase()));
+  const selection = useTableSelection(filtered.map((volume) => volume.name));
 
   if (volumesQuery.isLoading) {
     return (
@@ -29,9 +34,6 @@ export default function Volumes() {
       </div>
     );
   }
-
-  const volumes = volumesQuery.data ?? [];
-  const filtered = volumes.filter((volume) => volume.name.toLowerCase().includes(filter.toLowerCase()));
 
   return (
     <div className="p-6 space-y-4">
@@ -54,6 +56,13 @@ export default function Volumes() {
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-border text-muted-foreground font-mono uppercase tracking-wider">
+              <th className="w-10 p-3">
+                <Checkbox
+                  aria-label="Select all volumes"
+                  checked={selection.allSelected ? true : selection.partiallySelected ? "indeterminate" : false}
+                  onCheckedChange={(checked) => selection.toggleAll(checked === true)}
+                />
+              </th>
               <th className="text-left p-3">Name</th>
               <th className="text-left p-3">Driver</th>
               <th className="text-left p-3">Mount Point</th>
@@ -65,6 +74,13 @@ export default function Volumes() {
           <tbody>
             {filtered.map((volume) => (
               <tr key={volume.name} className="border-b border-border/50 hover:bg-muted/30 transition-colors group">
+                <td className="p-3">
+                  <Checkbox
+                    aria-label={`Select volume ${volume.name}`}
+                    checked={selection.selectedIds.includes(volume.name)}
+                    onCheckedChange={(checked) => selection.toggleOne(volume.name, checked === true)}
+                  />
+                </td>
                 <td className="p-3 font-mono font-medium text-foreground flex items-center gap-2">
                   <HardDrive className="w-3.5 h-3.5 text-primary" />
                   {volume.name}
