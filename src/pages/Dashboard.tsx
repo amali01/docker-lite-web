@@ -164,7 +164,7 @@ export default function Dashboard() {
           </h2>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs">
+          <table className="min-w-[52rem] w-full text-xs">
             <thead>
               <tr className="border-b border-border text-muted-foreground font-mono uppercase tracking-wider">
                 <th className="text-left p-3">Name</th>
@@ -173,12 +173,14 @@ export default function Dashboard() {
                 <th className="text-left p-3">CPU</th>
                 <th className="text-left p-3">Memory</th>
                 <th className="text-left p-3">Ports</th>
-                <th className="text-right p-3">Actions</th>
+                <th className="sticky right-0 z-20 bg-card text-right p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)]">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
               {containers.map((container) => (
-                <tr key={container.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
+                <tr key={container.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors">
                   <td className="p-3 font-mono font-medium text-foreground">
                     <div
                       className="max-w-[8rem] truncate md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]"
@@ -199,7 +201,7 @@ export default function Dashboard() {
                   <td className="p-3 font-mono text-muted-foreground">{formatMetric(container.cpuPercent)}</td>
                   <td className="p-3 font-mono text-muted-foreground">{formatMetric(container.memUsage)}</td>
                   <td className="p-3 font-mono text-muted-foreground text-[11px]">{container.ports || "—"}</td>
-                  <td className="p-2 sm:p-3">
+                  <td className="sticky right-0 z-10 bg-card p-2 sm:p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted/30">
                     <ContainerActionButtons
                       compact
                       container={container}
