@@ -50,6 +50,24 @@ Backend only:
 npm run server:dev
 ```
 
+Docker Compose (frontend + backend):
+
+```bash
+make compose-up
+```
+
+If ports are already in use, override them when starting:
+
+```bash
+DOCKLITE_BACKEND_PORT=9002 DOCKLITE_FRONTEND_PORT=8081 make compose-up
+```
+
+Stop Docker Compose stack:
+
+```bash
+make compose-down
+```
+
 ## Validation
 
 ```bash

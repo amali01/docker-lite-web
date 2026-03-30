@@ -1,4 +1,4 @@
-.PHONY: help install dev dev-mock frontend backend backend-mock build test test-server typecheck-server e2e docker-check clean
+.PHONY: help install dev dev-mock frontend backend backend-mock build test test-server typecheck-server e2e docker-check compose-up compose-up-build compose-down compose-logs compose-ps clean
 
 help:
 	@printf "DockLite commands:\n"
@@ -14,6 +14,11 @@ help:
 	@printf "  make typecheck-server  Type-check the backend\n"
 	@printf "  make e2e               Run the Playwright smoke test\n"
 	@printf "  make docker-check      Verify Docker daemon access on Ubuntu\n"
+	@printf "  make compose-up        Start frontend + backend with Docker Compose\n"
+	@printf "  make compose-up-build  Start Compose stack with image rebuild\n"
+	@printf "  make compose-down      Stop and remove Compose stack\n"
+	@printf "  make compose-logs      Tail Compose logs\n"
+	@printf "  make compose-ps        Show Compose services\n"
 	@printf "  make clean             Remove build output\n"
 
 install:
@@ -51,6 +56,21 @@ e2e:
 
 docker-check:
 	./server/scripts/check-docker-access.sh
+
+compose-up:
+	docker compose up -d
+
+compose-up-build:
+	docker compose up -d --build
+
+compose-down:
+	docker compose down
+
+compose-logs:
+	docker compose logs -f --tail=200
+
+compose-ps:
+	docker compose ps
 
 clean:
 	rm -rf dist test-results
