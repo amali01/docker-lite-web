@@ -110,6 +110,14 @@ describe("Dashboard", () => {
     expect(screen.getByTitle("nginx:alpine")).toBeInTheDocument();
   });
 
+  it("selects all dashboard container rows from the header checkbox", async () => {
+    renderWithProviders(<Dashboard />);
+    await screen.findByText("nginx-proxy");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select all dashboard containers" }));
+    expect(screen.getByRole("checkbox", { name: "Select dashboard container nginx-proxy" })).toHaveAttribute("data-state", "checked");
+    expect(screen.getByRole("checkbox", { name: "Select dashboard container postgres-db" })).toHaveAttribute("data-state", "checked");
+  });
+
   it("shows dashboard container actions", async () => {
     renderWithProviders(<Dashboard />);
     const rowText = await screen.findByText("postgres-db");

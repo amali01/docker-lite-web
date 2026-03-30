@@ -6,6 +6,7 @@ import { ContainerLogs } from "@/components/ContainerLogs";
 import { toast } from "sonner";
 import { StatCard } from "@/components/StatCard";
 import { StatusBadge } from "@/components/StatusBadge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   useContainers,
   useRemoveContainer,
@@ -16,6 +17,7 @@ import {
 import { useEngineInfo } from "@/hooks/use-engine";
 import { useImages } from "@/hooks/use-images";
 import { useNetworks } from "@/hooks/use-networks";
+import { useTableSelection } from "@/hooks/use-table-selection";
 import { useVolumes } from "@/hooks/use-volumes";
 import { ContainerSummary } from "@/lib/api/types";
 
@@ -38,6 +40,11 @@ export default function Dashboard() {
   const imagesQuery = useImages();
   const volumesQuery = useVolumes();
   const networksQuery = useNetworks();
+  const containers = containersQuery.data ?? [];
+  const images = imagesQuery.data ?? [];
+  const volumes = volumesQuery.data ?? [];
+  const networks = networksQuery.data ?? [];
+  const selection = useTableSelection(containers.map((container) => container.id));
 
   if ([engineQuery, containersQuery, imagesQuery, volumesQuery, networksQuery].some((query) => query.isLoading)) {
     return (
@@ -59,10 +66,6 @@ export default function Dashboard() {
   }
 
   const engine = engineQuery.data!;
-  const containers = containersQuery.data!;
-  const images = imagesQuery.data!;
-  const volumes = volumesQuery.data!;
-  const networks = networksQuery.data!;
   const running = containers.filter((container) => container.status === "running").length;
   const stopped = containers.filter((container) => container.status === "stopped").length;
 
@@ -167,6 +170,13 @@ export default function Dashboard() {
           <table className="min-w-[52rem] w-full text-xs">
             <thead>
               <tr className="border-b border-border text-muted-foreground font-mono uppercase tracking-wider">
+                <th className="w-10 p-3">
+                  <Checkbox
+                    aria-label="Select all dashboard containers"
+                    checked={selection.allSelected ? true : selection.partiallySelected ? "indeterminate" : false}
+                    onCheckedChange={(checked) => selection.toggleAll(checked === true)}
+                  />
+                </th>
                 <th className="text-left p-3">Name</th>
                 <th className="text-left p-3">Image</th>
                 <th className="text-left p-3">Status</th>
@@ -181,6 +191,13 @@ export default function Dashboard() {
             <tbody>
               {containers.map((container) => (
                 <tr key={container.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors">
+                  <td className="p-3">
+                    <Checkbox
+                      aria-label={`Select dashboard container ${container.name}`}
+                      checked={selection.selectedIds.includes(container.id)}
+                      onCheckedChange={(checked) => selection.toggleOne(container.id, checked === true)}
+                    />
+                  </td>
                   <td className="p-3 font-mono font-medium text-foreground">
                     <div
                       className="max-w-[8rem] truncate md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]"

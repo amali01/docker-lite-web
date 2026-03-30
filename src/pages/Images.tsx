@@ -4,7 +4,9 @@ import { toast } from "sonner";
 import { ApiState } from "@/components/ApiState";
 import { PromptDialog } from "@/components/PromptDialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { useTableSelection } from "@/hooks/use-table-selection";
 import { useImages, usePullImage, useRemoveImage } from "@/hooks/use-images";
 
 export default function Images() {
@@ -13,6 +15,13 @@ export default function Images() {
   const imagesQuery = useImages();
   const pullMutation = usePullImage();
   const removeMutation = useRemoveImage();
+  const images = imagesQuery.data ?? [];
+  const filtered = images.filter(
+    (image) =>
+      image.repository.toLowerCase().includes(filter.toLowerCase()) ||
+      image.tag.toLowerCase().includes(filter.toLowerCase()),
+  );
+  const selection = useTableSelection(filtered.map((image) => image.id));
 
   if (imagesQuery.isLoading) {
     return (
@@ -29,13 +38,6 @@ export default function Images() {
       </div>
     );
   }
-
-  const images = imagesQuery.data ?? [];
-  const filtered = images.filter(
-    (image) =>
-      image.repository.toLowerCase().includes(filter.toLowerCase()) ||
-      image.tag.toLowerCase().includes(filter.toLowerCase()),
-  );
 
   return (
     <div className="p-6 space-y-4">
@@ -58,6 +60,13 @@ export default function Images() {
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-border text-muted-foreground font-mono uppercase tracking-wider">
+              <th className="w-10 p-3">
+                <Checkbox
+                  aria-label="Select all images"
+                  checked={selection.allSelected ? true : selection.partiallySelected ? "indeterminate" : false}
+                  onCheckedChange={(checked) => selection.toggleAll(checked === true)}
+                />
+              </th>
               <th className="text-left p-3">Repository</th>
               <th className="text-left p-3">Tag</th>
               <th className="text-left p-3">Image ID</th>
@@ -69,6 +78,13 @@ export default function Images() {
           <tbody>
             {filtered.map((image) => (
               <tr key={image.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors group">
+                <td className="p-3">
+                  <Checkbox
+                    aria-label={`Select image ${image.repository}:${image.tag}`}
+                    checked={selection.selectedIds.includes(image.id)}
+                    onCheckedChange={(checked) => selection.toggleOne(image.id, checked === true)}
+                  />
+                </td>
                 <td className="p-3 font-mono font-medium text-foreground flex items-center gap-2">
                   <Image className="w-3.5 h-3.5 text-primary" />
                   {image.repository}

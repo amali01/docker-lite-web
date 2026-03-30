@@ -4,7 +4,9 @@ import { toast } from "sonner";
 import { ApiState } from "@/components/ApiState";
 import { PromptDialog } from "@/components/PromptDialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { useTableSelection } from "@/hooks/use-table-selection";
 import { useCreateNetwork, useNetworks, useRemoveNetwork } from "@/hooks/use-networks";
 
 export default function Networks() {
@@ -14,6 +16,9 @@ export default function Networks() {
   const createMutation = useCreateNetwork();
   const removeMutation = useRemoveNetwork();
   const defaultNetworks = ["bridge", "host", "none"];
+  const networks = networksQuery.data ?? [];
+  const filtered = networks.filter((network) => network.name.toLowerCase().includes(filter.toLowerCase()));
+  const selection = useTableSelection(filtered.map((network) => network.id));
 
   if (networksQuery.isLoading) {
     return (
@@ -30,9 +35,6 @@ export default function Networks() {
       </div>
     );
   }
-
-  const networks = networksQuery.data ?? [];
-  const filtered = networks.filter((network) => network.name.toLowerCase().includes(filter.toLowerCase()));
 
   return (
     <div className="p-6 space-y-4">
@@ -55,6 +57,13 @@ export default function Networks() {
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-border text-muted-foreground font-mono uppercase tracking-wider">
+              <th className="w-10 p-3">
+                <Checkbox
+                  aria-label="Select all networks"
+                  checked={selection.allSelected ? true : selection.partiallySelected ? "indeterminate" : false}
+                  onCheckedChange={(checked) => selection.toggleAll(checked === true)}
+                />
+              </th>
               <th className="text-left p-3">Name</th>
               <th className="text-left p-3">Driver</th>
               <th className="text-left p-3">Scope</th>
@@ -67,6 +76,13 @@ export default function Networks() {
           <tbody>
             {filtered.map((network) => (
               <tr key={network.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors group">
+                <td className="p-3">
+                  <Checkbox
+                    aria-label={`Select network ${network.name}`}
+                    checked={selection.selectedIds.includes(network.id)}
+                    onCheckedChange={(checked) => selection.toggleOne(network.id, checked === true)}
+                  />
+                </td>
                 <td className="p-3 font-mono font-medium text-foreground flex items-center gap-2">
                   <Network className="w-3.5 h-3.5 text-primary" />
                   {network.name}

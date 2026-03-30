@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { Play, Plus, RotateCcw, Search, Square, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ApiState } from "@/components/ApiState";
 import { ContainerActionButtons } from "@/components/ContainerActionButtons";
@@ -7,6 +7,7 @@ import { ContainerLogs } from "@/components/ContainerLogs";
 import { RunContainerDialog } from "@/components/RunContainerDialog";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
@@ -17,6 +18,7 @@ import {
   useStartContainer,
   useStopContainer,
 } from "@/hooks/use-containers";
+import { useTableSelection } from "@/hooks/use-table-selection";
 import { ContainerSummary, RunContainerPayload } from "@/lib/api/types";
 
 export default function Containers() {
@@ -30,6 +32,19 @@ export default function Containers() {
   const stopMutation = useStopContainer();
   const restartMutation = useRestartContainer();
   const removeMutation = useRemoveContainer();
+  const containers = containersQuery.data ?? [];
+  const normalizedFilter = filter.toLowerCase();
+  const filtered = containers.filter((container) => {
+    const matchesVisibility = visibilityFilter === "all" || container.status === "running";
+    const matchesText =
+      container.name.toLowerCase().includes(normalizedFilter) ||
+      container.image.toLowerCase().includes(normalizedFilter);
+
+    return matchesVisibility && matchesText;
+  });
+  const selection = useTableSelection(filtered.map((container) => container.id));
+  const selectedContainers = containers.filter((container) => selection.selectedIds.includes(container.id));
+  const hasSelection = selection.selectedCount > 0;
 
   if (containersQuery.isLoading) {
     return (
@@ -49,17 +64,6 @@ export default function Containers() {
       </div>
     );
   }
-
-  const containers = containersQuery.data ?? [];
-  const normalizedFilter = filter.toLowerCase();
-  const filtered = containers.filter((container) => {
-    const matchesVisibility = visibilityFilter === "all" || container.status === "running";
-    const matchesText =
-      container.name.toLowerCase().includes(normalizedFilter) ||
-      container.image.toLowerCase().includes(normalizedFilter);
-
-    return matchesVisibility && matchesText;
-  });
 
   const handleAction = async (action: "start" | "stop" | "restart" | "remove" | "logs" | "terminal", container: ContainerSummary) => {
     try {
@@ -113,6 +117,45 @@ export default function Containers() {
     }
   };
 
+  const handleBulkAction = async (action: "start" | "stop" | "restart" | "remove") => {
+    const currentSelection = [...selectedContainers];
+
+    if (currentSelection.length === 0) {
+      return;
+    }
+
+    try {
+      for (const container of currentSelection) {
+        if (action === "start") {
+          await startMutation.mutateAsync(container.id);
+          continue;
+        }
+
+        if (action === "stop") {
+          await stopMutation.mutateAsync(container.id);
+          continue;
+        }
+
+        if (action === "restart") {
+          await restartMutation.mutateAsync(container.id);
+          continue;
+        }
+
+        await removeMutation.mutateAsync(container.id);
+      }
+
+      if (action === "remove" && logsContainer && currentSelection.some((container) => container.id === logsContainer.id)) {
+        setLogsContainer(null);
+      }
+
+      selection.toggleAll(false);
+      toast.success(`${action === "remove" ? "Removed" : action === "restart" ? "Restarted" : action === "start" ? "Started" : "Stopped"} ${currentSelection.length} container${currentSelection.length === 1 ? "" : "s"}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Bulk Docker action failed";
+      toast.error(message);
+    }
+  };
+
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
@@ -156,6 +199,53 @@ export default function Containers() {
             Only running
           </ToggleGroupItem>
         </ToggleGroup>
+        {hasSelection && (
+          <div className="flex items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 md:ml-auto">
+            <span className="font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+              {selection.selectedCount} selected
+            </span>
+            <button
+              type="button"
+              onClick={() => void handleBulkAction("remove")}
+              className="inline-flex h-9 items-center rounded-md bg-destructive px-3 font-mono text-xs font-medium text-destructive-foreground transition-colors hover:bg-destructive/90"
+              title="Delete selected containers"
+            >
+              Delete
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleBulkAction("start")}
+              className="inline-flex h-9 w-10 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
+              title="Start selected containers"
+            >
+              <Play className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleBulkAction("stop")}
+              className="inline-flex h-9 w-10 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
+              title="Stop selected containers"
+            >
+              <Square className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleBulkAction("restart")}
+              className="inline-flex h-9 w-10 items-center justify-center rounded-md bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
+              title="Restart selected containers"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => selection.toggleAll(false)}
+              className="inline-flex h-9 items-center rounded-md border border-border px-3 font-mono text-xs text-muted-foreground transition-colors hover:bg-muted"
+              title="Clear selection"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="bg-card border border-border rounded-md overflow-hidden">
@@ -163,6 +253,13 @@ export default function Containers() {
           <table className="min-w-[56rem] w-full text-xs">
             <thead>
               <tr className="border-b border-border text-muted-foreground font-mono uppercase tracking-wider">
+                <th className="w-10 p-3">
+                  <Checkbox
+                    aria-label="Select all containers"
+                    checked={selection.allSelected ? true : selection.partiallySelected ? "indeterminate" : false}
+                    onCheckedChange={(checked) => selection.toggleAll(checked === true)}
+                  />
+                </th>
                 <th className="text-left p-3">Container</th>
                 <th className="text-left p-3">Image</th>
                 <th className="text-left p-3">Status</th>
@@ -177,6 +274,13 @@ export default function Containers() {
             <tbody>
               {filtered.map((container) => (
                 <tr key={container.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors">
+                  <td className="p-3">
+                    <Checkbox
+                      aria-label={`Select container ${container.name}`}
+                      checked={selection.selectedIds.includes(container.id)}
+                      onCheckedChange={(checked) => selection.toggleOne(container.id, checked === true)}
+                    />
+                  </td>
                   <td className="p-3">
                     <div
                       className="font-mono font-medium text-foreground max-w-[8rem] truncate md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]"

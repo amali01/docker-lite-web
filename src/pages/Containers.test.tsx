@@ -28,6 +28,14 @@ describe("Containers Page", () => {
         return Promise.resolve(new Response(JSON.stringify({ ...containers[1], status: "running", state: "Up just now" })));
       }
 
+      if (url.includes("/api/containers/ctr-1/stop") && method === "POST") {
+        return Promise.resolve(new Response(JSON.stringify({ ...containers[0], status: "stopped", state: "Exited just now" })));
+      }
+
+      if (url.includes("/api/containers/ctr-3/stop") && method === "POST") {
+        return Promise.resolve(new Response(JSON.stringify({ ...containers[2], status: "stopped", state: "Exited just now" })));
+      }
+
       if (url.endsWith("/api/containers/run") && method === "POST") {
         return Promise.resolve(new Response(JSON.stringify({
           id: "ctr-4",
@@ -70,6 +78,39 @@ describe("Containers Page", () => {
     expect(screen.getByText("nginx-proxy")).toBeInTheDocument();
     expect(screen.getByText("redis-cache")).toBeInTheDocument();
     expect(screen.queryByText("postgres-db")).not.toBeInTheDocument();
+  });
+
+  it("selects all visible containers from the header checkbox", async () => {
+    renderWithProviders(<Containers />);
+    await screen.findByText("nginx-proxy");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select all containers" }));
+    expect(screen.getByRole("checkbox", { name: "Select container nginx-proxy" })).toHaveAttribute("data-state", "checked");
+    expect(screen.getByRole("checkbox", { name: "Select container postgres-db" })).toHaveAttribute("data-state", "checked");
+    expect(screen.getByRole("checkbox", { name: "Select container redis-cache" })).toHaveAttribute("data-state", "checked");
+  });
+
+  it("shows bulk actions when multiple containers are selected", async () => {
+    renderWithProviders(<Containers />);
+    await screen.findByText("nginx-proxy");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select container nginx-proxy" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select container redis-cache" }));
+    expect(screen.getByText("2 selected")).toBeInTheDocument();
+    expect(screen.getByTitle("Delete selected containers")).toBeInTheDocument();
+    expect(screen.getByTitle("Start selected containers")).toBeInTheDocument();
+    expect(screen.getByTitle("Stop selected containers")).toBeInTheDocument();
+    expect(screen.getByTitle("Restart selected containers")).toBeInTheDocument();
+  });
+
+  it("stops multiple selected containers", async () => {
+    renderWithProviders(<Containers />);
+    await screen.findByText("nginx-proxy");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select container nginx-proxy" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select container redis-cache" }));
+    fireEvent.click(screen.getByTitle("Stop selected containers"));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/containers/ctr-1/stop"), expect.objectContaining({ method: "POST" }));
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/containers/ctr-3/stop"), expect.objectContaining({ method: "POST" }));
+    });
   });
 
   it("starts a stopped container", async () => {
