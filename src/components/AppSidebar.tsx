@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { Box, Container, HardDrive, LayoutDashboard, Network, Image, Settings } from "lucide-react";
+import { useEngineInfo } from "@/hooks/use-engine";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -12,6 +13,8 @@ const navItems = [
 
 export function AppSidebar() {
   const location = useLocation();
+  const engineQuery = useEngineInfo();
+  const isConnected = engineQuery.data?.connected ?? false;
 
   return (
     <aside className="w-56 h-screen bg-sidebar border-r border-sidebar-border flex flex-col shrink-0">
@@ -66,8 +69,10 @@ export function AppSidebar() {
         </NavLink>
         <div className="mt-3 px-3">
           <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse-dot" />
-            <span className="text-[10px] font-mono text-muted-foreground">Engine connected</span>
+            <span className={cn("w-1.5 h-1.5 rounded-full", isConnected ? "bg-success animate-pulse-dot" : "bg-destructive")} />
+            <span className="text-[10px] font-mono text-muted-foreground">
+              {engineQuery.isLoading ? "Checking engine..." : isConnected ? "Engine connected" : "Engine disconnected"}
+            </span>
           </div>
         </div>
       </div>
