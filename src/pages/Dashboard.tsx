@@ -9,6 +9,7 @@ import { StatCard } from "@/components/StatCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { MonitoringRow } from "@/components/MonitoringOptions";
 import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   useContainers,
@@ -89,7 +90,9 @@ export default function Dashboard() {
   const volumesQuery = useVolumes();
   const networksQuery = useNetworks();
 
-  const containers = containersQuery.data ?? [];
+  const [visibilityFilter, setVisibilityFilter] = useState<"all" | "running" | "stopped">("all");
+  const allContainers = containersQuery.data ?? [];
+  const containers = allContainers.filter(c => visibilityFilter === "all" || c.status === visibilityFilter);
   const images = imagesQuery.data ?? [];
   const volumes = volumesQuery.data ?? [];
   const networks = networksQuery.data ?? [];
@@ -145,8 +148,8 @@ export default function Dashboard() {
   }
 
   const engine = engineQuery.data!;
-  const running = containers.filter((c) => c.status === "running").length;
-  const stopped = containers.filter((c) => c.status === "stopped").length;
+  const running = allContainers.filter((c) => c.status === "running").length;
+  const stopped = allContainers.filter((c) => c.status === "stopped").length;
 
   const handleAction = async (action: "start" | "stop" | "restart" | "remove" | "logs" | "terminal" | "rebuild", container: ContainerSummary) => {
     try {
@@ -218,7 +221,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard label="Containers" value={containers.length} icon={Box} subtitle={`${running} running, ${stopped} stopped`} accent />
+        <StatCard label="Containers" value={allContainers.length} icon={Box} subtitle={`${running} running, ${stopped} stopped`} accent />
         <StatCard label="Images" value={images.length} icon={ImageIcon} subtitle="Local image cache" />
         <StatCard label="Volumes" value={volumes.length} icon={HardDrive} subtitle="Persistent data volumes" />
         <StatCard label="Networks" value={networks.length} icon={Network} subtitle={`${networks.filter((n) => n.containers > 0).length} active`} />
@@ -238,10 +241,34 @@ export default function Dashboard() {
 
       <div className="bg-card border border-border rounded-md">
         <div className="p-4 border-b border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <h2 className="text-sm font-mono font-semibold flex items-center gap-2">
-            <Box className="w-4 h-4 text-primary" />
-            Containers
-          </h2>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <h2 className="text-sm font-mono font-semibold flex items-center gap-2">
+                <Box className="w-4 h-4 text-primary" />
+                Containers
+              </h2>
+              <ToggleGroup
+                type="single"
+                value={visibilityFilter}
+                onValueChange={(value) => {
+                  if (value === "all" || value === "running" || value === "stopped") {
+                    setVisibilityFilter(value);
+                  }
+                }}
+                variant="outline"
+                size="sm"
+                className="justify-start"
+              >
+                <ToggleGroupItem value="all" className="font-mono text-[11px] tracking-wide h-7 px-3" aria-label="Show all containers">
+                  All
+                </ToggleGroupItem>
+                <ToggleGroupItem value="running" className="font-mono text-[11px] tracking-wide h-7 px-3" aria-label="Show running containers">
+                  Running
+                </ToggleGroupItem>
+                <ToggleGroupItem value="stopped" className="font-mono text-[11px] tracking-wide h-7 px-3" aria-label="Show stopped containers">
+                  Stopped
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
           {hasSelection && (
             <div className="flex items-center gap-2 rounded-md border border-border bg-card px-2 h-9 py-0 md:ml-auto">
               <span className="font-mono text-[11px] text-muted-foreground whitespace-nowrap">
