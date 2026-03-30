@@ -49,6 +49,7 @@ export interface DockerBackend {
   listNetworks(): Promise<NetworkSummary[]>;
   createNetwork(payload: CreateNetworkPayload): Promise<NetworkSummary>;
   removeNetwork(id: string): Promise<void>;
+  execContainer(id: string, cols: number, rows: number): Promise<any>;
 }
 
 export interface EngineSwitcher {

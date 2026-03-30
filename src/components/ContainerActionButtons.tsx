@@ -6,10 +6,11 @@ interface ContainerActionButtonsProps {
   container: ContainerSummary;
   compact?: boolean;
   logsActive?: boolean;
+  terminalActive?: boolean;
   onAction: (action: "start" | "stop" | "restart" | "remove" | "logs" | "terminal", container: ContainerSummary) => void;
 }
 
-export function ContainerActionButtons({ container, compact = false, logsActive, onAction }: ContainerActionButtonsProps) {
+export function ContainerActionButtons({ container, compact = false, logsActive, terminalActive, onAction }: ContainerActionButtonsProps) {
   const buttonClassName = cn(
     "rounded transition-colors",
     compact ? "p-1 md:p-1.5" : "p-1.5",
@@ -37,7 +38,12 @@ export function ContainerActionButtons({ container, compact = false, logsActive,
       >
         <FileText className={iconClassName} />
       </button>
-      <button onClick={() => onAction("terminal", container)} className={cn(buttonClassName, "hover:bg-muted text-muted-foreground")} title="Terminal">
+      <button 
+        disabled={container.status !== "running"}
+        onClick={() => onAction("terminal", container)} 
+        className={cn(buttonClassName, "hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed", terminalActive ? "text-primary bg-primary/10" : "text-muted-foreground")} 
+        title={container.status === "running" ? "Terminal" : "Terminal (container must be running)"}
+      >
         <Terminal className={iconClassName} />
       </button>
       <button onClick={() => onAction("remove", container)} className={cn(buttonClassName, "hover:bg-destructive/10 text-destructive")} title="Remove">
