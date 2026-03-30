@@ -1,46 +1,109 @@
 import { useState } from "react";
-import { Play, Square, RotateCcw, Trash2, Terminal, FileText, Search, Plus } from "lucide-react";
-import { StatusBadge } from "@/components/StatusBadge";
+import { FileText, Play, Plus, RotateCcw, Search, Square, Terminal, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { ApiState } from "@/components/ApiState";
 import { ContainerLogs } from "@/components/ContainerLogs";
 import { RunContainerDialog } from "@/components/RunContainerDialog";
-import { mockContainers, Container } from "@/lib/mock-data";
+import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
+import {
+  useContainers,
+  useRemoveContainer,
+  useRestartContainer,
+  useRunContainer,
+  useStartContainer,
+  useStopContainer,
+} from "@/hooks/use-containers";
+import { ContainerSummary, RunContainerPayload } from "@/lib/api/types";
 
 export default function Containers() {
   const [filter, setFilter] = useState("");
-  const [containers, setContainers] = useState(mockContainers);
-  const [logsContainer, setLogsContainer] = useState<string | null>(null);
+  const [logsContainer, setLogsContainer] = useState<ContainerSummary | null>(null);
   const [runDialogOpen, setRunDialogOpen] = useState(false);
+  const containersQuery = useContainers();
+  const runMutation = useRunContainer();
+  const startMutation = useStartContainer();
+  const stopMutation = useStopContainer();
+  const restartMutation = useRestartContainer();
+  const removeMutation = useRemoveContainer();
 
-  const filtered = containers.filter(c =>
-    c.name.toLowerCase().includes(filter.toLowerCase()) ||
-    c.image.toLowerCase().includes(filter.toLowerCase())
+  if (containersQuery.isLoading) {
+    return (
+      <div className="p-6">
+        <ApiState title="Loading containers" description="DockLite is fetching the current container list." />
+      </div>
+    );
+  }
+
+  if (containersQuery.error) {
+    return (
+      <div className="p-6">
+        <ApiState
+          title="Unable to load containers"
+          description="The backend could not fetch Docker containers. Verify Docker access in Settings."
+        />
+      </div>
+    );
+  }
+
+  const containers = containersQuery.data ?? [];
+  const filtered = containers.filter(
+    (container) =>
+      container.name.toLowerCase().includes(filter.toLowerCase()) ||
+      container.image.toLowerCase().includes(filter.toLowerCase()),
   );
 
-  const handleAction = (action: string, container: Container) => {
-    if (action === 'start') {
-      setContainers(prev => prev.map(c => c.id === container.id ? { ...c, status: 'running' as const, state: 'Up just now' } : c));
-      toast.success(`Started ${container.name}`);
-    } else if (action === 'stop') {
-      setContainers(prev => prev.map(c => c.id === container.id ? { ...c, status: 'stopped' as const, state: 'Exited (0) just now', cpuPercent: 0, memUsage: '0 B' } : c));
-      toast.success(`Stopped ${container.name}`);
-    } else if (action === 'restart') {
-      toast.success(`Restarting ${container.name}...`);
-    } else if (action === 'remove') {
-      setContainers(prev => prev.filter(c => c.id !== container.id));
-      if (logsContainer === container.name) setLogsContainer(null);
-      toast.success(`Removed ${container.name}`);
-    } else if (action === 'logs') {
-      setLogsContainer(prev => prev === container.name ? null : container.name);
-    } else if (action === 'terminal') {
-      toast.info(`Opening terminal for ${container.name}...`);
+  const handleAction = async (action: "start" | "stop" | "restart" | "remove" | "logs" | "terminal", container: ContainerSummary) => {
+    try {
+      if (action === "start") {
+        await startMutation.mutateAsync(container.id);
+        toast.success(`Started ${container.name}`);
+        return;
+      }
+
+      if (action === "stop") {
+        await stopMutation.mutateAsync(container.id);
+        toast.success(`Stopped ${container.name}`);
+        return;
+      }
+
+      if (action === "restart") {
+        await restartMutation.mutateAsync(container.id);
+        toast.success(`Restarted ${container.name}`);
+        return;
+      }
+
+      if (action === "remove") {
+        await removeMutation.mutateAsync(container.id);
+        if (logsContainer?.id === container.id) {
+          setLogsContainer(null);
+        }
+        toast.success(`Removed ${container.name}`);
+        return;
+      }
+
+      if (action === "logs") {
+        setLogsContainer((current) => (current?.id === container.id ? null : container));
+        return;
+      }
+
+      toast.info("Container exec terminal is not implemented yet.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Docker action failed";
+      toast.error(message);
     }
   };
 
-  const handleRunContainer = (newContainer: Container) => {
-    setContainers(prev => [newContainer, ...prev]);
+  const handleRunContainer = async (payload: RunContainerPayload) => {
+    try {
+      const container = await runMutation.mutateAsync(payload);
+      toast.success(`Container ${container.name} started`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to run container";
+      toast.error(message);
+      throw error;
+    }
   };
 
   return (
@@ -48,7 +111,9 @@ export default function Containers() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight">Containers</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">{containers.length} total • {containers.filter(c => c.status === 'running').length} running</p>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {containers.length} total • {containers.filter((container) => container.status === "running").length} running
+          </p>
         </div>
         <Button size="sm" className="gap-1.5 font-mono text-xs" onClick={() => setRunDialogOpen(true)}>
           <Plus className="w-3.5 h-3.5" /> Run Container
@@ -60,7 +125,7 @@ export default function Containers() {
         <Input
           placeholder="Filter containers..."
           value={filter}
-          onChange={(e) => setFilter(e.target.value)}
+          onChange={(event) => setFilter(event.target.value)}
           className="pl-9 bg-card border-border font-mono text-sm h-9"
         />
       </div>
@@ -80,41 +145,45 @@ export default function Containers() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((c) => (
-                <tr key={c.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors group">
+              {filtered.map((container) => (
+                <tr key={container.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors group">
                   <td className="p-3">
-                    <div className="font-mono font-medium text-foreground">{c.name}</div>
-                    <div className="font-mono text-[10px] text-muted-foreground">{c.id}</div>
+                    <div className="font-mono font-medium text-foreground">{container.name}</div>
+                    <div className="font-mono text-[10px] text-muted-foreground">{container.id}</div>
                   </td>
-                  <td className="p-3 font-mono text-muted-foreground">{c.image}</td>
+                  <td className="p-3 font-mono text-muted-foreground">{container.image}</td>
                   <td className="p-3">
-                    <StatusBadge status={c.status} />
-                    <div className="font-mono text-[10px] text-muted-foreground mt-0.5">{c.state}</div>
+                    <StatusBadge status={container.status} />
+                    <div className="font-mono text-[10px] text-muted-foreground mt-0.5">{container.state}</div>
                   </td>
-                  <td className="p-3 font-mono text-muted-foreground">{c.cpuPercent}%</td>
-                  <td className="p-3 font-mono text-muted-foreground">{c.memUsage}</td>
-                  <td className="p-3 font-mono text-muted-foreground text-[11px]">{c.ports || '—'}</td>
+                  <td className="p-3 font-mono text-muted-foreground">{container.cpuPercent ?? "—"}</td>
+                  <td className="p-3 font-mono text-muted-foreground">{container.memUsage ?? "—"}</td>
+                  <td className="p-3 font-mono text-muted-foreground text-[11px]">{container.ports || "—"}</td>
                   <td className="p-3">
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {c.status === 'stopped' ? (
-                        <button onClick={() => handleAction('start', c)} className="p-1.5 rounded hover:bg-success/10 text-success" title="Start">
+                      {container.status === "stopped" ? (
+                        <button onClick={() => void handleAction("start", container)} className="p-1.5 rounded hover:bg-success/10 text-success" title="Start">
                           <Play className="w-3.5 h-3.5" />
                         </button>
                       ) : (
-                        <button onClick={() => handleAction('stop', c)} className="p-1.5 rounded hover:bg-destructive/10 text-destructive" title="Stop">
+                        <button onClick={() => void handleAction("stop", container)} className="p-1.5 rounded hover:bg-destructive/10 text-destructive" title="Stop">
                           <Square className="w-3.5 h-3.5" />
                         </button>
                       )}
-                      <button onClick={() => handleAction('restart', c)} className="p-1.5 rounded hover:bg-primary/10 text-primary" title="Restart">
+                      <button onClick={() => void handleAction("restart", container)} className="p-1.5 rounded hover:bg-primary/10 text-primary" title="Restart">
                         <RotateCcw className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => handleAction('logs', c)} className={`p-1.5 rounded hover:bg-muted ${logsContainer === c.name ? 'text-primary bg-primary/10' : 'text-muted-foreground'}`} title="Logs">
+                      <button
+                        onClick={() => void handleAction("logs", container)}
+                        className={`p-1.5 rounded hover:bg-muted ${logsContainer?.id === container.id ? "text-primary bg-primary/10" : "text-muted-foreground"}`}
+                        title="Logs"
+                      >
                         <FileText className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => handleAction('terminal', c)} className="p-1.5 rounded hover:bg-muted text-muted-foreground" title="Terminal">
+                      <button onClick={() => void handleAction("terminal", container)} className="p-1.5 rounded hover:bg-muted text-muted-foreground" title="Terminal">
                         <Terminal className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => handleAction('remove', c)} className="p-1.5 rounded hover:bg-destructive/10 text-destructive" title="Remove">
+                      <button onClick={() => void handleAction("remove", container)} className="p-1.5 rounded hover:bg-destructive/10 text-destructive" title="Remove">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -126,13 +195,20 @@ export default function Containers() {
         </div>
       </div>
 
-      {/* Log Viewer */}
       {logsContainer && (
-        <ContainerLogs containerName={logsContainer} onClose={() => setLogsContainer(null)} />
+        <ContainerLogs
+          containerId={logsContainer.id}
+          containerName={logsContainer.name}
+          onClose={() => setLogsContainer(null)}
+        />
       )}
 
-      {/* Run Container Dialog */}
-      <RunContainerDialog open={runDialogOpen} onOpenChange={setRunDialogOpen} onRun={handleRunContainer} />
+      <RunContainerDialog
+        open={runDialogOpen}
+        pending={runMutation.isPending}
+        onOpenChange={setRunDialogOpen}
+        onRun={handleRunContainer}
+      />
     </div>
   );
 }
