@@ -73,70 +73,7 @@ function PortLinks({ ports }: { ports: string | null | undefined }) {
   );
 }
 
-
-const MonitoringRow = ({ container, isGroupItem = false }: { container: ContainerSummary; isGroupItem?: boolean }) => {
-  const [settings, setSettings] = useState(() => {
-    try {
-      const stored = localStorage.getItem(`docker-monitoring-${container.id}`);
-      return stored ? JSON.parse(stored) : {
-        enabled: false, autoRestart: false, monitorLogs: false, logPatterns: "error,panic,fatal,exception"
-      };
-    } catch {
-      return { enabled: false, autoRestart: false, monitorLogs: false, logPatterns: "error,panic,fatal,exception" };
-    }
-  });
-
-  const updateSetting = (key: string, value: any) => {
-    const newSettings = { ...settings, [key]: value };
-    setSettings(newSettings);
-    localStorage.setItem(`docker-monitoring-${container.id}`, JSON.stringify(newSettings));
-  };
-
-  return (
-    <tr className="bg-muted/10 border-b border-border/50 shadow-inner">
-      <td colSpan={10} className="py-2.5 px-4">
-        <div className={`flex flex-row items-center gap-5 text-sm ${isGroupItem ? "ml-[4.5rem]" : "ml-[3rem]"}`}>
-          <div className="flex items-center gap-1.5 text-primary select-none">
-            <Activity className="w-4 h-4" />
-            <span className="font-mono font-medium text-xs uppercase tracking-wider">Monitoring</span>
-          </div>
-          
-          <div className="h-4 w-px bg-border/80"></div>
-
-          <div className="flex flex-row items-center gap-6 text-muted-foreground whitespace-nowrap">
-            <label className="flex items-center gap-2 cursor-pointer font-mono text-[13px] hover:text-foreground transition-colors">
-              <Checkbox checked={settings.enabled} onCheckedChange={(c: boolean) => updateSetting("enabled", c)} />
-              <span>Enable</span>
-            </label>
-
-            <label className="flex items-center gap-2 cursor-pointer font-mono text-[13px] hover:text-foreground transition-colors">
-              <Checkbox checked={settings.autoRestart} onCheckedChange={(c: boolean) => updateSetting("autoRestart", c)} />
-              <span>Auto-Restart</span>
-            </label>
-
-            <label className="flex items-center gap-2 cursor-pointer font-mono text-[13px] hover:text-foreground transition-colors">
-              <Checkbox checked={settings.monitorLogs} onCheckedChange={(c: boolean) => updateSetting("monitorLogs", c)} />
-              <span>Monitor Logs</span>
-            </label>
-
-            <div className="flex items-center gap-2 ml-2">
-              <span className="font-mono text-[12px] opacity-70">Patterns:</span>
-              <Input 
-                value={settings.logPatterns}
-                onChange={(e) => updateSetting("logPatterns", e.target.value)}
-                className="h-7 px-2 py-1 text-[12px] font-mono w-56 bg-background/50 border-muted-foreground/30 focus-visible:ring-1 focus-visible:ring-primary/40 rounded-sm"
-                placeholder="error, panic..."
-              />
-            </div>
-          </div>
-        </div>
-      </td>
-    </tr>
-  );
-};
-
 export default function Containers() {
-
   const [filter, setFilter] = useState("");
   const [expandedMonitoring, setExpandedMonitoring] = useState<Record<string, boolean>>({});
   const toggleMonitoring = (id: string) => {
@@ -615,8 +552,36 @@ export default function Containers() {
                             </td>
                           </tr>
 
-                  {expandedMonitoring[container.id] && <MonitoringRow container={container} isGroupItem={true} />}
-                          </Fragment>
+                  {expandedMonitoring[container.id] && (
+                    <tr className="bg-muted/10 border-b border-border/50">
+                      <td colSpan={10} className="p-4 relative">
+                        <div className="max-w-xl bg-card border border-border rounded-md p-5 space-y-4 shadow-sm" style={{marginLeft: "3rem"}}>
+                          <h2 className="text-sm font-mono font-semibold flex items-center gap-2 text-primary">
+                            <Activity className="w-4 h-4" /> Monitoring Options
+                          </h2>
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-mono">Enable Monitoring</span>
+                              <input type="checkbox" className="toggle border border-border w-10 h-5" defaultChecked />
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-mono">Auto-Restart on failure</span>
+                              <input type="checkbox" className="toggle border border-border w-10 h-5" />
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-mono">Monitor Logs</span>
+                              <input type="checkbox" className="toggle border border-border w-10 h-5" defaultChecked />
+                            </div>
+                            <div>
+                              <label className="text-xs font-mono text-muted-foreground block mb-1">Log Patterns (comma separated)</label>
+                              <input type="text" className="w-full bg-background border border-border rounded h-9 px-3 text-sm font-mono" defaultValue="error,panic,fatal,exception" />
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+</Fragment>
                         ))}
                     </Fragment>
                   );
@@ -673,8 +638,36 @@ export default function Containers() {
                     </td>
                   </tr>
 
-                  {expandedMonitoring[container.id] && <MonitoringRow container={container} />}
-                </Fragment>
+                  {expandedMonitoring[container.id] && (
+                    <tr className="bg-muted/10 border-b border-border/50">
+                      <td colSpan={10} className="p-4 relative">
+                        <div className="max-w-xl bg-card border border-border rounded-md p-5 space-y-4 shadow-sm" style={{marginLeft: "3rem"}}>
+                          <h2 className="text-sm font-mono font-semibold flex items-center gap-2 text-primary">
+                            <Activity className="w-4 h-4" /> Monitoring Options
+                          </h2>
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-mono">Enable Monitoring</span>
+                              <input type="checkbox" className="toggle border border-border w-10 h-5" defaultChecked />
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-mono">Auto-Restart on failure</span>
+                              <input type="checkbox" className="toggle border border-border w-10 h-5" />
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-mono">Monitor Logs</span>
+                              <input type="checkbox" className="toggle border border-border w-10 h-5" defaultChecked />
+                            </div>
+                            <div>
+                              <label className="text-xs font-mono text-muted-foreground block mb-1">Log Patterns (comma separated)</label>
+                              <input type="text" className="w-full bg-background border border-border rounded h-9 px-3 text-sm font-mono" defaultValue="error,panic,fatal,exception" />
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+</Fragment>
                 );
               })}
             </tbody>
