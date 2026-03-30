@@ -36,6 +36,10 @@ describe("Containers Page", () => {
         return Promise.resolve(new Response(JSON.stringify({ ...containers[2], status: "stopped", state: "Exited just now" })));
       }
 
+      if (url.includes("/api/containers/compose/sportseventhub/stop") && method === "POST") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+
       if (url.endsWith("/api/containers/run") && method === "POST") {
         return Promise.resolve(new Response(JSON.stringify({
           id: "ctr-4",
@@ -118,6 +122,20 @@ describe("Containers Page", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/containers/ctr-1/stop"), expect.objectContaining({ method: "POST" }));
       expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/containers/ctr-3/stop"), expect.objectContaining({ method: "POST" }));
+    });
+  });
+
+  it("stops a compose stack from the group row", async () => {
+    renderWithProviders(<Containers />);
+    await screen.findByText("sportseventhub");
+
+    fireEvent.click(screen.getByTitle("Stop stack"));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/containers/compose/sportseventhub/stop"),
+        expect.objectContaining({ method: "POST" }),
+      );
     });
   });
 

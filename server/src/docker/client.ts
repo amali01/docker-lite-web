@@ -46,6 +46,25 @@ function normalizeContainerName(name: string) {
   return name.replace(/^\//, "");
 }
 
+function inferProjectFromName(name: string) {
+  const normalizedName = normalizeContainerName(name).replace(/_/g, "-");
+  const parts = normalizedName.split("-").filter(Boolean);
+
+  if (parts.length >= 3 && /^\d+$/.test(parts.at(-1) ?? "")) {
+    return parts.slice(0, -2).join("-");
+  }
+
+  if (parts.length >= 2) {
+    return parts.slice(0, -1).join("-");
+  }
+
+  return null;
+}
+
+function isContainerInProject(container: { composeProject: string | null; name: string }, project: string) {
+  return container.composeProject === project || inferProjectFromName(container.name) === project;
+}
+
 function getContainerStatus(state?: string, status?: string): ContainerSummary["status"] {
   if (state === "running") {
     return "running";
@@ -76,6 +95,11 @@ function createBackendError(error: unknown) {
   }
 
   return new BackendError(500, "internal_error", "Unexpected backend error");
+}
+
+function isAlreadyInDesiredStateError(error: unknown) {
+  const statusCode = (error as { statusCode?: number })?.statusCode;
+  return statusCode === 304;
 }
 
 function ensureName(value: string, resource: string) {
@@ -184,6 +208,48 @@ export function createMockBackend(selectedEngineId = "mock", socketPath = DEFAUL
       }
 
       state.containers.splice(index, 1);
+    },
+    async startComposeProject(project) {
+      let hasMatch = false;
+
+      for (const container of state.containers) {
+        if (!isContainerInProject(container, project)) {
+          continue;
+        }
+
+        container.status = "running";
+        container.state = "Up just now";
+        hasMatch = true;
+      }
+
+      if (!hasMatch) {
+        throw new BackendError(404, "not_found", `Compose project '${project}' was not found`);
+      }
+    },
+    async stopComposeProject(project) {
+      let hasMatch = false;
+
+      for (const container of state.containers) {
+        if (!isContainerInProject(container, project)) {
+          continue;
+        }
+
+        container.status = "stopped";
+        container.state = "Exited (0) just now";
+        hasMatch = true;
+      }
+
+      if (!hasMatch) {
+        throw new BackendError(404, "not_found", `Compose project '${project}' was not found`);
+      }
+    },
+    async removeComposeProject(project) {
+      const beforeCount = state.containers.length;
+      state.containers = state.containers.filter((container) => !isContainerInProject(container, project));
+
+      if (beforeCount === state.containers.length) {
+        throw new BackendError(404, "not_found", `Compose project '${project}' was not found`);
+      }
     },
     async subscribeToContainerLogs(id, onChunk) {
       const container = state.containers.find((item) => item.id === id);
@@ -383,6 +449,47 @@ async function createDockerBackend(socketPath: string, selectedEngineId?: string
     });
   }
 
+  async function listProjectContainers(project: string) {
+    const containers = await docker.listContainers({ all: true });
+    return containers.filter((container) => {
+      const labeledProject = container.Labels?.["com.docker.compose.project"] ?? null;
+      const inferredProject = inferProjectFromName(container.Names?.[0] ?? container.Id.slice(0, 12));
+      return labeledProject === project || inferredProject === project;
+    });
+  }
+
+  async function applyComposeProjectAction(project: string, action: "start" | "stop" | "remove") {
+    const projectContainers = await listProjectContainers(project);
+
+    if (projectContainers.length === 0) {
+      throw new BackendError(404, "not_found", `Compose project '${project}' was not found`);
+    }
+
+    for (const projectContainer of projectContainers) {
+      const container = docker.getContainer(projectContainer.Id);
+
+      try {
+        if (action === "start") {
+          await container.start();
+          continue;
+        }
+
+        if (action === "stop") {
+          await container.stop();
+          continue;
+        }
+
+        await container.remove({ force: true });
+      } catch (error) {
+        if ((action === "start" || action === "stop") && isAlreadyInDesiredStateError(error)) {
+          continue;
+        }
+
+        throw error;
+      }
+    }
+  }
+
   return {
     async getEngineInfo() {
       try {
@@ -514,6 +621,27 @@ async function createDockerBackend(socketPath: string, selectedEngineId?: string
       try {
         const container = docker.getContainer(id);
         await container.remove({ force: true });
+      } catch (error) {
+        throw createBackendError(error);
+      }
+    },
+    async startComposeProject(project) {
+      try {
+        await applyComposeProjectAction(project, "start");
+      } catch (error) {
+        throw createBackendError(error);
+      }
+    },
+    async stopComposeProject(project) {
+      try {
+        await applyComposeProjectAction(project, "stop");
+      } catch (error) {
+        throw createBackendError(error);
+      }
+    },
+    async removeComposeProject(project) {
+      try {
+        await applyComposeProjectAction(project, "remove");
       } catch (error) {
         throw createBackendError(error);
       }

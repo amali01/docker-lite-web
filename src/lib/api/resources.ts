@@ -63,6 +63,24 @@ export function removeContainer(id: string) {
   });
 }
 
+export function startComposeProject(project: string) {
+  return apiRequest<void>(`/api/containers/compose/${encodeURIComponent(project)}/start`, {
+    method: "POST",
+  });
+}
+
+export function stopComposeProject(project: string) {
+  return apiRequest<void>(`/api/containers/compose/${encodeURIComponent(project)}/stop`, {
+    method: "POST",
+  });
+}
+
+export function removeComposeProject(project: string) {
+  return apiRequest<void>(`/api/containers/compose/${encodeURIComponent(project)}`, {
+    method: "DELETE",
+  });
+}
+
 export function listImages() {
   return apiRequest<ImageSummary[]>("/api/images");
 }

@@ -1,10 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   listContainers,
+  removeComposeProject,
   removeContainer,
   restartContainer,
   runContainer,
+  startComposeProject,
   startContainer,
+  stopComposeProject,
   stopContainer,
 } from "@/lib/api/resources";
 
@@ -41,7 +44,23 @@ function createContainerMutation(mutationFn: (id: string) => Promise<unknown>) {
   };
 }
 
+function createComposeProjectMutation(mutationFn: (project: string) => Promise<void>) {
+  return function useComposeProjectMutation() {
+    const queryClient = useQueryClient();
+    return useMutation({
+      mutationFn,
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: containersQueryKey });
+        await queryClient.invalidateQueries({ queryKey: ["engine"] });
+      },
+    });
+  };
+}
+
 export const useStartContainer = createContainerMutation(startContainer);
 export const useStopContainer = createContainerMutation(stopContainer);
 export const useRestartContainer = createContainerMutation(restartContainer);
 export const useRemoveContainer = createContainerMutation(removeContainer);
+export const useStartComposeProject = createComposeProjectMutation(startComposeProject);
+export const useStopComposeProject = createComposeProjectMutation(stopComposeProject);
+export const useRemoveComposeProject = createComposeProjectMutation(removeComposeProject);

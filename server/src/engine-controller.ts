@@ -138,6 +138,15 @@ export class EngineController implements DockerBackend {
   async removeContainer(id: string) {
     return (await this.currentBackend()).removeContainer(id);
   }
+  async startComposeProject(project: string) {
+    return (await this.currentBackend()).startComposeProject(project);
+  }
+  async stopComposeProject(project: string) {
+    return (await this.currentBackend()).stopComposeProject(project);
+  }
+  async removeComposeProject(project: string) {
+    return (await this.currentBackend()).removeComposeProject(project);
+  }
   async subscribeToContainerLogs(id: string, onChunk: Parameters<DockerBackend["subscribeToContainerLogs"]>[1]) {
     return (await this.currentBackend()).subscribeToContainerLogs(id, onChunk);
   }

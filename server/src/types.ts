@@ -36,6 +36,9 @@ export interface DockerBackend {
   stopContainer(id: string): Promise<ContainerSummary>;
   restartContainer(id: string): Promise<ContainerSummary>;
   removeContainer(id: string): Promise<void>;
+  startComposeProject(project: string): Promise<void>;
+  stopComposeProject(project: string): Promise<void>;
+  removeComposeProject(project: string): Promise<void>;
   subscribeToContainerLogs(id: string, onChunk: (chunk: ContainerLogsChunk) => void): Promise<() => void>;
   listImages(): Promise<ImageSummary[]>;
   pullImage(payload: PullImagePayload): Promise<ImageSummary>;
