@@ -33,6 +33,8 @@ export interface ContainerSummary {
   id: string;
   name: string;
   image: string;
+  composeProject: string | null;
+  composeService: string | null;
   status: ContainerStatus;
   state: string;
   ports: string;

@@ -6,9 +6,9 @@ import { renderWithProviders } from "@/test/render";
 const fetchMock = vi.fn();
 
 const containers = [
-  { id: "ctr-1", name: "nginx-proxy", image: "nginx:alpine", status: "running", state: "Up 3 hours", ports: "80/tcp", created: new Date().toISOString(), cpuPercent: null, memUsage: "20 MB", memLimit: "512 MB", netIO: null, blockIO: null },
-  { id: "ctr-2", name: "postgres-db", image: "postgres:16", status: "stopped", state: "Exited", ports: "5432/tcp", created: new Date().toISOString(), cpuPercent: null, memUsage: null, memLimit: null, netIO: null, blockIO: null },
-  { id: "ctr-3", name: "redis-cache", image: "redis:7-alpine", status: "running", state: "Up 1 hour", ports: "6379/tcp", created: new Date().toISOString(), cpuPercent: null, memUsage: "10 MB", memLimit: "256 MB", netIO: null, blockIO: null },
+  { id: "ctr-1", name: "nginx-proxy", image: "nginx:alpine", composeProject: null, composeService: null, status: "running", state: "Up 3 hours", ports: "80/tcp", created: new Date().toISOString(), cpuPercent: null, memUsage: "20 MB", memLimit: "512 MB", netIO: null, blockIO: null },
+  { id: "ctr-2", name: "sportseventhub-postgres", image: "postgres:16", composeProject: null, composeService: null, status: "stopped", state: "Exited", ports: "5432/tcp", created: new Date().toISOString(), cpuPercent: null, memUsage: null, memLimit: null, netIO: null, blockIO: null },
+  { id: "ctr-3", name: "sportseventhub-redis", image: "redis:7-alpine", composeProject: null, composeService: null, status: "running", state: "Up 1 hour", ports: "6379/tcp", created: new Date().toISOString(), cpuPercent: null, memUsage: "10 MB", memLimit: "256 MB", netIO: null, blockIO: null },
 ];
 
 describe("Containers Page", () => {
@@ -41,6 +41,8 @@ describe("Containers Page", () => {
           id: "ctr-4",
           name: "new-container",
           image: "busybox:latest",
+          composeProject: null,
+          composeService: null,
           status: "running",
           state: "Up just now",
           ports: "",
@@ -60,7 +62,13 @@ describe("Containers Page", () => {
   it("renders container list", async () => {
     renderWithProviders(<Containers />);
     expect(await screen.findByText("nginx-proxy")).toBeInTheDocument();
-    expect(screen.getByText("postgres-db")).toBeInTheDocument();
+    expect(screen.getByText("sportseventhub-postgres")).toBeInTheDocument();
+  });
+
+  it("groups compose containers under a stack row", async () => {
+    renderWithProviders(<Containers />);
+    expect(await screen.findByText("sportseventhub")).toBeInTheDocument();
+    expect(screen.getByText("Compose Stack • 2 containers")).toBeInTheDocument();
   });
 
   it("filters containers by name", async () => {
@@ -68,7 +76,7 @@ describe("Containers Page", () => {
     const input = await screen.findByPlaceholderText("Filter containers...");
     fireEvent.change(input, { target: { value: "nginx" } });
     expect(screen.getByText("nginx-proxy")).toBeInTheDocument();
-    expect(screen.queryByText("postgres-db")).not.toBeInTheDocument();
+    expect(screen.queryByText("sportseventhub-postgres")).not.toBeInTheDocument();
   });
 
   it("filters to running containers only", async () => {
@@ -76,8 +84,8 @@ describe("Containers Page", () => {
     await screen.findByText("nginx-proxy");
     fireEvent.click(screen.getByRole("radio", { name: "Show running containers" }));
     expect(screen.getByText("nginx-proxy")).toBeInTheDocument();
-    expect(screen.getByText("redis-cache")).toBeInTheDocument();
-    expect(screen.queryByText("postgres-db")).not.toBeInTheDocument();
+    expect(screen.getByText("sportseventhub-redis")).toBeInTheDocument();
+    expect(screen.queryByText("sportseventhub-postgres")).not.toBeInTheDocument();
   });
 
   it("selects all visible containers from the header checkbox", async () => {
@@ -85,15 +93,15 @@ describe("Containers Page", () => {
     await screen.findByText("nginx-proxy");
     fireEvent.click(screen.getByRole("checkbox", { name: "Select all containers" }));
     expect(screen.getByRole("checkbox", { name: "Select container nginx-proxy" })).toHaveAttribute("data-state", "checked");
-    expect(screen.getByRole("checkbox", { name: "Select container postgres-db" })).toHaveAttribute("data-state", "checked");
-    expect(screen.getByRole("checkbox", { name: "Select container redis-cache" })).toHaveAttribute("data-state", "checked");
+    expect(screen.getByRole("checkbox", { name: "Select container sportseventhub-postgres" })).toHaveAttribute("data-state", "checked");
+    expect(screen.getByRole("checkbox", { name: "Select container sportseventhub-redis" })).toHaveAttribute("data-state", "checked");
   });
 
   it("shows bulk actions when multiple containers are selected", async () => {
     renderWithProviders(<Containers />);
     await screen.findByText("nginx-proxy");
     fireEvent.click(screen.getByRole("checkbox", { name: "Select container nginx-proxy" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Select container redis-cache" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select container sportseventhub-redis" }));
     expect(screen.getByText("2 selected")).toBeInTheDocument();
     expect(screen.getByTitle("Delete selected containers")).toBeInTheDocument();
     expect(screen.getByTitle("Start selected containers")).toBeInTheDocument();
@@ -105,7 +113,7 @@ describe("Containers Page", () => {
     renderWithProviders(<Containers />);
     await screen.findByText("nginx-proxy");
     fireEvent.click(screen.getByRole("checkbox", { name: "Select container nginx-proxy" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: "Select container redis-cache" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select container sportseventhub-redis" }));
     fireEvent.click(screen.getByTitle("Stop selected containers"));
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/containers/ctr-1/stop"), expect.objectContaining({ method: "POST" }));
@@ -115,7 +123,7 @@ describe("Containers Page", () => {
 
   it("starts a stopped container", async () => {
     renderWithProviders(<Containers />);
-    await screen.findByText("postgres-db");
+    await screen.findByText("sportseventhub-postgres");
     fireEvent.click(screen.getByTitle("Start"));
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/containers/ctr-2/start"), expect.objectContaining({ method: "POST" }));
