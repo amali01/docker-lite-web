@@ -1,12 +1,15 @@
 import { createServer } from "node:http";
 import { createApp } from "./app";
-import { createDockerBackendFromEnv } from "./docker/client";
+import { config as loadEnv } from "dotenv";
+import { EngineController } from "./engine-controller";
+
+loadEnv({ path: "server/.env" });
 
 const PORT = Number(process.env.DOCKLITE_PORT ?? 9001);
 const HOST = process.env.DOCKLITE_HOST ?? "127.0.0.1";
 
 async function main() {
-  const backend = await createDockerBackendFromEnv();
+  const backend = new EngineController();
   const app = createApp(backend);
   const server = createServer(app);
 

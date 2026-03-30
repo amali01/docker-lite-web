@@ -4,12 +4,15 @@ import { Server } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useEngineInfo, useTestEngineConnection } from "@/hooks/use-engine";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useEngineInfo, useEngineTargets, useSelectEngineTarget, useTestEngineConnection } from "@/hooks/use-engine";
 import { getApiBaseUrl, setApiBaseUrl } from "@/lib/api/client";
 
 export default function DockerSettings() {
   const queryClient = useQueryClient();
   const engineQuery = useEngineInfo();
+  const engineTargetsQuery = useEngineTargets();
+  const selectEngineMutation = useSelectEngineTarget();
   const testConnectionMutation = useTestEngineConnection();
   const [apiBaseUrl, setApiBaseUrlState] = useState(getApiBaseUrl());
 
@@ -37,15 +40,52 @@ export default function DockerSettings() {
             />
           </div>
           <div>
+            <label className="text-xs font-mono text-muted-foreground block mb-1">Docker Engine</label>
+            {engineTargetsQuery.data && engineTargetsQuery.data.length > 0 ? (
+              <ToggleGroup
+                type="single"
+                value={engine?.selectedEngineId}
+                className="justify-start flex-wrap"
+                onValueChange={async (value) => {
+                  if (!value || value === engine?.selectedEngineId) {
+                    return;
+                  }
+
+                  try {
+                    const result = await selectEngineMutation.mutateAsync({ targetId: value });
+                    toast.success(`Switched to ${result.endpoint}`);
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "Unable to switch engine");
+                  }
+                }}
+              >
+                {engineTargetsQuery.data.map((target) => (
+                  <ToggleGroupItem
+                    key={target.id}
+                    value={target.id}
+                    variant="outline"
+                    className="font-mono text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                    disabled={!target.available || selectEngineMutation.isPending}
+                    aria-label={target.label}
+                  >
+                    {target.label}
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            ) : (
+              <p className="text-xs font-mono text-muted-foreground">No engine targets available.</p>
+            )}
+          </div>
+          <div>
             <label className="text-xs font-mono text-muted-foreground block mb-1">Docker Endpoint</label>
-            <Input defaultValue={engine?.endpoint ?? "unknown"} className="bg-background border-border font-mono text-sm h-9" readOnly />
+            <Input value={engine?.endpoint ?? "unknown"} className="bg-background border-border font-mono text-sm h-9" readOnly />
           </div>
           <div>
             <label className="text-xs font-mono text-muted-foreground block mb-1">API Version</label>
-            <Input defaultValue={engine?.apiVersion ?? "unknown"} className="bg-background border-border font-mono text-sm h-9" readOnly />
+            <Input value={engine?.apiVersion ?? "unknown"} className="bg-background border-border font-mono text-sm h-9" readOnly />
           </div>
           <p className="text-[11px] font-mono text-muted-foreground">
-            Default Ubuntu socket: <code className="text-primary">unix:///var/run/docker.sock</code>
+            Toggle between your local Docker engines. Targets are discovered from the backend defaults and current environment.
           </p>
           <div className="flex gap-2 pt-1">
             <Button

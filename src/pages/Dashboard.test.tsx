@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import Dashboard from "@/pages/Dashboard";
 import { renderWithProviders } from "@/test/render";
 
@@ -10,10 +10,11 @@ describe("Dashboard", () => {
     fetchMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
 
-    fetchMock.mockImplementation((input: RequestInfo | URL) => {
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
+      const method = init?.method ?? "GET";
 
-      if (url.endsWith("/api/engine")) {
+      if (url.endsWith("/api/engine") && method === "GET") {
         return Promise.resolve(
           new Response(JSON.stringify({
             connected: true,
@@ -32,12 +33,31 @@ describe("Dashboard", () => {
         );
       }
 
-      if (url.endsWith("/api/containers")) {
+      if (url.endsWith("/api/containers") && method === "GET") {
         return Promise.resolve(
           new Response(JSON.stringify([
             { id: "1", name: "nginx-proxy", image: "nginx:alpine", status: "running", state: "Up", ports: "80/tcp", created: new Date().toISOString(), cpuPercent: null, memUsage: "20 MB", memLimit: "512 MB", netIO: null, blockIO: null },
             { id: "2", name: "postgres-db", image: "postgres:16", status: "stopped", state: "Exited", ports: "", created: new Date().toISOString(), cpuPercent: null, memUsage: null, memLimit: null, netIO: null, blockIO: null },
           ])),
+        );
+      }
+
+      if (url.includes("/api/containers/2/start") && method === "POST") {
+        return Promise.resolve(
+          new Response(JSON.stringify({
+            id: "2",
+            name: "postgres-db",
+            image: "postgres:16",
+            status: "running",
+            state: "Up just now",
+            ports: "",
+            created: new Date().toISOString(),
+            cpuPercent: null,
+            memUsage: null,
+            memLimit: null,
+            netIO: null,
+            blockIO: null,
+          })),
         );
       }
 
@@ -81,6 +101,32 @@ describe("Dashboard", () => {
     await waitFor(() => {
       expect(screen.getByText("nginx-proxy")).toBeInTheDocument();
       expect(screen.getByText("postgres-db")).toBeInTheDocument();
+    });
+  });
+
+  it("shows dashboard container actions", async () => {
+    renderWithProviders(<Dashboard />);
+    const rowText = await screen.findByText("postgres-db");
+    const row = rowText.closest("tr");
+    expect(row).not.toBeNull();
+    const rowQueries = within(row!);
+    expect(rowQueries.getByTitle("Start")).toBeInTheDocument();
+    expect(rowQueries.getByTitle("Restart")).toBeInTheDocument();
+    expect(rowQueries.getByTitle("Logs")).toBeInTheDocument();
+    expect(rowQueries.getByTitle("Remove")).toBeInTheDocument();
+  });
+
+  it("starts a container from the dashboard", async () => {
+    renderWithProviders(<Dashboard />);
+    const rowText = await screen.findByText("postgres-db");
+    const row = rowText.closest("tr");
+    expect(row).not.toBeNull();
+    fireEvent.click(within(row!).getByTitle("Start"));
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/containers/2/start"),
+        expect.objectContaining({ method: "POST" }),
+      );
     });
   });
 });

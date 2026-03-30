@@ -76,4 +76,12 @@ describe("Containers Page", () => {
     renderWithProviders(<Containers />);
     expect(await screen.findByText("Run Container")).toBeInTheDocument();
   });
+
+  it("shows action buttons without hover", async () => {
+    renderWithProviders(<Containers />);
+    await screen.findByText("nginx-proxy");
+    expect(screen.getAllByTitle("Restart").length).toBeGreaterThan(0);
+    expect(screen.getAllByTitle("Logs").length).toBeGreaterThan(0);
+    expect(screen.getAllByTitle("Remove").length).toBeGreaterThan(0);
+  });
 });

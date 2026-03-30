@@ -97,7 +97,7 @@ async function ensureSocketAccessible(socketPath: string) {
   }
 }
 
-function createMockBackend(): DockerBackend {
+export function createMockBackend(selectedEngineId = "mock", socketPath = DEFAULT_SOCKET_PATH): DockerBackend {
   const state = cloneMockState();
 
   return {
@@ -105,6 +105,8 @@ function createMockBackend(): DockerBackend {
       return {
         ...mockSystemInfo,
         connected: true,
+        endpoint: `unix://${socketPath}`,
+        selectedEngineId,
         serverTime: new Date().toISOString(),
       };
     },
@@ -322,7 +324,7 @@ function mapContainerSummary(details: {
   };
 }
 
-async function createDockerBackend(socketPath: string): Promise<DockerBackend> {
+async function createDockerBackend(socketPath: string, selectedEngineId?: string): Promise<DockerBackend> {
   await ensureSocketAccessible(socketPath);
 
   const docker = new Docker({ socketPath });
@@ -391,6 +393,7 @@ async function createDockerBackend(socketPath: string): Promise<DockerBackend> {
           rootDir: info.DockerRootDir ?? "unknown",
           serverTime: new Date().toISOString(),
           endpoint: `unix://${socketPath}`,
+          selectedEngineId,
         };
       } catch (error) {
         return {
@@ -406,6 +409,7 @@ async function createDockerBackend(socketPath: string): Promise<DockerBackend> {
           rootDir: "unknown",
           serverTime: new Date().toISOString(),
           endpoint: `unix://${socketPath}`,
+          selectedEngineId,
           errorMessage: error instanceof Error ? error.message : "Unable to reach Docker Engine",
         };
       }
@@ -675,10 +679,14 @@ async function createDockerBackend(socketPath: string): Promise<DockerBackend> {
   };
 }
 
+export async function createDockerBackendFromTarget(selectedEngineId: string, socketPath: string) {
+  return createDockerBackend(socketPath, selectedEngineId);
+}
+
 export async function createDockerBackendFromEnv() {
   if (process.env.DOCKLITE_ADAPTER === "mock") {
-    return createMockBackend();
+    return createMockBackend("system", DEFAULT_SOCKET_PATH);
   }
 
-  return createDockerBackend(DEFAULT_SOCKET_PATH);
+  return createDockerBackend(DEFAULT_SOCKET_PATH, "system");
 }

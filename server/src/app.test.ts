@@ -1,12 +1,12 @@
 import request from "supertest";
 import { describe, expect, it } from "vitest";
 import { createApp } from "./app";
-import { createDockerBackendFromEnv } from "./docker/client";
+import { EngineController } from "./engine-controller";
 
 describe("DockLite backend app", () => {
   it("returns engine info", async () => {
     process.env.DOCKLITE_ADAPTER = "mock";
-    const backend = await createDockerBackendFromEnv();
+    const backend = new EngineController();
     const app = createApp(backend);
 
     const response = await request(app).get("/api/engine");
@@ -18,7 +18,7 @@ describe("DockLite backend app", () => {
 
   it("validates container run payloads", async () => {
     process.env.DOCKLITE_ADAPTER = "mock";
-    const backend = await createDockerBackendFromEnv();
+    const backend = new EngineController();
     const app = createApp(backend);
 
     const response = await request(app).post("/api/containers/run").send({
@@ -34,7 +34,7 @@ describe("DockLite backend app", () => {
 
   it("creates and lists mock resources", async () => {
     process.env.DOCKLITE_ADAPTER = "mock";
-    const backend = await createDockerBackendFromEnv();
+    const backend = new EngineController();
     const app = createApp(backend);
 
     const runResponse = await request(app).post("/api/containers/run").send({
@@ -52,5 +52,49 @@ describe("DockLite backend app", () => {
 
     expect(listResponse.status).toBe(200);
     expect(listResponse.body.some((container: { name: string }) => container.name === "smoke-container")).toBe(true);
+  });
+
+  it("returns available engine targets", async () => {
+    process.env.DOCKLITE_ADAPTER = "mock";
+    const backend = new EngineController();
+    const app = createApp(backend);
+
+    const response = await request(app).get("/api/engine/targets");
+
+    expect(response.status).toBe(200);
+    expect(Array.isArray(response.body)).toBe(true);
+    expect(response.body[0]).toEqual(
+      expect.objectContaining({
+        id: expect.any(String),
+        label: expect.any(String),
+        endpoint: expect.any(String),
+        active: expect.any(Boolean),
+      }),
+    );
+  });
+
+  it("switches the active engine target", async () => {
+    process.env.DOCKLITE_ADAPTER = "mock";
+    process.env.DOCKLITE_DOCKER_SOCKET = "/var/run/docker.sock";
+    const backend = new EngineController();
+    const app = createApp(backend);
+
+    const targetsResponse = await request(app).get("/api/engine/targets");
+    expect(targetsResponse.status).toBe(200);
+    expect(targetsResponse.body.length).toBeGreaterThan(1);
+
+    const nextTarget = targetsResponse.body.find((target: { active: boolean }) => !target.active);
+    expect(nextTarget).toBeTruthy();
+
+    const switchResponse = await request(app)
+      .post("/api/engine/select")
+      .send({ targetId: nextTarget.id });
+
+    expect(switchResponse.status).toBe(200);
+    expect(switchResponse.body.endpoint).toBe(nextTarget.endpoint);
+
+    const selectedResponse = await request(app).get("/api/engine");
+    expect(selectedResponse.status).toBe(200);
+    expect(selectedResponse.body.endpoint).toBe(nextTarget.endpoint);
   });
 });
