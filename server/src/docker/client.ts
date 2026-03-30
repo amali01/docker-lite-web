@@ -390,9 +390,27 @@ async function getStatsMap(runningContainers: any[], docker: any) {
       const cache = stats.memory_stats.stats?.cache || stats.memory_stats.stats?.inactive_file || 0;
       const realUsage = Math.max(0, usage - cache);
       const limit = stats.memory_stats.limit || 0;
-      let memUsage: string | null = limit ? `${formatBytes(realUsage)} / ${formatBytes(limit)}` : formatBytes(realUsage);
+      const memUsage: string | null = limit ? `${formatBytes(realUsage)} / ${formatBytes(limit)}` : formatBytes(realUsage);
       
-      statsMap.set(c.Id, { cpuPercent, memUsage });
+      let memPercent: number | null = null;
+      if (limit > 0) {
+        memPercent = (realUsage / limit) * 100.0;
+      }
+      
+      let netIO: string | null = null;
+      if (stats.networks) {
+        let totalRx = 0;
+        let totalTx = 0;
+        for (const [key, networkData] of Object.entries(stats.networks) as any) {
+          totalRx += networkData.rx_bytes || 0;
+          totalTx += networkData.tx_bytes || 0;
+        }
+        const rxMB = totalRx / (1024 * 1024);
+        const txMB = totalTx / (1024 * 1024);
+        netIO = `↓${rxMB.toFixed(2)} MB ,↑${txMB.toFixed(2)} MB`;
+      }
+      
+      statsMap.set(c.Id, { cpuPercent, memUsage, memPercent, netIO });
     } catch (e) {
       // ignore errors for dead containers
     }
@@ -423,6 +441,8 @@ function mapContainerSummary(details: {
     created: details.createdAt ?? new Date().toISOString(),
     cpuPercent: null,
     memUsage: null,
+    memPercent: null,
+    netIO: null,
     memLimit: null,
     netIO: null,
     blockIO: null,
@@ -583,6 +603,8 @@ async function createDockerBackend(socketPath: string, selectedEngineId?: string
           });
           if (stats.cpuPercent !== undefined) summary.cpuPercent = formatPercentage(stats.cpuPercent);
           if (stats.memUsage !== undefined) summary.memUsage = stats.memUsage;
+          if (stats.memPercent !== undefined) summary.memPercent = formatPercentage(stats.memPercent);
+          if (stats.netIO !== undefined) summary.netIO = stats.netIO;
           return summary;
         });
       } catch (error) {

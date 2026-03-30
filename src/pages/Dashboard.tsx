@@ -235,7 +235,7 @@ export default function Dashboard() {
             Containers
           </h2>
           {hasSelection && (
-            <div className="flex items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 md:ml-auto">
+            <div className="flex items-center gap-2 rounded-md border border-border bg-card px-2 h-9 py-0 md:ml-auto">
               <span className="font-mono text-[11px] text-muted-foreground whitespace-nowrap">
                 {selection.selectedCount} selected
               </span>
@@ -302,7 +302,7 @@ export default function Dashboard() {
                         <td className="p-3 text-muted-foreground">—</td>
                         <td className="p-3 text-muted-foreground">—</td>
                         <td className="p-3 text-muted-foreground">—</td>
-                        <td className="sticky right-0 z-10 bg-muted/20 p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted/30">
+                        <td className="sticky right-0 z-10 bg-muted p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
                           <div className="flex items-center justify-end gap-1">
                             <button onClick={() => void handleGroupAction("start", entry.project, entry.containers)} className="rounded p-1.5 text-success transition-colors hover:bg-success/10" title="Start stack"><Play className="h-3.5 w-3.5" /></button>
                             <button onClick={() => void handleGroupAction("stop", entry.project, entry.containers)} className="rounded p-1.5 text-destructive transition-colors hover:bg-destructive/10" title="Stop stack"><Square className="h-3.5 w-3.5" /></button>
@@ -321,7 +321,7 @@ export default function Dashboard() {
                           <td className="p-3 font-mono text-muted-foreground">{formatMetric(container.cpuPercent)}</td>
                           <td className="p-3 font-mono text-muted-foreground">{formatMetric(container.memUsage)}</td>
                           <td className="p-3 font-mono text-muted-foreground text-[11px]"><PortLinks ports={container.ports} /></td>
-                          <td className="sticky right-0 z-10 bg-card p-2 sm:p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted/30">
+                          <td className="sticky right-0 z-10 bg-card p-2 sm:p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
                             <ContainerActionButtons compact container={container} logsActive={logsContainer?.id === container.id} terminalActive={terminalContainer?.id === container.id} onAction={(action, currentContainer) => void handleAction(action, currentContainer)} />
                           </td>
                         </tr>
@@ -339,7 +339,7 @@ export default function Dashboard() {
                     <td className="p-3 font-mono text-muted-foreground">{formatMetric(container.cpuPercent)}</td>
                     <td className="p-3 font-mono text-muted-foreground">{formatMetric(container.memUsage)}</td>
                     <td className="p-3 font-mono text-muted-foreground text-[11px]"><PortLinks ports={container.ports} /></td>
-                    <td className="sticky right-0 z-10 bg-card p-2 sm:p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted/30">
+                    <td className="sticky right-0 z-10 bg-card p-2 sm:p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
                       <ContainerActionButtons compact container={container} logsActive={logsContainer?.id === container.id} terminalActive={terminalContainer?.id === container.id} onAction={(action, currentContainer) => void handleAction(action, currentContainer)} />
                     </td>
                   </tr>

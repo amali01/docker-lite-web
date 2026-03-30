@@ -123,6 +123,7 @@ export default function DockerSettings() {
         </div>
       </div>
 
+      
       <div className="bg-card border border-border rounded-md p-5 space-y-3">
         <h2 className="text-sm font-mono font-semibold">About DockLite</h2>
         <div className="text-xs font-mono space-y-1 text-muted-foreground">
