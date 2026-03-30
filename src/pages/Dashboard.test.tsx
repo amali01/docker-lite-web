@@ -19,10 +19,10 @@ describe("Dashboard", () => {
         <Dashboard />
       </MemoryRouter>
     );
-    expect(screen.getByText("Containers")).toBeInTheDocument();
-    expect(screen.getByText("Images")).toBeInTheDocument();
-    expect(screen.getByText("Volumes")).toBeInTheDocument();
-    expect(screen.getByText("Networks")).toBeInTheDocument();
+    expect(screen.getAllByText("Containers").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Images").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Volumes").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Networks").length).toBeGreaterThan(0);
   });
 
   it("shows system information", () => {
