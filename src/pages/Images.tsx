@@ -182,8 +182,7 @@ export default function Images() {
             <span className="font-mono text-[11px] text-muted-foreground whitespace-nowrap">
               {selection.selectedCount} selected
             </span>
-            <button onClick={() => void handleBulkAction("remove")} className="inline-flex h-9 items-center rounded-md bg-destructive px-3 font-mono text-xs font-medium text-destructive-foreground transition-colors hover:bg-destructive/90" title="Delete selected">Delete</button>
-            <button onClick={() => selection.toggleAll(false)} className="inline-flex h-9 items-center rounded-md border border-border px-3 font-mono text-xs text-muted-foreground transition-colors hover:bg-muted" title="Clear selection"><Trash2 className="h-4 w-4" /></button>
+            <button type="button" onClick={() => void handleBulkAction("remove")} className="inline-flex h-9 w-10 items-center justify-center rounded-md bg-destructive text-destructive-foreground transition-colors hover:bg-destructive/90" title="Delete selected"><Trash2 className="h-4 w-4" /></button>
           </div>
         )}
       </div>
