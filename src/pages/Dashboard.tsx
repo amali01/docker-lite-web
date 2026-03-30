@@ -291,13 +291,13 @@ export default function Dashboard() {
                   const groupState = groupSelectionState(entry.containers);
                   return (
                     <Fragment key={`group-${entry.project}`}>
-                      <tr className="group border-b border-border/50 bg-muted/20 hover:bg-muted/30 transition-colors">
+                      <tr onClick={(e) => { if (!(e.target as HTMLElement).closest('button, a, input, [role="checkbox"], .cursor-default')) toggleGroup(entry.project); }} className="cursor-pointer group border-b border-border/50 bg-muted/20 hover:bg-muted/30 transition-colors">
                         <td className="p-3">
                           <Checkbox checked={groupState.allSelected ? true : groupState.partiallySelected ? "indeterminate" : false} onCheckedChange={(checked) => { entry.containers.forEach((c) => selection.toggleOne(c.id, checked === true)); }} />
                         </td>
                         <td className="p-3 relative">
                           {expandedGroups[entry.project] && (
-                            <div className="absolute left-[20px] top-[31px] bottom-0 w-px bg-primary/50 z-0" />
+                            <div className="absolute left-[20px] top-1/2 -bottom-[1px] w-px bg-primary/50 z-0" />
                           )}
                           <button type="button" onClick={() => toggleGroup(entry.project)} className="flex items-center gap-2 text-left relative z-10">
                             {expandedGroups[entry.project] ? <ChevronDown className="h-4 w-4 text-primary" /> : <ChevronRight className="h-4 w-4 text-primary" />}
@@ -328,7 +328,7 @@ export default function Dashboard() {
                           <td className="p-3 relative">
                             <div className="absolute left-[20px] top-0 bottom-1/2 w-px bg-primary/50 z-0" />
                             {index !== arr.length - 1 && (
-                              <div className="absolute left-[20px] top-1/2 bottom-0 w-px bg-primary/50 z-0" />
+                              <div className="absolute left-[20px] top-1/2 -bottom-[1px] w-px bg-primary/50 z-0" />
                             )}
                             <div className="absolute left-[20px] top-1/2 w-[20px] h-px bg-primary/50 z-0" />
                             <div className="flex items-center gap-2 pl-6 relative z-10">
@@ -368,7 +368,7 @@ export default function Dashboard() {
                             <ContainerActionButtons compact container={container} logsActive={logsContainer?.id === container.id} terminalActive={terminalContainer?.id === container.id} onAction={(action, currentContainer) => void handleAction(action, currentContainer)} />
                           </td>
                         </tr>
-                        {expandedMonitoring[container.id] && <MonitoringRow container={container} isGroupItem={true} />}
+                        {expandedMonitoring[container.id] && <MonitoringRow container={container} isGroupItem={true} isLast={index === arr.length - 1} />}
                       </Fragment>
                       ))}
                     </Fragment>
