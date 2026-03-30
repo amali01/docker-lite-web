@@ -4,7 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { ContainerSummary } from "@/hooks/use-containers";
 
-export const MonitoringRow = ({ container, isGroupItem = false }: { container: ContainerSummary; isGroupItem?: boolean }) => {
+export const MonitoringRow = ({ container, isGroupItem = false, isLast = false }: { container: ContainerSummary; isGroupItem?: boolean; isLast?: boolean }) => {
   const [settings, setSettings] = useState(() => {
     try {
       const stored = localStorage.getItem(`docker-monitoring-${container.id}`);
@@ -24,7 +24,10 @@ export const MonitoringRow = ({ container, isGroupItem = false }: { container: C
 
   return (
     <tr className="bg-muted/10 border-b border-border/50 shadow-inner">
-      <td colSpan={9} className="py-2.5 px-4">
+      <td colSpan={10} className="py-2.5 px-4 relative">
+        {isGroupItem && !isLast && (
+          <div className="absolute left-[60px] top-0 -bottom-[1px] w-px bg-primary/50 z-0" />
+        )}
         <div className={`flex flex-row items-center gap-5 text-sm ${isGroupItem ? "ml-[4.5rem]" : "ml-[3rem]"}`}>
           <div className="flex items-center gap-1.5 text-primary select-none">
             <Activity className="w-4 h-4" />
