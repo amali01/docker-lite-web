@@ -7,6 +7,7 @@ import { ContainerExec } from "@/components/ContainerExec";
 import { toast } from "sonner";
 import { StatCard } from "@/components/StatCard";
 import { StatusBadge } from "@/components/StatusBadge";
+import { MonitoringRow } from "@/components/MonitoringOptions";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -72,6 +73,10 @@ export default function Dashboard() {
   const [terminalContainer, setTerminalContainer] = useState<ContainerSummary | null>(null);
   const [logsContainer, setLogsContainer] = useState<ContainerSummary | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const [expandedMonitoring, setExpandedMonitoring] = useState<Record<string, boolean>>({});
+  const toggleMonitoring = (id: string) => {
+    setExpandedMonitoring((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const engineQuery = useEngineInfo();
   const containersQuery = useContainers();
@@ -317,7 +322,8 @@ export default function Dashboard() {
                         </td>
                       </tr>
                       {expandedGroups[entry.project] && entry.containers.map((container, index, arr) => (
-                        <tr key={container.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors">
+                        <Fragment key={container.id}>
+                        <tr key={container.id} onClick={(e) => { if (!(e.target as HTMLElement).closest('button, a, input, [role="checkbox"], .cursor-default')) toggleMonitoring(container.id); }} className="cursor-pointer group border-b border-border/50 hover:bg-muted/30 transition-colors">
                           <td className="p-3"><Checkbox aria-label={`Select dashboard container ${container.name}`} checked={selection.selectedIds.includes(container.id)} onCheckedChange={(checked) => selection.toggleOne(container.id, checked === true)} /></td>
                           <td className="p-3 relative">
                             <div className="absolute left-[20px] top-0 bottom-1/2 w-px bg-primary/50 z-0" />
@@ -362,13 +368,16 @@ export default function Dashboard() {
                             <ContainerActionButtons compact container={container} logsActive={logsContainer?.id === container.id} terminalActive={terminalContainer?.id === container.id} onAction={(action, currentContainer) => void handleAction(action, currentContainer)} />
                           </td>
                         </tr>
+                        {expandedMonitoring[container.id] && <MonitoringRow container={container} isGroupItem={true} />}
+                      </Fragment>
                       ))}
                     </Fragment>
                   );
                 }
                 const container = entry.container;
                 return (
-                  <tr key={container.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors bg-card">
+                  <Fragment key={container.id}>
+                  <tr key={container.id} onClick={(e) => { if (!(e.target as HTMLElement).closest('button, a, input, [role="checkbox"], .cursor-default')) toggleMonitoring(container.id); }} className="cursor-pointer group border-b border-border/50 hover:bg-muted/30 transition-colors bg-card">
                     <td className="p-3"><Checkbox aria-label={`Select dashboard container ${container.name}`} checked={selection.selectedIds.includes(container.id)} onCheckedChange={(checked) => selection.toggleOne(container.id, checked === true)} /></td>
                     <td className="p-3 font-mono font-medium text-foreground"><div className="max-w-[8rem] truncate md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]" title={container.name}>{(typeof container.name === "string" && container.name.length > 20) ? container.name.substring(0, 20) + "…" : container.name}</div></td>
                     <td className="p-3 font-mono text-muted-foreground"><div className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]" title={container.image}>{(typeof container.image === "string" && container.image.length > 20) ? container.image.substring(0, 20) + "…" : container.image}</div></td>
@@ -403,6 +412,8 @@ export default function Dashboard() {
                       <ContainerActionButtons compact container={container} logsActive={logsContainer?.id === container.id} terminalActive={terminalContainer?.id === container.id} onAction={(action, currentContainer) => void handleAction(action, currentContainer)} />
                     </td>
                   </tr>
+                  {expandedMonitoring[container.id] && <MonitoringRow container={container} />}
+                </Fragment>
                 );
               })}
             </tbody>
