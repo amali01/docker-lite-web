@@ -249,7 +249,7 @@ export default function Networks() {
                         <td className="p-3 font-mono text-muted-foreground">{network.gateway || "—"}</td>
                         <td className="p-3 font-mono text-muted-foreground">{network.containers}</td>
                         <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
-                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100">
+                          <div className="flex items-center justify-end gap-1">
                             <button onClick={async () => { try { await removeMutation.mutateAsync(network.id); toast.success(`Removed ${network.name}`); } catch (e) { toast.error("Error removing network"); } }} className="p-1.5 rounded hover:bg-destructive/10 text-destructive disabled:opacity-30" disabled={defaultNetworks.includes(network.name)}><Trash2 className="w-3.5 h-3.5" /></button>
                           </div>
                         </td>
@@ -272,7 +272,7 @@ export default function Networks() {
                   <td className="p-3 font-mono text-muted-foreground">{network.gateway || "—"}</td>
                   <td className="p-3 font-mono text-muted-foreground">{network.containers}</td>
                   <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
-                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center justify-end gap-1">
                       <button onClick={async () => { try { await removeMutation.mutateAsync(network.id); toast.success(`Removed ${network.name}`); } catch (e) { toast.error("Error removing network"); } }} className="p-1.5 rounded hover:bg-destructive/10 text-destructive disabled:opacity-30" disabled={defaultNetworks.includes(network.name)}><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
