@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { Boxes, ChevronDown, ChevronRight, Play, Plus, RotateCcw, Search, Square, Trash2 } from "lucide-react";
+import { Boxes, ChevronDown, ChevronRight, Play, Plus, RotateCcw, Search, Square, Trash2, Activity } from "lucide-react";
 import { toast } from "sonner";
 import { ApiState } from "@/components/ApiState";
 import { ContainerActionButtons } from "@/components/ContainerActionButtons";
@@ -75,6 +75,11 @@ function PortLinks({ ports }: { ports: string | null | undefined }) {
 
 export default function Containers() {
   const [filter, setFilter] = useState("");
+  const [expandedMonitoring, setExpandedMonitoring] = useState<Record<string, boolean>>({});
+  const toggleMonitoring = (id: string) => {
+    setExpandedMonitoring(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
   const [visibilityFilter, setVisibilityFilter] = useState<"all" | "running">("all");
   const [terminalContainer, setTerminalContainer] = useState<ContainerSummary | null>(null);
   const [logsContainer, setLogsContainer] = useState<ContainerSummary | null>(null);
@@ -355,7 +360,7 @@ export default function Containers() {
           </ToggleGroupItem>
         </ToggleGroup>
         {hasSelection && (
-          <div className="flex items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 md:ml-auto">
+          <div className="flex items-center gap-2 rounded-md border border-border bg-card px-2 h-9 py-0 md:ml-auto">
             <span className="font-mono text-[11px] text-muted-foreground whitespace-nowrap">
               {selection.selectedCount} selected
             </span>
@@ -406,6 +411,8 @@ export default function Containers() {
                 <th className="text-left p-3">Status</th>
                 <th className="text-left p-3">CPU</th>
                 <th className="text-left p-3">Mem</th>
+                <th className="text-left p-3">Mem %</th>
+                <th className="text-left p-3">NetIO</th>
                 <th className="text-left p-3">Ports</th>
                 <th className="sticky right-0 z-20 bg-card text-right p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)]">
                   Actions
@@ -444,7 +451,7 @@ export default function Containers() {
                             <div>
                               <div className="font-mono font-medium text-foreground">{entry.project}</div>
                               <div className="font-mono text-[10px] text-muted-foreground">
-                                Compose Stack • {entry.containers.length} containers
+                                {entry.containers.length} containers
                               </div>
                             </div>
                           </button>
@@ -457,8 +464,10 @@ export default function Containers() {
                         </td>
                         <td className="p-3 font-mono text-muted-foreground">—</td>
                         <td className="p-3 font-mono text-muted-foreground">—</td>
+                        <td className="p-3 font-mono text-muted-foreground">—</td>
+                        <td className="p-3 font-mono text-muted-foreground">—</td>
                         <td className="p-3 font-mono text-muted-foreground text-[11px]">—</td>
-                        <td className="sticky right-0 z-10 bg-muted/20 p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted/30">
+                        <td className="sticky right-0 z-10 bg-muted p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
                           <div className="flex items-center justify-end gap-1">
                             <button
                               type="button"
@@ -489,7 +498,8 @@ export default function Containers() {
                       </tr>
                       {expandedGroups[entry.project] &&
                         entry.containers.map((container) => (
-                          <tr key={container.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors">
+                          <Fragment key={container.id}>
+<tr key={container.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors">
                             <td className="p-3">
                               <Checkbox
                                 aria-label={`Select container ${container.name}`}
@@ -505,7 +515,7 @@ export default function Containers() {
                                     className="font-mono font-medium text-foreground max-w-[8rem] truncate md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]"
                                     title={container.name}
                                   >
-                                    {container.name}
+                                    {(() => { const n = (entry.project && container.name.startsWith(entry.project + "-")) ? container.name.replace(entry.project + "-", "") : container.name; return (typeof n === "string" && n.length > 20) ? n.substring(0, 20) + "…" : n; })()}
                                   </div>
                                   <div className="font-mono text-[10px] text-muted-foreground">{container.id}</div>
                                 </div>
@@ -516,7 +526,7 @@ export default function Containers() {
                                 className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]"
                                 title={container.image}
                               >
-                                {container.image}
+                                {(typeof container.image === "string" && container.image.length > 20) ? container.image.substring(0, 20) + "…" : container.image}
                               </div>
                             </td>
                             <td className="p-3">
@@ -525,15 +535,53 @@ export default function Containers() {
                             </td>
                             <td className="p-3 font-mono text-muted-foreground">{container.cpuPercent != null ? `${container.cpuPercent}%` : "—"}</td>
                             <td className="p-3 font-mono text-muted-foreground">{container.memUsage ?? "—"}</td>
+                    <td className="p-3 font-mono text-muted-foreground">{container.memPercent ? `${container.memPercent.toFixed(1)}%` : "—"}</td>
+                    <td className="p-3 font-mono text-muted-foreground">{container.netIO ?? "—"}</td>
                             <td className="p-3 font-mono text-muted-foreground text-[11px]"><PortLinks ports={container.ports} /></td>
-                            <td className="sticky right-0 z-10 bg-card p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted/30">
+                            <td className="sticky right-0 z-10 bg-card p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
+                              <div className="flex items-center justify-end gap-1">
+                              <button onClick={() => toggleMonitoring(container.id)} className={`p-1.5 rounded transition-colors ${expandedMonitoring[container.id] ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground"}`} title="Monitoring Options">
+                                <Activity className="w-3.5 h-3.5" />
+                              </button>
                               <ContainerActionButtons
                                 container={container}
                                 logsActive={logsContainer?.id === container.id} terminalActive={terminalContainer?.id === container.id}
                                 onAction={(action, currentContainer) => void handleAction(action, currentContainer)}
                               />
+                            </div>
                             </td>
                           </tr>
+
+                  {expandedMonitoring[container.id] && (
+                    <tr className="bg-muted/10 border-b border-border/50">
+                      <td colSpan={10} className="p-4 relative">
+                        <div className="max-w-xl bg-card border border-border rounded-md p-5 space-y-4 shadow-sm" style={{marginLeft: "3rem"}}>
+                          <h2 className="text-sm font-mono font-semibold flex items-center gap-2 text-primary">
+                            <Activity className="w-4 h-4" /> Monitoring Options
+                          </h2>
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-mono">Enable Monitoring</span>
+                              <input type="checkbox" className="toggle border border-border w-10 h-5" defaultChecked />
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-mono">Auto-Restart on failure</span>
+                              <input type="checkbox" className="toggle border border-border w-10 h-5" />
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-mono">Monitor Logs</span>
+                              <input type="checkbox" className="toggle border border-border w-10 h-5" defaultChecked />
+                            </div>
+                            <div>
+                              <label className="text-xs font-mono text-muted-foreground block mb-1">Log Patterns (comma separated)</label>
+                              <input type="text" className="w-full bg-background border border-border rounded h-9 px-3 text-sm font-mono" defaultValue="error,panic,fatal,exception" />
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+</Fragment>
                         ))}
                     </Fragment>
                   );
@@ -541,7 +589,8 @@ export default function Containers() {
 
                 const container = entry.container;
                 return (
-                  <tr key={container.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors">
+                  <Fragment key={container.id}>
+<tr key={container.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors">
                     <td className="p-3">
                       <Checkbox
                         aria-label={`Select container ${container.name}`}
@@ -554,7 +603,7 @@ export default function Containers() {
                         className="font-mono font-medium text-foreground max-w-[8rem] truncate md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]"
                         title={container.name}
                       >
-                        {container.name}
+                        {(typeof container.name === "string" && container.name.length > 20) ? container.name.substring(0, 20) + "…" : container.name}
                       </div>
                       <div className="font-mono text-[10px] text-muted-foreground">{container.id}</div>
                     </td>
@@ -563,7 +612,7 @@ export default function Containers() {
                         className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]"
                         title={container.image}
                       >
-                        {container.image}
+                        {(typeof container.image === "string" && container.image.length > 20) ? container.image.substring(0, 20) + "…" : container.image}
                       </div>
                     </td>
                     <td className="p-3">
@@ -572,15 +621,53 @@ export default function Containers() {
                     </td>
                     <td className="p-3 font-mono text-muted-foreground">{container.cpuPercent != null ? `${container.cpuPercent}%` : "—"}</td>
                     <td className="p-3 font-mono text-muted-foreground">{container.memUsage ?? "—"}</td>
+                    <td className="p-3 font-mono text-muted-foreground">{container.memPercent ? `${container.memPercent.toFixed(1)}%` : "—"}</td>
+                    <td className="p-3 font-mono text-muted-foreground">{container.netIO ?? "—"}</td>
                     <td className="p-3 font-mono text-muted-foreground text-[11px]"><PortLinks ports={container.ports} /></td>
-                    <td className="sticky right-0 z-10 bg-card p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted/30">
-                      <ContainerActionButtons
+                    <td className="sticky right-0 z-10 bg-card p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
+                      <div className="flex items-center justify-end gap-1">
+                              <button onClick={() => toggleMonitoring(container.id)} className={`p-1.5 rounded transition-colors ${expandedMonitoring[container.id] ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground"}`} title="Monitoring Options">
+                                <Activity className="w-3.5 h-3.5" />
+                              </button>
+                              <ContainerActionButtons
                         container={container}
                         logsActive={logsContainer?.id === container.id} terminalActive={terminalContainer?.id === container.id}
                         onAction={(action, currentContainer) => void handleAction(action, currentContainer)}
                       />
+                            </div>
                     </td>
                   </tr>
+
+                  {expandedMonitoring[container.id] && (
+                    <tr className="bg-muted/10 border-b border-border/50">
+                      <td colSpan={10} className="p-4 relative">
+                        <div className="max-w-xl bg-card border border-border rounded-md p-5 space-y-4 shadow-sm" style={{marginLeft: "3rem"}}>
+                          <h2 className="text-sm font-mono font-semibold flex items-center gap-2 text-primary">
+                            <Activity className="w-4 h-4" /> Monitoring Options
+                          </h2>
+                          <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-mono">Enable Monitoring</span>
+                              <input type="checkbox" className="toggle border border-border w-10 h-5" defaultChecked />
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-mono">Auto-Restart on failure</span>
+                              <input type="checkbox" className="toggle border border-border w-10 h-5" />
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-mono">Monitor Logs</span>
+                              <input type="checkbox" className="toggle border border-border w-10 h-5" defaultChecked />
+                            </div>
+                            <div>
+                              <label className="text-xs font-mono text-muted-foreground block mb-1">Log Patterns (comma separated)</label>
+                              <input type="text" className="w-full bg-background border border-border rounded h-9 px-3 text-sm font-mono" defaultValue="error,panic,fatal,exception" />
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+</Fragment>
                 );
               })}
             </tbody>

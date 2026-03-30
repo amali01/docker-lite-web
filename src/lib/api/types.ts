@@ -41,6 +41,8 @@ export interface ContainerSummary {
   created: string;
   cpuPercent: number | null;
   memUsage: string | null;
+  memPercent: number | null;
+  netIO: string | null;
   memLimit: string | null;
   netIO: string | null;
   blockIO: string | null;

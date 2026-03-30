@@ -178,7 +178,7 @@ export default function Images() {
           <Input placeholder="Filter images..." value={filter} onChange={(event) => setFilter(event.target.value)} className="pl-9 bg-card border-border font-mono text-sm h-9" />
         </div>
         {hasSelection && (
-          <div className="flex items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5 md:ml-auto">
+          <div className="flex items-center gap-2 rounded-md border border-border bg-card px-2 h-9 py-0 md:ml-auto">
             <span className="font-mono text-[11px] text-muted-foreground whitespace-nowrap">
               {selection.selectedCount} selected
             </span>
@@ -199,7 +199,7 @@ export default function Images() {
               <th className="text-left p-3">Image ID</th>
               <th className="text-left p-3">Size</th>
               <th className="text-left p-3">Created</th>
-              <th className="text-right p-3 sticky right-0 bg-card">Actions</th>
+              <th className="text-right p-3 sticky right-0 bg-card z-20 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -226,7 +226,7 @@ export default function Images() {
                       <td className="p-3 text-muted-foreground">—</td>
                       <td className="p-3 text-muted-foreground">—</td>
                       <td className="p-3 text-muted-foreground">—</td>
-                      <td className="p-3 sticky right-0 bg-muted/20">
+                      <td className="p-3 sticky right-0 bg-muted/20 z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted/30 transition-colors">
                         <div className="flex items-center justify-end gap-1">
                           <button onClick={() => void handleGroupAction("remove", entry.project, entry.images)} className="rounded p-1.5 text-destructive transition-colors hover:bg-destructive/10" title="Delete stack images">
                             <Trash2 className="h-3.5 w-3.5" />
@@ -238,13 +238,13 @@ export default function Images() {
                       <tr key={image.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors">
                         <td className="p-3"><Checkbox checked={selection.selectedIds.includes(image.id)} onCheckedChange={(checked) => selection.toggleOne(image.id, checked === true)} /></td>
                         <td className="p-3 font-mono text-foreground flex items-center gap-2 pl-8">
-                          <ImageIcon className="w-3.5 h-3.5 text-primary" /> {image.repository}
+                          <ImageIcon className="w-3.5 h-3.5 text-primary" /> <span style={{maxWidth:"20ch",display:"inline-block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={image.repository}>{image.repository}</span>
                         </td>
                         <td className="p-3"><span className="font-mono px-1.5 py-0.5 bg-muted rounded text-muted-foreground">{image.tag}</span></td>
                         <td className="p-3 font-mono text-muted-foreground">{image.id.slice(0, 19)}</td>
                         <td className="p-3 font-mono text-muted-foreground">{image.size}</td>
                         <td className="p-3 font-mono text-muted-foreground">{image.created}</td>
-                        <td className="p-3 sticky right-0 bg-card group-hover:bg-muted/30">
+                        <td className="p-3 sticky right-0 bg-card z-20 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted/30">
                           <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100">
                             <button onClick={() => { navigator.clipboard.writeText(image.id); toast.success("Copied ID"); }} className="p-1.5 rounded hover:bg-muted text-muted-foreground" title="Copy ID"><Copy className="w-3.5 h-3.5" /></button>
                             <button onClick={async () => { try { await removeMutation.mutateAsync(image.id); toast.success(`Removed ${image.repository}:${image.tag}`); } catch (e) { toast.error("Error removing image"); } }} className="p-1.5 rounded hover:bg-destructive/10 text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
@@ -260,13 +260,13 @@ export default function Images() {
                 <tr key={image.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors group">
                   <td className="p-3"><Checkbox checked={selection.selectedIds.includes(image.id)} onCheckedChange={(checked) => selection.toggleOne(image.id, checked === true)} /></td>
                   <td className="p-3 font-mono font-medium text-foreground flex items-center gap-2">
-                    <ImageIcon className="w-3.5 h-3.5 text-primary" />{image.repository}
+                    <ImageIcon className="w-3.5 h-3.5 text-primary" /> <span style={{maxWidth:"20ch",display:"inline-block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={image.repository}>{image.repository}</span>
                   </td>
                   <td className="p-3"><span className="font-mono px-1.5 py-0.5 bg-muted rounded text-muted-foreground">{image.tag}</span></td>
                   <td className="p-3 font-mono text-muted-foreground">{image.id.slice(0, 19)}</td>
                   <td className="p-3 font-mono text-muted-foreground">{image.size}</td>
                   <td className="p-3 font-mono text-muted-foreground">{image.created}</td>
-                  <td className="p-3 sticky right-0 bg-card group-hover:bg-muted/30">
+                  <td className="p-3 sticky right-0 bg-card z-20 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted/30">
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={() => { navigator.clipboard.writeText(image.id); toast.success("Copied ID"); }} className="p-1.5 rounded hover:bg-muted text-muted-foreground" title="Copy ID"><Copy className="w-3.5 h-3.5" /></button>
                       <button onClick={async () => { try { await removeMutation.mutateAsync(image.id); toast.success(`Removed ${image.repository}:${image.tag}`); } catch (e) { toast.error("Error removing image"); } }} className="p-1.5 rounded hover:bg-destructive/10 text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
