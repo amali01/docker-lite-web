@@ -47,6 +47,31 @@ function inferComposeProject(container: ContainerSummary) {
   return null;
 }
 
+
+function PortLinks({ ports }: { ports: string | null | undefined }) {
+  if (!ports || ports === "—") return <span>—</span>;
+  const parts = ports.split(", ");
+  return (
+    <div className="flex flex-col gap-0.5">
+      {parts.map((part, idx) => {
+        if (part.includes("->")) {
+          const hostPart = part.split("->")[0];
+          const portMatch = hostPart.match(/:(\d+)$/);
+          const port = portMatch ? portMatch[1] : null;
+          if (port) {
+            return (
+              <a key={idx} href={`http://localhost:${port}`} target="_blank" rel="noreferrer" className="text-primary hover:underline hover:text-primary/80">
+                {part}
+              </a>
+            );
+          }
+        }
+        return <span key={idx}>{part}</span>;
+      })}
+    </div>
+  );
+}
+
 export default function Containers() {
   const [filter, setFilter] = useState("");
   const [visibilityFilter, setVisibilityFilter] = useState<"all" | "running">("all");
@@ -491,9 +516,9 @@ export default function Containers() {
                               <StatusBadge status={container.status} />
                               <div className="font-mono text-[10px] text-muted-foreground mt-0.5">{container.state}</div>
                             </td>
-                            <td className="p-3 font-mono text-muted-foreground">{container.cpuPercent ?? "—"}</td>
+                            <td className="p-3 font-mono text-muted-foreground">{container.cpuPercent != null ? `${container.cpuPercent}%` : "—"}</td>
                             <td className="p-3 font-mono text-muted-foreground">{container.memUsage ?? "—"}</td>
-                            <td className="p-3 font-mono text-muted-foreground text-[11px]">{container.ports || "—"}</td>
+                            <td className="p-3 font-mono text-muted-foreground text-[11px]"><PortLinks ports={container.ports} /></td>
                             <td className="sticky right-0 z-10 bg-card p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted/30">
                               <ContainerActionButtons
                                 container={container}
@@ -538,9 +563,9 @@ export default function Containers() {
                       <StatusBadge status={container.status} />
                       <div className="font-mono text-[10px] text-muted-foreground mt-0.5">{container.state}</div>
                     </td>
-                    <td className="p-3 font-mono text-muted-foreground">{container.cpuPercent ?? "—"}</td>
+                    <td className="p-3 font-mono text-muted-foreground">{container.cpuPercent != null ? `${container.cpuPercent}%` : "—"}</td>
                     <td className="p-3 font-mono text-muted-foreground">{container.memUsage ?? "—"}</td>
-                    <td className="p-3 font-mono text-muted-foreground text-[11px]">{container.ports || "—"}</td>
+                    <td className="p-3 font-mono text-muted-foreground text-[11px]"><PortLinks ports={container.ports} /></td>
                     <td className="sticky right-0 z-10 bg-card p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted/30">
                       <ContainerActionButtons
                         container={container}

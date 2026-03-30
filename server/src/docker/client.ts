@@ -367,6 +367,35 @@ export function createMockBackend(selectedEngineId = "mock", socketPath = DEFAUL
   };
 }
 
+
+async function getStatsMap(runningContainers: any[], docker: any) {
+  const statsMap = new Map();
+  await Promise.all(runningContainers.map(async (c: any) => {
+    try {
+      const stats = await docker.getContainer(c.Id).stats({ stream: false });
+      
+      let cpuPercent = 0;
+      const cpuDelta = stats.cpu_stats.cpu_usage.total_usage - stats.precpu_stats.cpu_usage.total_usage;
+      const systemDelta = stats.cpu_stats.system_cpu_usage - stats.precpu_stats.system_cpu_usage;
+      if (systemDelta > 0 && cpuDelta > 0) {
+        const numCpus = stats.cpu_stats.online_cpus || stats.cpu_stats.cpu_usage.percpu_usage?.length || 1;
+        cpuPercent = (cpuDelta / systemDelta) * numCpus * 100.0;
+      }
+      
+      const usage = stats.memory_stats.usage || 0;
+      const cache = stats.memory_stats.stats?.cache || stats.memory_stats.stats?.inactive_file || 0;
+      const realUsage = Math.max(0, usage - cache);
+      const limit = stats.memory_stats.limit || 0;
+      let memUsage: string | null = limit ? `${formatBytes(realUsage)} / ${formatBytes(limit)}` : formatBytes(realUsage);
+      
+      statsMap.set(c.Id, { cpuPercent, memUsage });
+    } catch (e) {
+      // ignore errors for dead containers
+    }
+  }));
+  return statsMap;
+}
+
 function mapContainerSummary(details: {
   id: string;
   name: string;
@@ -532,8 +561,12 @@ async function createDockerBackend(socketPath: string, selectedEngineId?: string
     async listContainers() {
       try {
         const containers = await docker.listContainers({ all: true });
-        return containers.map((container) =>
-          mapContainerSummary({
+        const runningContainers = containers.filter(c => c.State === "running");
+        const statsMap = await getStatsMap(runningContainers, docker);
+        
+        return containers.map((container) => {
+          const stats = statsMap.get(container.Id) || {};
+          const summary = mapContainerSummary({
             id: container.Id.slice(0, 12),
             name: container.Names?.[0] ?? container.Id.slice(0, 12),
             image: container.Image,
@@ -543,8 +576,11 @@ async function createDockerBackend(socketPath: string, selectedEngineId?: string
             status: container.Status,
             ports: container.Ports,
             createdAt: formatUnixDate(container.Created),
-          }),
-        );
+          });
+          if (stats.cpuPercent !== undefined) summary.cpuPercent = formatPercentage(stats.cpuPercent);
+          if (stats.memUsage !== undefined) summary.memUsage = stats.memUsage;
+          return summary;
+        });
       } catch (error) {
         throw createBackendError(error);
       }
