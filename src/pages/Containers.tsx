@@ -94,7 +94,7 @@ const MonitoringRow = ({ container, isGroupItem = false }: { container: Containe
 
   return (
     <tr className="bg-muted/10 border-b border-border/50 shadow-inner">
-      <td colSpan={10} className="py-2.5 px-4">
+      <td colSpan={9} className="py-2.5 px-4">
         <div className={`flex flex-row items-center gap-5 text-sm ${isGroupItem ? "ml-[4.5rem]" : "ml-[3rem]"}`}>
           <div className="flex items-center gap-1.5 text-primary select-none">
             <Activity className="w-4 h-4" />
@@ -473,8 +473,7 @@ export default function Containers() {
                 <th className="text-left p-3">Image</th>
                 <th className="text-left p-3">Status</th>
                 <th className="text-left p-3">CPU</th>
-                <th className="text-left p-3">Mem</th>
-                <th className="text-left p-3">Mem %</th>
+                <th className="text-center p-3">Memory</th>
                 <th className="text-left p-3">NetIO</th>
                 <th className="text-left p-3">Ports</th>
                 <th className="sticky right-0 z-20 bg-card text-right p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)]">
@@ -597,8 +596,30 @@ export default function Containers() {
                               <div className="font-mono text-[10px] text-muted-foreground mt-0.5">{container.state}</div>
                             </td>
                             <td className="p-3 font-mono text-muted-foreground">{container.cpuPercent != null ? `${container.cpuPercent}%` : "—"}</td>
-                            <td className="p-3 font-mono text-muted-foreground">{container.memUsage ?? "—"}</td>
-                    <td className="p-3 font-mono text-muted-foreground">{container.memPercent ? `${container.memPercent.toFixed(1)}%` : "—"}</td>
+                            <td className="p-3 text-center align-middle">
+          <div className="flex flex-col items-center justify-center" title={container.memUsage || "N/A"}>
+            <div className="relative w-10 h-5 flex items-end justify-center mb-1">
+              <svg viewBox="0 0 100 50" className="absolute top-0 left-0 w-full h-full overflow-visible">
+                <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" className="stroke-muted/30" strokeWidth="12" strokeLinecap="round" />
+                <path 
+                  d="M 10 50 A 40 40 0 0 1 90 50" 
+                  fill="none" 
+                  className={`transition-all duration-500 ease-in-out ${(container.memPercent || 0) > 80 ? 'stroke-destructive' : 'stroke-primary'}`} 
+                  strokeWidth="12" 
+                  strokeLinecap="round" 
+                  strokeDasharray="125.6" 
+                  strokeDashoffset={125.6 - ((container.memPercent || 0) / 100) * 125.6} 
+                />
+              </svg>
+              <span className="text-[10px] font-mono leading-none z-10 font-bold translate-y-[2px]">
+                {container.memPercent ? container.memPercent.toFixed(0) : "0"}%
+              </span>
+            </div>
+            <span className="text-[10px] text-muted-foreground font-mono leading-none">
+              {container.memUsage ? container.memUsage.replace(/\s*\/.*/, "").trim() : "—"}
+            </span>
+          </div>
+        </td>
                     <td className="p-3 font-mono text-muted-foreground">{container.netIO ?? "—"}</td>
                             <td className="p-3 font-mono text-muted-foreground text-[11px]"><PortLinks ports={container.ports} /></td>
                             <td className="sticky right-0 z-10 bg-card p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
@@ -655,8 +676,30 @@ export default function Containers() {
                       <div className="font-mono text-[10px] text-muted-foreground mt-0.5">{container.state}</div>
                     </td>
                     <td className="p-3 font-mono text-muted-foreground">{container.cpuPercent != null ? `${container.cpuPercent}%` : "—"}</td>
-                    <td className="p-3 font-mono text-muted-foreground">{container.memUsage ?? "—"}</td>
-                    <td className="p-3 font-mono text-muted-foreground">{container.memPercent ? `${container.memPercent.toFixed(1)}%` : "—"}</td>
+                    <td className="p-3 text-center align-middle">
+          <div className="flex flex-col items-center justify-center" title={container.memUsage || "N/A"}>
+            <div className="relative w-10 h-5 flex items-end justify-center mb-1">
+              <svg viewBox="0 0 100 50" className="absolute top-0 left-0 w-full h-full overflow-visible">
+                <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" className="stroke-muted/30" strokeWidth="12" strokeLinecap="round" />
+                <path 
+                  d="M 10 50 A 40 40 0 0 1 90 50" 
+                  fill="none" 
+                  className={`transition-all duration-500 ease-in-out ${(container.memPercent || 0) > 80 ? 'stroke-destructive' : 'stroke-primary'}`} 
+                  strokeWidth="12" 
+                  strokeLinecap="round" 
+                  strokeDasharray="125.6" 
+                  strokeDashoffset={125.6 - ((container.memPercent || 0) / 100) * 125.6} 
+                />
+              </svg>
+              <span className="text-[10px] font-mono leading-none z-10 font-bold translate-y-[2px]">
+                {container.memPercent ? container.memPercent.toFixed(0) : "0"}%
+              </span>
+            </div>
+            <span className="text-[10px] text-muted-foreground font-mono leading-none">
+              {container.memUsage ? container.memUsage.replace(/\s*\/.*/, "").trim() : "—"}
+            </span>
+          </div>
+        </td>
                     <td className="p-3 font-mono text-muted-foreground">{container.netIO ?? "—"}</td>
                     <td className="p-3 font-mono text-muted-foreground text-[11px]"><PortLinks ports={container.ports} /></td>
                     <td className="sticky right-0 z-10 bg-card p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
