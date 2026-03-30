@@ -241,12 +241,12 @@ export default function Images() {
                         <td className="p-3 font-mono text-foreground flex items-center gap-2 pl-8">
                           <ImageIcon className="w-3.5 h-3.5 text-primary" /> <span style={{maxWidth:"20ch",display:"inline-block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={image.repository}>{image.repository}</span>
                         </td>
-                        <td className="p-3"><span className="font-mono px-1.5 py-0.5 bg-muted rounded text-muted-foreground">{image.tag}</span></td>
+                        <td className="p-3"><span className="font-mono px-1.5 py-0.5 bg-muted rounded text-muted-foreground">{(typeof image.tag === "string" && image.tag.length > 20) ? image.tag.substring(0, 20) + "…" : image.tag}</span></td>
                         <td className="p-3 font-mono text-muted-foreground">{image.id.slice(0, 19)}</td>
                         <td className="p-3 font-mono text-muted-foreground">{image.size}</td>
                         <td className="p-3 font-mono text-muted-foreground">{image.created}</td>
                         <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
-                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100">
+                          <div className="flex items-center justify-end gap-1">
                             <button onClick={() => { navigator.clipboard.writeText(image.id); toast.success("Copied ID"); }} className="p-1.5 rounded hover:bg-muted text-muted-foreground" title="Copy ID"><Copy className="w-3.5 h-3.5" /></button>
                             <button onClick={async () => { try { await removeMutation.mutateAsync(image.id); toast.success(`Removed ${image.repository}:${image.tag}`); } catch (e) { toast.error("Error removing image"); } }} className="p-1.5 rounded hover:bg-destructive/10 text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
                           </div>
@@ -263,12 +263,12 @@ export default function Images() {
                   <td className="p-3 font-mono font-medium text-foreground flex items-center gap-2">
                     <ImageIcon className="w-3.5 h-3.5 text-primary" /> <span style={{maxWidth:"20ch",display:"inline-block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={image.repository}>{image.repository}</span>
                   </td>
-                  <td className="p-3"><span className="font-mono px-1.5 py-0.5 bg-muted rounded text-muted-foreground">{image.tag}</span></td>
+                  <td className="p-3"><span className="font-mono px-1.5 py-0.5 bg-muted rounded text-muted-foreground">{(typeof image.tag === "string" && image.tag.length > 20) ? image.tag.substring(0, 20) + "…" : image.tag}</span></td>
                   <td className="p-3 font-mono text-muted-foreground">{image.id.slice(0, 19)}</td>
                   <td className="p-3 font-mono text-muted-foreground">{image.size}</td>
                   <td className="p-3 font-mono text-muted-foreground">{image.created}</td>
                   <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
-                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center justify-end gap-1">
                       <button onClick={() => { navigator.clipboard.writeText(image.id); toast.success("Copied ID"); }} className="p-1.5 rounded hover:bg-muted text-muted-foreground" title="Copy ID"><Copy className="w-3.5 h-3.5" /></button>
                       <button onClick={async () => { try { await removeMutation.mutateAsync(image.id); toast.success(`Removed ${image.repository}:${image.tag}`); } catch (e) { toast.error("Error removing image"); } }} className="p-1.5 rounded hover:bg-destructive/10 text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>

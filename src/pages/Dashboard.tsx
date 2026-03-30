@@ -287,12 +287,15 @@ export default function Dashboard() {
                         <td className="p-3">
                           <Checkbox checked={groupState.allSelected ? true : groupState.partiallySelected ? "indeterminate" : false} onCheckedChange={(checked) => { entry.containers.forEach((c) => selection.toggleOne(c.id, checked === true)); }} />
                         </td>
-                        <td className="p-3">
-                          <button type="button" onClick={() => toggleGroup(entry.project)} className="flex items-center gap-2 text-left">
+                        <td className="p-3 relative">
+                          {expandedGroups[entry.project] && (
+                            <div className="absolute left-[20px] top-[31px] bottom-0 w-px bg-border/70 z-0" />
+                          )}
+                          <button type="button" onClick={() => toggleGroup(entry.project)} className="flex items-center gap-2 text-left relative z-10">
                             {expandedGroups[entry.project] ? <ChevronDown className="h-4 w-4 text-primary" /> : <ChevronRight className="h-4 w-4 text-primary" />}
                             <Boxes className="h-4 w-4 text-primary" />
                             <div>
-                              <div className="font-mono font-medium text-foreground">{entry.project}</div>
+                              <div className="font-mono font-medium text-foreground" title={entry.project}>{(typeof entry.project === "string" && entry.project.length > 20) ? entry.project.substring(0, 20) + "…" : entry.project}</div>
                               <div className="font-mono text-[10px] text-muted-foreground">Compose Stack • {entry.containers.length} containers</div>
                             </div>
                           </button>
@@ -310,13 +313,21 @@ export default function Dashboard() {
                           </div>
                         </td>
                       </tr>
-                      {expandedGroups[entry.project] && entry.containers.map((container) => (
+                      {expandedGroups[entry.project] && entry.containers.map((container, index, arr) => (
                         <tr key={container.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors">
                           <td className="p-3"><Checkbox aria-label={`Select dashboard container ${container.name}`} checked={selection.selectedIds.includes(container.id)} onCheckedChange={(checked) => selection.toggleOne(container.id, checked === true)} /></td>
-                          <td className="p-3 pl-8">
-                            <div className="font-mono font-medium text-foreground max-w-[8rem] truncate md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]" title={container.name}>{container.name}</div>
+                          <td className="p-3 relative">
+                            <div className="absolute left-[20px] top-0 bottom-1/2 w-px bg-border/70 z-0" />
+                            {index !== arr.length - 1 && (
+                              <div className="absolute left-[20px] top-1/2 bottom-0 w-px bg-border/70 z-0" />
+                            )}
+                            <div className="absolute left-[20px] top-1/2 w-4 h-px bg-border/70 z-0" />
+                            <div className="flex items-center gap-2 pl-6 relative z-10">
+                              <div className="h-2 w-2 rounded-full border border-primary/60 bg-background shrink-0" />
+                              <div className="font-mono font-medium text-foreground max-w-[8rem] truncate md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]" title={container.name}>{(() => { const n = (entry.project && container.name.startsWith(entry.project + "-")) ? container.name.replace(entry.project + "-", "") : container.name; return (typeof n === "string" && n.length > 20) ? n.substring(0, 20) + "…" : n; })()}</div>
+                            </div>
                           </td>
-                          <td className="p-3 font-mono text-muted-foreground"><div className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]" title={container.image}>{container.image}</div></td>
+                          <td className="p-3 font-mono text-muted-foreground"><div className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]" title={container.image}>{(typeof container.image === "string" && container.image.length > 20) ? container.image.substring(0, 20) + "…" : container.image}</div></td>
                           <td className="p-3"><StatusBadge status={container.status} /></td>
                           <td className="p-3 font-mono text-muted-foreground">{formatMetric(container.cpuPercent)}</td>
                           <td className="p-3 text-center align-middle">
@@ -356,8 +367,8 @@ export default function Dashboard() {
                 return (
                   <tr key={container.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors bg-card">
                     <td className="p-3"><Checkbox aria-label={`Select dashboard container ${container.name}`} checked={selection.selectedIds.includes(container.id)} onCheckedChange={(checked) => selection.toggleOne(container.id, checked === true)} /></td>
-                    <td className="p-3 font-mono font-medium text-foreground"><div className="max-w-[8rem] truncate md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]" title={container.name}>{container.name}</div></td>
-                    <td className="p-3 font-mono text-muted-foreground"><div className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]" title={container.image}>{container.image}</div></td>
+                    <td className="p-3 font-mono font-medium text-foreground"><div className="max-w-[8rem] truncate md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]" title={container.name}>{(typeof container.name === "string" && container.name.length > 20) ? container.name.substring(0, 20) + "…" : container.name}</div></td>
+                    <td className="p-3 font-mono text-muted-foreground"><div className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]" title={container.image}>{(typeof container.image === "string" && container.image.length > 20) ? container.image.substring(0, 20) + "…" : container.image}</div></td>
                     <td className="p-3"><StatusBadge status={container.status} /></td>
                     <td className="p-3 font-mono text-muted-foreground">{formatMetric(container.cpuPercent)}</td>
                     <td className="p-3 text-center align-middle">

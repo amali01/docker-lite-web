@@ -474,7 +474,7 @@ export default function Containers() {
                 <th className="text-left p-3">Status</th>
                 <th className="text-left p-3">CPU</th>
                 <th className="text-center p-3">Memory</th>
-                <th className="text-left p-3">NetIO</th>
+                <th className="text-left p-3">Network I/O</th>
                 <th className="text-left p-3">Ports</th>
                 <th className="sticky right-0 z-20 bg-card text-right p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)]">
                   Actions
@@ -501,11 +501,14 @@ export default function Containers() {
                             }}
                           />
                         </td>
-                        <td className="p-3">
+                        <td className="p-3 relative">
+                          {expandedGroups[entry.project] && (
+                            <div className="absolute left-[20px] top-[31px] bottom-0 w-px bg-border/70 z-0" />
+                          )}
                           <button
                             type="button"
                             onClick={() => toggleGroup(entry.project)}
-                            className="flex items-center gap-2 text-left"
+                            className="flex items-center gap-2 text-left relative z-10"
                             aria-label={`${expandedGroups[entry.project] ? "Collapse" : "Expand"} compose stack ${entry.project}`}
                           >
                             {expandedGroups[entry.project] ? <ChevronDown className="h-4 w-4 text-primary" /> : <ChevronRight className="h-4 w-4 text-primary" />}
@@ -559,7 +562,7 @@ export default function Containers() {
                         </td>
                       </tr>
                       {expandedGroups[entry.project] &&
-                        entry.containers.map((container) => (
+                        entry.containers.map((container, index, arr) => (
                           <Fragment key={container.id}>
 <tr key={container.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors">
                             <td className="p-3">
@@ -569,9 +572,14 @@ export default function Containers() {
                                 onCheckedChange={(checked) => selection.toggleOne(container.id, checked === true)}
                               />
                             </td>
-                            <td className="p-3">
-                              <div className="flex items-start gap-2 pl-6">
-                                <div className="mt-1 h-2 w-2 rounded-full border border-primary/60" />
+                            <td className="p-3 relative">
+                              <div className="absolute left-[20px] top-0 h-[20px] w-px bg-border/70 z-0" />
+                              {index !== arr.length - 1 && (
+                                <div className="absolute left-[20px] top-[20px] bottom-0 w-px bg-border/70 z-0" />
+                              )}
+                              <div className="absolute left-[20px] top-[20px] w-4 h-px bg-border/70 z-0" />
+                              <div className="flex items-start gap-2 pl-6 relative z-10">
+                                <div className="mt-1 h-2 w-2 rounded-full border border-primary/60 bg-background shrink-0" />
                                 <div>
                                   <div
                                     className="font-mono font-medium text-foreground max-w-[8rem] truncate md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]"
@@ -620,7 +628,16 @@ export default function Containers() {
             </span>
           </div>
         </td>
-                    <td className="p-3 font-mono text-muted-foreground">{container.netIO ?? "—"}</td>
+                    <td className="p-3">
+  {container.netIO && container.netIO.includes("/") ? (
+    <div className="flex flex-col text-[10px] font-mono leading-tight">
+      <span className="text-emerald-500" title="Upload">↑ {container.netIO.split("/")[1].trim()}</span>
+      <span className="text-blue-500" title="Download">↓ {container.netIO.split("/")[0].trim()}</span>
+    </div>
+  ) : (
+    <div className="font-mono text-muted-foreground text-sm">{container.netIO ?? "—"}</div>
+  )}
+</td>
                             <td className="p-3 font-mono text-muted-foreground text-[11px]"><PortLinks ports={container.ports} /></td>
                             <td className="sticky right-0 z-10 bg-card p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
                               <div className="flex items-center justify-end gap-1">
@@ -700,7 +717,16 @@ export default function Containers() {
             </span>
           </div>
         </td>
-                    <td className="p-3 font-mono text-muted-foreground">{container.netIO ?? "—"}</td>
+                    <td className="p-3">
+  {container.netIO && container.netIO.includes("/") ? (
+    <div className="flex flex-col text-[10px] font-mono leading-tight">
+      <span className="text-emerald-500" title="Upload">↑ {container.netIO.split("/")[1].trim()}</span>
+      <span className="text-blue-500" title="Download">↓ {container.netIO.split("/")[0].trim()}</span>
+    </div>
+  ) : (
+    <div className="font-mono text-muted-foreground text-sm">{container.netIO ?? "—"}</div>
+  )}
+</td>
                     <td className="p-3 font-mono text-muted-foreground text-[11px]"><PortLinks ports={container.ports} /></td>
                     <td className="sticky right-0 z-10 bg-card p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
                       <div className="flex items-center justify-end gap-1">
