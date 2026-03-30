@@ -180,7 +180,8 @@ export default function Volumes() {
         )}
       </div>
 
-      <div className="bg-card border border-border rounded-md overflow-hidden overflow-x-auto">
+      <div className="bg-card border border-border rounded-md overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="min-w-full text-xs">
           <thead>
             <tr className="border-b border-border text-muted-foreground font-mono uppercase tracking-wider">
@@ -219,7 +220,7 @@ export default function Volumes() {
                       <td className="p-3 text-muted-foreground">—</td>
                       <td className="p-3 text-muted-foreground">—</td>
                       <td className="p-3 text-muted-foreground">—</td>
-                      <td className="p-3 sticky right-0 bg-muted/20 z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted/30 transition-colors">
+                      <td className="p-3 sticky right-0 bg-muted z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted transition-colors">
                         <div className="flex items-center justify-end gap-1">
                           <button onClick={() => void handleGroupAction("remove", entry.project, entry.volumes)} className="rounded p-1.5 text-destructive transition-colors hover:bg-destructive/10" title="Delete unused stack volumes">
                             <Trash2 className="h-3.5 w-3.5" />
@@ -235,7 +236,7 @@ export default function Volumes() {
                         <td className="p-3 font-mono text-muted-foreground text-[11px] max-w-[200px] truncate" title={volume.mountpoint}>{volume.mountpoint}</td>
                         <td className="p-3 font-mono text-muted-foreground">{volume.size}</td>
                         <td className="p-3"><span className={`font-mono text-[11px] px-1.5 py-0.5 rounded ${volume.inUse ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>{volume.inUse ? "Yes" : "No"}</span></td>
-                        <td className="p-3 sticky right-0 bg-card z-20 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted/30">
+                        <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
                           <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100">
                             <button onClick={async () => { try { await removeMutation.mutateAsync(volume.name); toast.success(`Removed ${volume.name}`); } catch (e) { toast.error("Error removing volume"); } }} className="p-1.5 rounded hover:bg-destructive/10 text-destructive disabled:opacity-30" disabled={volume.inUse}><Trash2 className="w-3.5 h-3.5" /></button>
                           </div>
@@ -254,7 +255,7 @@ export default function Volumes() {
                   <td className="p-3 font-mono text-muted-foreground text-[11px] max-w-[200px] truncate">{volume.mountpoint}</td>
                   <td className="p-3 font-mono text-muted-foreground">{volume.size}</td>
                   <td className="p-3"><span className={`font-mono text-[11px] px-1.5 py-0.5 rounded ${volume.inUse ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>{volume.inUse ? "Yes" : "No"}</span></td>
-                  <td className="p-3 sticky right-0 bg-card z-20 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted/30">
+                  <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
                     <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={async () => { try { await removeMutation.mutateAsync(volume.name); toast.success(`Removed ${volume.name}`); } catch (e) { toast.error("Error removing volume"); } }} className="p-1.5 rounded hover:bg-destructive/10 text-destructive disabled:opacity-30" disabled={volume.inUse}><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
@@ -264,6 +265,7 @@ export default function Volumes() {
             })}
           </tbody>
         </table>
+        </div>
       </div>
 
       <PromptDialog open={createDialogOpen} title="Create Volume" label="Volume name" placeholder="e.g. postgres-data" confirmLabel="Create Volume" pending={createMutation.isPending} onOpenChange={setCreateDialogOpen} onSubmit={async (value) => { try { const volume = await createMutation.mutateAsync({ name: value }); toast.success(`Created ${volume.name}`); } catch (e) { toast.error("Unable to create volume"); throw e; } }} />
