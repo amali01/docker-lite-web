@@ -4,6 +4,7 @@ import {
   removeComposeProject,
   removeContainer,
   restartContainer,
+  rebuildContainer,
   runContainer,
   startComposeProject,
   startContainer,
@@ -64,3 +65,5 @@ export const useRemoveContainer = createContainerMutation(removeContainer);
 export const useStartComposeProject = createComposeProjectMutation(startComposeProject);
 export const useStopComposeProject = createComposeProjectMutation(stopComposeProject);
 export const useRemoveComposeProject = createComposeProjectMutation(removeComposeProject);
+
+export const useRebuildContainer = createContainerMutation(rebuildContainer);

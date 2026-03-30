@@ -16,6 +16,7 @@ import {
   useRemoveComposeProject,
   useRemoveContainer,
   useRestartContainer,
+  useRebuildContainer,
   useRunContainer,
   useStartComposeProject,
   useStartContainer,
@@ -152,6 +153,7 @@ export default function Containers() {
   const startMutation = useStartContainer();
   const stopMutation = useStopContainer();
   const restartMutation = useRestartContainer();
+  const rebuildMutation = useRebuildContainer();
   const removeMutation = useRemoveContainer();
   const startComposeProjectMutation = useStartComposeProject();
   const stopComposeProjectMutation = useStopComposeProject();
@@ -244,7 +246,7 @@ export default function Containers() {
     );
   }
 
-  const handleAction = async (action: "start" | "stop" | "restart" | "remove" | "logs" | "terminal", container: ContainerSummary) => {
+  const handleAction = async (action: "start" | "stop" | "restart" | "remove" | "logs" | "terminal" | "rebuild", container: ContainerSummary) => {
     try {
       if (action === "start") {
         await startMutation.mutateAsync(container.id);
@@ -261,6 +263,12 @@ export default function Containers() {
       if (action === "restart") {
         await restartMutation.mutateAsync(container.id);
         toast.success(`Restarted ${container.name}`);
+        return;
+      }
+      if (action === "rebuild") {
+        toast.info(`Rebuilding ${container.name}...`);
+        await rebuildMutation.mutateAsync(container.id);
+        toast.success(`Rebuilt ${container.name}`);
         return;
       }
 
