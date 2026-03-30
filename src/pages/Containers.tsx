@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Play, Plus, RotateCcw, Search, Square, Trash2 } from "lucide-react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { Boxes, ChevronDown, ChevronRight, Play, Plus, RotateCcw, Search, Square, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ApiState } from "@/components/ApiState";
 import { ContainerActionButtons } from "@/components/ContainerActionButtons";
@@ -20,6 +20,29 @@ import {
 } from "@/hooks/use-containers";
 import { useTableSelection } from "@/hooks/use-table-selection";
 import { ContainerSummary, RunContainerPayload } from "@/lib/api/types";
+
+type ContainerRowEntry =
+  | { type: "group"; project: string; containers: ContainerSummary[] }
+  | { type: "container"; container: ContainerSummary };
+
+function inferComposeProject(container: ContainerSummary) {
+  if (container.composeProject) {
+    return container.composeProject;
+  }
+
+  const normalizedName = container.name.replace(/_/g, "-");
+  const parts = normalizedName.split("-").filter(Boolean);
+
+  if (parts.length >= 3 && /^\d+$/.test(parts.at(-1) ?? "")) {
+    return parts.slice(0, -2).join("-");
+  }
+
+  if (parts.length >= 2) {
+    return parts.slice(0, -1).join("-");
+  }
+
+  return null;
+}
 
 export default function Containers() {
   const [filter, setFilter] = useState("");
@@ -45,6 +68,61 @@ export default function Containers() {
   const selection = useTableSelection(filtered.map((container) => container.id));
   const selectedContainers = containers.filter((container) => selection.selectedIds.includes(container.id));
   const hasSelection = selection.selectedCount > 0;
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const rowEntries = useMemo(() => {
+    const composeGroups = new Map<string, ContainerSummary[]>();
+
+    for (const container of filtered) {
+      const project = inferComposeProject(container);
+
+      if (project) {
+        composeGroups.set(project, [...(composeGroups.get(project) ?? []), container]);
+      }
+    }
+
+    const seenGroups = new Set<string>();
+    const entries: ContainerRowEntry[] = [];
+
+    for (const container of filtered) {
+      const project = inferComposeProject(container);
+
+      if (project && (composeGroups.get(project)?.length ?? 0) > 1) {
+        if (!seenGroups.has(project)) {
+          entries.push({ type: "group", project, containers: composeGroups.get(project)! });
+          seenGroups.add(project);
+        }
+        continue;
+      }
+
+      entries.push({ type: "container", container });
+    }
+
+    return entries;
+  }, [filtered]);
+  const visibleGroupIds = useMemo(
+    () => rowEntries.filter((entry): entry is Extract<ContainerRowEntry, { type: "group" }> => entry.type === "group").map((entry) => entry.project),
+    [rowEntries],
+  );
+
+  useEffect(() => {
+    setExpandedGroups((current) => {
+      const next: Record<string, boolean> = {};
+      let changed = false;
+
+      for (const groupId of visibleGroupIds) {
+        next[groupId] = current[groupId] ?? true;
+        if (next[groupId] !== current[groupId]) {
+          changed = true;
+        }
+      }
+
+      if (Object.keys(current).length !== Object.keys(next).length) {
+        changed = true;
+      }
+
+      return changed ? next : current;
+    });
+  }, [visibleGroupIds]);
 
   if (containersQuery.isLoading) {
     return (
@@ -154,6 +232,18 @@ export default function Containers() {
       const message = error instanceof Error ? error.message : "Bulk Docker action failed";
       toast.error(message);
     }
+  };
+
+  const toggleGroup = (project: string) => {
+    setExpandedGroups((current) => ({ ...current, [project]: !current[project] }));
+  };
+
+  const groupSelectionState = (containersInGroup: ContainerSummary[]) => {
+    const selected = containersInGroup.filter((container) => selection.selectedIds.includes(container.id)).length;
+    return {
+      allSelected: selected === containersInGroup.length && containersInGroup.length > 0,
+      partiallySelected: selected > 0 && selected < containersInGroup.length,
+    };
   };
 
   return (
@@ -272,48 +362,149 @@ export default function Containers() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((container) => (
-                <tr key={container.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors">
-                  <td className="p-3">
-                    <Checkbox
-                      aria-label={`Select container ${container.name}`}
-                      checked={selection.selectedIds.includes(container.id)}
-                      onCheckedChange={(checked) => selection.toggleOne(container.id, checked === true)}
-                    />
-                  </td>
-                  <td className="p-3">
-                    <div
-                      className="font-mono font-medium text-foreground max-w-[8rem] truncate md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]"
-                      title={container.name}
-                    >
-                      {container.name}
-                    </div>
-                    <div className="font-mono text-[10px] text-muted-foreground">{container.id}</div>
-                  </td>
-                  <td className="p-3 font-mono text-muted-foreground">
-                    <div
-                      className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]"
-                      title={container.image}
-                    >
-                      {container.image}
-                    </div>
-                  </td>
-                  <td className="p-3">
-                    <StatusBadge status={container.status} />
-                    <div className="font-mono text-[10px] text-muted-foreground mt-0.5">{container.state}</div>
-                  </td>
-                  <td className="p-3 font-mono text-muted-foreground">{container.cpuPercent ?? "—"}</td>
-                  <td className="p-3 font-mono text-muted-foreground">{container.memUsage ?? "—"}</td>
-                  <td className="p-3 font-mono text-muted-foreground text-[11px]">{container.ports || "—"}</td>
-                  <td className="sticky right-0 z-10 bg-card p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted/30">
-                    <ContainerActionButtons
-                      container={container}
-                      logsActive={logsContainer?.id === container.id}
-                      onAction={(action, currentContainer) => void handleAction(action, currentContainer)}
-                    />
-                  </td>
-                </tr>
-              ))}
+              {rowEntries.map((entry) => {
+                if (entry.type === "group") {
+                  const runningCount = entry.containers.filter((container) => container.status === "running").length;
+                  const groupState = groupSelectionState(entry.containers);
+
+                  return (
+                    <Fragment key={`group-${entry.project}`}>
+                      <tr key={`group-${entry.project}`} className="group border-b border-border/50 bg-muted/20 hover:bg-muted/30 transition-colors">
+                        <td className="p-3">
+                          <Checkbox
+                            aria-label={`Select compose stack ${entry.project}`}
+                            checked={groupState.allSelected ? true : groupState.partiallySelected ? "indeterminate" : false}
+                            onCheckedChange={(checked) => {
+                              for (const container of entry.containers) {
+                                selection.toggleOne(container.id, checked === true);
+                              }
+                            }}
+                          />
+                        </td>
+                        <td className="p-3">
+                          <button
+                            type="button"
+                            onClick={() => toggleGroup(entry.project)}
+                            className="flex items-center gap-2 text-left"
+                            aria-label={`${expandedGroups[entry.project] ? "Collapse" : "Expand"} compose stack ${entry.project}`}
+                          >
+                            {expandedGroups[entry.project] ? <ChevronDown className="h-4 w-4 text-primary" /> : <ChevronRight className="h-4 w-4 text-primary" />}
+                            <Boxes className="h-4 w-4 text-primary" />
+                            <div>
+                              <div className="font-mono font-medium text-foreground">{entry.project}</div>
+                              <div className="font-mono text-[10px] text-muted-foreground">
+                                Compose Stack • {entry.containers.length} containers
+                              </div>
+                            </div>
+                          </button>
+                        </td>
+                        <td className="p-3 font-mono text-muted-foreground">Compose Stack</td>
+                        <td className="p-3">
+                          <span className="font-mono text-[11px] text-muted-foreground">
+                            {runningCount}/{entry.containers.length} running
+                          </span>
+                        </td>
+                        <td className="p-3 font-mono text-muted-foreground">—</td>
+                        <td className="p-3 font-mono text-muted-foreground">—</td>
+                        <td className="p-3 font-mono text-muted-foreground text-[11px]">—</td>
+                        <td className="sticky right-0 z-10 bg-muted/20 p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted/30" />
+                      </tr>
+                      {expandedGroups[entry.project] &&
+                        entry.containers.map((container) => (
+                          <tr key={container.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors">
+                            <td className="p-3">
+                              <Checkbox
+                                aria-label={`Select container ${container.name}`}
+                                checked={selection.selectedIds.includes(container.id)}
+                                onCheckedChange={(checked) => selection.toggleOne(container.id, checked === true)}
+                              />
+                            </td>
+                            <td className="p-3">
+                              <div className="flex items-start gap-2 pl-6">
+                                <div className="mt-1 h-2 w-2 rounded-full border border-primary/60" />
+                                <div>
+                                  <div
+                                    className="font-mono font-medium text-foreground max-w-[8rem] truncate md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]"
+                                    title={container.name}
+                                  >
+                                    {container.name}
+                                  </div>
+                                  <div className="font-mono text-[10px] text-muted-foreground">{container.id}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-3 font-mono text-muted-foreground">
+                              <div
+                                className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]"
+                                title={container.image}
+                              >
+                                {container.image}
+                              </div>
+                            </td>
+                            <td className="p-3">
+                              <StatusBadge status={container.status} />
+                              <div className="font-mono text-[10px] text-muted-foreground mt-0.5">{container.state}</div>
+                            </td>
+                            <td className="p-3 font-mono text-muted-foreground">{container.cpuPercent ?? "—"}</td>
+                            <td className="p-3 font-mono text-muted-foreground">{container.memUsage ?? "—"}</td>
+                            <td className="p-3 font-mono text-muted-foreground text-[11px]">{container.ports || "—"}</td>
+                            <td className="sticky right-0 z-10 bg-card p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted/30">
+                              <ContainerActionButtons
+                                container={container}
+                                logsActive={logsContainer?.id === container.id}
+                                onAction={(action, currentContainer) => void handleAction(action, currentContainer)}
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                    </Fragment>
+                  );
+                }
+
+                const container = entry.container;
+                return (
+                  <tr key={container.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors">
+                    <td className="p-3">
+                      <Checkbox
+                        aria-label={`Select container ${container.name}`}
+                        checked={selection.selectedIds.includes(container.id)}
+                        onCheckedChange={(checked) => selection.toggleOne(container.id, checked === true)}
+                      />
+                    </td>
+                    <td className="p-3">
+                      <div
+                        className="font-mono font-medium text-foreground max-w-[8rem] truncate md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]"
+                        title={container.name}
+                      >
+                        {container.name}
+                      </div>
+                      <div className="font-mono text-[10px] text-muted-foreground">{container.id}</div>
+                    </td>
+                    <td className="p-3 font-mono text-muted-foreground">
+                      <div
+                        className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]"
+                        title={container.image}
+                      >
+                        {container.image}
+                      </div>
+                    </td>
+                    <td className="p-3">
+                      <StatusBadge status={container.status} />
+                      <div className="font-mono text-[10px] text-muted-foreground mt-0.5">{container.state}</div>
+                    </td>
+                    <td className="p-3 font-mono text-muted-foreground">{container.cpuPercent ?? "—"}</td>
+                    <td className="p-3 font-mono text-muted-foreground">{container.memUsage ?? "—"}</td>
+                    <td className="p-3 font-mono text-muted-foreground text-[11px]">{container.ports || "—"}</td>
+                    <td className="sticky right-0 z-10 bg-card p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted/30">
+                      <ContainerActionButtons
+                        container={container}
+                        logsActive={logsContainer?.id === container.id}
+                        onAction={(action, currentContainer) => void handleAction(action, currentContainer)}
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

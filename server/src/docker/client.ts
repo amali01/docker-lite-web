@@ -124,6 +124,8 @@ export function createMockBackend(selectedEngineId = "mock", socketPath = DEFAUL
         id: randomUUID().slice(0, 12),
         name: payload.name?.trim() || `${image.split(":")[0].split("/").pop()}-${randomUUID().slice(0, 4)}`,
         image,
+        composeProject: null,
+        composeService: null,
         status: "running",
         state: "Up just now",
         ports: payload.ports
@@ -303,6 +305,8 @@ function mapContainerSummary(details: {
   id: string;
   name: string;
   image: string;
+  composeProject?: string | null;
+  composeService?: string | null;
   state?: string;
   status?: string;
   ports?: Array<{ IP?: string; PublicPort?: number; PrivatePort?: number; Type?: string }>;
@@ -312,6 +316,8 @@ function mapContainerSummary(details: {
     id: details.id,
     name: normalizeContainerName(details.name),
     image: details.image,
+    composeProject: details.composeProject ?? null,
+    composeService: details.composeService ?? null,
     status: getContainerStatus(details.state, details.status),
     state: details.status ?? details.state ?? "Unknown",
     ports: formatPorts(details.ports),
@@ -356,6 +362,8 @@ async function createDockerBackend(socketPath: string, selectedEngineId?: string
       id: details.Id.slice(0, 12),
       name: details.Name,
       image: details.Config.Image,
+      composeProject: details.Config.Labels?.["com.docker.compose.project"] ?? null,
+      composeService: details.Config.Labels?.["com.docker.compose.service"] ?? null,
       state: details.State.Status,
       status: details.State.Status === "running" ? `Up since ${details.State.StartedAt}` : details.State.Status,
       ports: Object.entries(details.NetworkSettings.Ports ?? {}).flatMap(([containerPort, bindings]) => {
@@ -422,6 +430,8 @@ async function createDockerBackend(socketPath: string, selectedEngineId?: string
             id: container.Id.slice(0, 12),
             name: container.Names?.[0] ?? container.Id.slice(0, 12),
             image: container.Image,
+            composeProject: container.Labels?.["com.docker.compose.project"] ?? null,
+            composeService: container.Labels?.["com.docker.compose.service"] ?? null,
             state: container.State,
             status: container.Status,
             ports: container.Ports,
