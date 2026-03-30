@@ -174,6 +174,9 @@ export class EngineController implements DockerBackend {
   async createNetwork(payload: Parameters<DockerBackend["createNetwork"]>[0]) {
     return (await this.currentBackend()).createNetwork(payload);
   }
+  async execContainer(id: string, cols: number, rows: number) {
+    return (await this.currentBackend()).execContainer(id, cols, rows);
+  }
   async removeNetwork(id: string) {
     return (await this.currentBackend()).removeNetwork(id);
   }

@@ -1,3 +1,4 @@
+import { Writable } from "node:stream";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { access } from "node:fs/promises";
@@ -351,6 +352,9 @@ export function createMockBackend(selectedEngineId = "mock", socketPath = DEFAUL
       state.networks.unshift(network);
       return network;
     },
+    async execContainer(id: string, cols: number, rows: number) {
+      throw new Error("Exec not supported in mock adapter");
+    },
     async removeNetwork(id) {
       const network = state.networks.find((item) => item.id === id);
 
@@ -683,41 +687,72 @@ async function createDockerBackend(socketPath: string, selectedEngineId?: string
       }
     },
     async subscribeToContainerLogs(id, onChunk) {
-      const child = spawn("docker", ["logs", "--timestamps", "--follow", id], {
-        stdio: ["ignore", "pipe", "pipe"],
-      });
+      try {
+        const container = docker.getContainer(id);
+        const info = await container.inspect();
+        const stream = await container.logs({
+          follow: true,
+          stdout: true,
+          stderr: true,
+          timestamps: true,
+          tail: 500
+        });
 
-      const handleData = (chunk: Buffer) => {
-        const lines = chunk
-          .toString("utf8")
-          .split("\n")
-          .filter(Boolean)
-          .map((line) => {
-            const firstSpace = line.indexOf(" ");
-            return {
-              time: firstSpace === -1 ? new Date().toISOString() : line.slice(0, firstSpace),
-              msg: firstSpace === -1 ? line : line.slice(firstSpace + 1),
-            };
+        let buffer = "";
+
+        const handleStringData = (text: string) => {
+          buffer += text;
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          const parsedLines = lines
+            .filter(Boolean)
+            .map((line) => {
+              const firstSpace = line.indexOf(" ");
+              const rawMsg = (firstSpace === -1 ? line : line.slice(firstSpace + 1)).replace(/\r$/, "");
+              return {
+                time: firstSpace === -1 ? new Date().toISOString() : line.slice(0, firstSpace),
+                msg: rawMsg.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, ""),
+              };
+            });
+
+          if (parsedLines.length > 0) {
+            onChunk({ containerId: id, lines: parsedLines });
+          }
+        };
+
+        if (info.Config.Tty) {
+          (stream as NodeJS.ReadableStream).on("data", (chunk: Buffer) => handleStringData(chunk.toString("utf8")));
+        } else {
+          
+          const outStream = new Writable({
+            write(chunk: Buffer, encoding: string, callback: () => void) {
+              handleStringData(chunk.toString("utf8"));
+              callback();
+            }
           });
-
-        if (lines.length > 0) {
-          onChunk({ containerId: id, lines });
+          docker.modem.demuxStream(stream, outStream, outStream);
         }
-      };
 
-      child.stdout.on("data", handleData);
-      child.stderr.on("data", handleData);
+        (stream as NodeJS.ReadableStream).on("error", (error: any) => {
+          onChunk({
+            containerId: id,
+            lines: [{ time: new Date().toISOString(), msg: `[ERROR] ${error.message}` }],
+          });
+        });
 
-      child.once("error", (error) => {
+        return async () => {
+          if (typeof (stream as any).destroy === "function") {
+            (stream as any).destroy();
+          }
+        };
+      } catch (error: any) {
         onChunk({
           containerId: id,
           lines: [{ time: new Date().toISOString(), msg: `[ERROR] ${error.message}` }],
         });
-      });
-
-      return async () => {
-        child.kill();
-      };
+        return async () => {};
+      }
     },
     async listImages() {
       return listImages();
@@ -838,6 +873,26 @@ async function createDockerBackend(socketPath: string, selectedEngineId?: string
           gateway: details.IPAM?.Config?.[0]?.Gateway ?? "",
           containers: Object.keys(details.Containers ?? {}).length,
         };
+      } catch (error) {
+        throw createBackendError(error);
+      }
+    },
+    async execContainer(id: string, cols: number, rows: number) {
+      try {
+        const container = docker.getContainer(id);
+        const exec = await container.exec({
+          AttachStdin: true,
+          AttachStdout: true,
+          AttachStderr: true,
+          Tty: true,
+          Cmd: ['sh', '-c', 'if command -v bash >/dev/null; then exec bash; else exec sh; fi'],
+          Env: ['TERM=xterm'],
+        });
+        const stream = await exec.start({ stdin: true, hijack: true });
+        if (cols && rows) {
+          await exec.resize({ w: cols, h: rows });
+        }
+        return { stream, exec };
       } catch (error) {
         throw createBackendError(error);
       }

@@ -1,24 +1,15 @@
-import { WebSocketServer } from 'ws';
-import { createServer } from "node:http";
-import { createApp } from "./app";
-import { config as loadEnv } from "dotenv";
-import { EngineController } from "./engine-controller";
+with open("server/src/index.ts", "r") as f:
+    text = f.read()
 
-loadEnv({ path: "server/.env" });
+import_ws = "import { WebSocketServer } from 'ws';\\n"
+if "WebSocketServer" not in text:
+    text = text.replace('import { createServer }', import_ws + 'import { createServer }')
 
-const PORT = Number(process.env.DOCKLITE_PORT ?? 9001);
-const HOST = process.env.DOCKLITE_HOST ?? "127.0.0.1";
-
-async function main() {
-  const backend = new EngineController();
-  const app = createApp(backend);
-  const server = createServer(app);
-
-  const wss = new WebSocketServer({ noServer: true });
+ws_attach = """  const wss = new WebSocketServer({ noServer: true });
 
   server.on('upgrade', (request, socket, head) => {
     const url = new URL(request.url || '', `http://${request.headers.host}`);
-    const match = url.pathname.match(/^\/api\/containers\/([^/]+)\/exec$/);
+    const match = url.pathname.match(/^\\/api\\/containers\\/([^/]+)\\/exec$/);
     
     if (match) {
       const containerId = match[1];
@@ -58,27 +49,19 @@ async function main() {
             stream.end();
           });
           
-        } catch (error: any) {
+        } catch (error) {
           console.error("Exec error", error);
-          if (ws.readyState === ws.OPEN) {
-            ws.send(`\r\n\x1b[31m[ERROR] Failed to start terminal: ${error.message}\x1b[0m\r\n`);
-          }
           ws.close();
         }
       });
     } else {
       socket.destroy();
     }
-  });
+  });"""
 
-  server.listen(PORT, HOST, async () => {
-    const engine = await backend.getEngineInfo();
-    const connection = engine.connected ? "connected" : `disconnected (${engine.errorMessage ?? "unknown error"})`;
-    console.log(`DockLite backend listening on http://${HOST}:${PORT} - Docker ${connection}`);
-  });
-}
+if "wss.handleUpgrade" not in text:
+    text = text.replace("server.listen(", ws_attach + "\\n\\n  server.listen(")
+    with open("server/src/index.ts", "w") as f:
+        f.write(text)
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+print("done")
