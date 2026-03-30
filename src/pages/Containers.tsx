@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { Box, Play, Square, RotateCcw, Trash2, Terminal, FileText, Search, Plus } from "lucide-react";
+import { Play, Square, RotateCcw, Trash2, Terminal, FileText, Search, Plus } from "lucide-react";
 import { StatusBadge } from "@/components/StatusBadge";
+import { ContainerLogs } from "@/components/ContainerLogs";
+import { RunContainerDialog } from "@/components/RunContainerDialog";
 import { mockContainers, Container } from "@/lib/mock-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +11,8 @@ import { toast } from "sonner";
 export default function Containers() {
   const [filter, setFilter] = useState("");
   const [containers, setContainers] = useState(mockContainers);
+  const [logsContainer, setLogsContainer] = useState<string | null>(null);
+  const [runDialogOpen, setRunDialogOpen] = useState(false);
 
   const filtered = containers.filter(c =>
     c.name.toLowerCase().includes(filter.toLowerCase()) ||
@@ -26,12 +30,17 @@ export default function Containers() {
       toast.success(`Restarting ${container.name}...`);
     } else if (action === 'remove') {
       setContainers(prev => prev.filter(c => c.id !== container.id));
+      if (logsContainer === container.name) setLogsContainer(null);
       toast.success(`Removed ${container.name}`);
     } else if (action === 'logs') {
-      toast.info(`Opening logs for ${container.name}...`);
+      setLogsContainer(prev => prev === container.name ? null : container.name);
     } else if (action === 'terminal') {
       toast.info(`Opening terminal for ${container.name}...`);
     }
+  };
+
+  const handleRunContainer = (newContainer: Container) => {
+    setContainers(prev => [newContainer, ...prev]);
   };
 
   return (
@@ -41,12 +50,11 @@ export default function Containers() {
           <h1 className="text-xl font-bold tracking-tight">Containers</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{containers.length} total • {containers.filter(c => c.status === 'running').length} running</p>
         </div>
-        <Button size="sm" className="gap-1.5 font-mono text-xs">
+        <Button size="sm" className="gap-1.5 font-mono text-xs" onClick={() => setRunDialogOpen(true)}>
           <Plus className="w-3.5 h-3.5" /> Run Container
         </Button>
       </div>
 
-      {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
@@ -57,7 +65,6 @@ export default function Containers() {
         />
       </div>
 
-      {/* Table */}
       <div className="bg-card border border-border rounded-md overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
@@ -101,7 +108,7 @@ export default function Containers() {
                       <button onClick={() => handleAction('restart', c)} className="p-1.5 rounded hover:bg-primary/10 text-primary" title="Restart">
                         <RotateCcw className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => handleAction('logs', c)} className="p-1.5 rounded hover:bg-muted text-muted-foreground" title="Logs">
+                      <button onClick={() => handleAction('logs', c)} className={`p-1.5 rounded hover:bg-muted ${logsContainer === c.name ? 'text-primary bg-primary/10' : 'text-muted-foreground'}`} title="Logs">
                         <FileText className="w-3.5 h-3.5" />
                       </button>
                       <button onClick={() => handleAction('terminal', c)} className="p-1.5 rounded hover:bg-muted text-muted-foreground" title="Terminal">
@@ -118,6 +125,14 @@ export default function Containers() {
           </table>
         </div>
       </div>
+
+      {/* Log Viewer */}
+      {logsContainer && (
+        <ContainerLogs containerName={logsContainer} onClose={() => setLogsContainer(null)} />
+      )}
+
+      {/* Run Container Dialog */}
+      <RunContainerDialog open={runDialogOpen} onOpenChange={setRunDialogOpen} onRun={handleRunContainer} />
     </div>
   );
 }
