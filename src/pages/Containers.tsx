@@ -8,6 +8,7 @@ import { RunContainerDialog } from "@/components/RunContainerDialog";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   useContainers,
   useRemoveContainer,
@@ -20,6 +21,7 @@ import { ContainerSummary, RunContainerPayload } from "@/lib/api/types";
 
 export default function Containers() {
   const [filter, setFilter] = useState("");
+  const [visibilityFilter, setVisibilityFilter] = useState<"all" | "running">("all");
   const [logsContainer, setLogsContainer] = useState<ContainerSummary | null>(null);
   const [runDialogOpen, setRunDialogOpen] = useState(false);
   const containersQuery = useContainers();
@@ -49,11 +51,15 @@ export default function Containers() {
   }
 
   const containers = containersQuery.data ?? [];
-  const filtered = containers.filter(
-    (container) =>
-      container.name.toLowerCase().includes(filter.toLowerCase()) ||
-      container.image.toLowerCase().includes(filter.toLowerCase()),
-  );
+  const normalizedFilter = filter.toLowerCase();
+  const filtered = containers.filter((container) => {
+    const matchesVisibility = visibilityFilter === "all" || container.status === "running";
+    const matchesText =
+      container.name.toLowerCase().includes(normalizedFilter) ||
+      container.image.toLowerCase().includes(normalizedFilter);
+
+    return matchesVisibility && matchesText;
+  });
 
   const handleAction = async (action: "start" | "stop" | "restart" | "remove" | "logs" | "terminal", container: ContainerSummary) => {
     try {
@@ -121,14 +127,35 @@ export default function Containers() {
         </Button>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Filter containers..."
-          value={filter}
-          onChange={(event) => setFilter(event.target.value)}
-          className="pl-9 bg-card border-border font-mono text-sm h-9"
-        />
+      <div className="flex flex-col gap-3 md:flex-row md:items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Filter containers..."
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
+            className="pl-9 bg-card border-border font-mono text-sm h-9"
+          />
+        </div>
+        <ToggleGroup
+          type="single"
+          value={visibilityFilter}
+          onValueChange={(value) => {
+            if (value === "all" || value === "running") {
+              setVisibilityFilter(value);
+            }
+          }}
+          variant="outline"
+          size="sm"
+          className="justify-start md:justify-end"
+        >
+          <ToggleGroupItem value="all" className="font-mono text-[11px] uppercase tracking-wide" aria-label="Show all containers">
+            Show all
+          </ToggleGroupItem>
+          <ToggleGroupItem value="running" className="font-mono text-[11px] uppercase tracking-wide" aria-label="Show running containers">
+            Only running
+          </ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
       <div className="bg-card border border-border rounded-md overflow-hidden">

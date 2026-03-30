@@ -63,6 +63,15 @@ describe("Containers Page", () => {
     expect(screen.queryByText("postgres-db")).not.toBeInTheDocument();
   });
 
+  it("filters to running containers only", async () => {
+    renderWithProviders(<Containers />);
+    await screen.findByText("nginx-proxy");
+    fireEvent.click(screen.getByRole("radio", { name: "Show running containers" }));
+    expect(screen.getByText("nginx-proxy")).toBeInTheDocument();
+    expect(screen.getByText("redis-cache")).toBeInTheDocument();
+    expect(screen.queryByText("postgres-db")).not.toBeInTheDocument();
+  });
+
   it("starts a stopped container", async () => {
     renderWithProviders(<Containers />);
     await screen.findByText("postgres-db");
