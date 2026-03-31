@@ -247,6 +247,32 @@ describe("DockLite backend app", () => {
     expect(targetsResponse.body.find((target: { id: string }) => target.id === targetId)?.active).toBe(true);
   });
 
+  it("selects a saved tcp tls engine target by id", async () => {
+    process.env.DOCKLITE_ADAPTER = "mock";
+    const { app, dir } = await createTestApp();
+    tmpDirs.push(dir);
+
+    const createResponse = await request(app).post("/api/engine/targets").send({
+      kind: "tcpTls",
+      label: "Prod TLS Docker",
+      host: "prod.example.internal",
+      port: 2376,
+      tlsMode: "serverOnly",
+      caPath: "/tmp/prod-ca.pem",
+      certPath: null,
+      keyPath: null,
+    });
+
+    expect(createResponse.status).toBe(201);
+
+    const targetId = createResponse.body.id as string;
+    const switchResponse = await request(app).post("/api/engine/select").send({ targetId });
+
+    expect(switchResponse.status).toBe(200);
+    expect(switchResponse.body.selectedEngineId).toBe(targetId);
+    expect(switchResponse.body.endpoint).toBe("tcp://prod.example.internal:2376");
+  });
+
   it("stops all containers in a compose project", async () => {
     process.env.DOCKLITE_ADAPTER = "mock";
     const { app, dir } = await createTestApp();

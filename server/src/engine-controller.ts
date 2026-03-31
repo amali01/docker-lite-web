@@ -2,6 +2,7 @@ import { homedir } from "node:os";
 import { access } from "node:fs/promises";
 import { EngineTargetStore } from "./engine-targets/store";
 import type { EngineTargetProfile, EngineTargetProfileInput } from "./engine-targets/types";
+import { testTcpTlsConnection } from "./engine-targets/connection-test";
 import {
   BackendError,
   CreateEngineTargetPayload,
@@ -11,7 +12,7 @@ import {
   TestEngineTargetPayload,
   UpdateEngineTargetPayload,
 } from "./types";
-import { createDockerBackendFromTarget, createMockBackend } from "./docker/client";
+import { createDockerBackendFromTarget, createDockerBackendFromTcpTlsTarget, createMockBackend } from "./docker/client";
 
 type EngineTargetConfig = {
   id: string;
@@ -19,6 +20,8 @@ type EngineTargetConfig = {
   socketPath: string;
   adapter: "real" | "mock";
 };
+
+const DEFAULT_MOCK_SOCKET_PATH = process.env.DOCKLITE_DOCKER_SOCKET ?? "/var/run/docker.sock";
 
 async function isSocketAvailable(socketPath: string) {
   try {
@@ -120,7 +123,16 @@ export class EngineController implements DockerBackend {
     }
 
     if (target.kind !== "local") {
-      throw new BackendError(501, "not_supported", "Remote engine targets are not supported yet");
+      if (target.kind === "tcpTls") {
+        if (process.env.DOCKLITE_ADAPTER === "mock") {
+          const endpoint = `tcp://${target.connection.host}:${target.connection.port}`;
+          return createMockBackend(target.id, DEFAULT_MOCK_SOCKET_PATH, endpoint);
+        }
+
+        return createDockerBackendFromTcpTlsTarget(target.id, target);
+      }
+
+      throw new BackendError(501, "not_supported", "SSH engine targets are not supported yet");
     }
 
     if (process.env.DOCKLITE_ADAPTER === "mock") {
@@ -356,6 +368,18 @@ export class EngineController implements DockerBackend {
         message: available ? "Connected" : "Docker socket not reachable",
         checkedAt,
       };
+    }
+
+    if (target.kind === "tcpTls") {
+      if (process.env.DOCKLITE_ADAPTER === "mock") {
+        return {
+          status: "healthy",
+          message: "Mock tcpTls connection successful",
+          checkedAt,
+        };
+      }
+
+      return (await testTcpTlsConnection(target)).health;
     }
 
     if (process.env.DOCKLITE_ADAPTER === "mock") {

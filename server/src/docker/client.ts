@@ -23,6 +23,7 @@ import {
   RunContainerPayload,
   VolumeSummary,
 } from "../types";
+import { createTcpTlsDockerConnectionConfig } from "../engine-targets/connection-test";
 import { formatBytes, formatCreatedDate, formatPercentage, formatPorts, formatUnixDate } from "../format";
 
 const DEFAULT_SOCKET_PATH = process.env.DOCKLITE_DOCKER_SOCKET ?? "/var/run/docker.sock";
@@ -163,7 +164,11 @@ async function ensureSocketAccessible(socketPath: string) {
   }
 }
 
-export function createMockBackend(selectedEngineId = "mock", socketPath = DEFAULT_SOCKET_PATH): DockerBackend {
+export function createMockBackend(
+  selectedEngineId = "mock",
+  socketPath = DEFAULT_SOCKET_PATH,
+  endpoint = `unix://${socketPath}`,
+): DockerBackend {
   const state = cloneMockState();
 
   return {
@@ -171,7 +176,7 @@ export function createMockBackend(selectedEngineId = "mock", socketPath = DEFAUL
       return {
         ...mockSystemInfo,
         connected: true,
-        endpoint: `unix://${socketPath}`,
+        endpoint,
         selectedEngineId,
         serverTime: new Date().toISOString(),
       };
@@ -501,10 +506,18 @@ function mapContainerSummary(details: {
   };
 }
 
-async function createDockerBackend(socketPath: string, selectedEngineId?: string): Promise<DockerBackend> {
-  await ensureSocketAccessible(socketPath);
+type DockerClientOptions = ConstructorParameters<typeof Docker>[0];
 
-  const docker = new Docker({ socketPath });
+async function createDockerBackend(
+  dockerOptions: DockerClientOptions,
+  endpoint: string,
+  selectedEngineId?: string,
+): Promise<DockerBackend> {
+  if (dockerOptions?.socketPath) {
+    await ensureSocketAccessible(dockerOptions.socketPath);
+  }
+
+  const docker = new Docker(dockerOptions);
 
   const listImages = async () => {
     try {
@@ -612,7 +625,7 @@ async function createDockerBackend(socketPath: string, selectedEngineId?: string
           storageDriver: info.Driver ?? "unknown",
           rootDir: info.DockerRootDir ?? "unknown",
           serverTime: new Date().toISOString(),
-          endpoint: `unix://${socketPath}`,
+          endpoint,
           selectedEngineId,
         };
       } catch (error) {
@@ -628,7 +641,7 @@ async function createDockerBackend(socketPath: string, selectedEngineId?: string
           storageDriver: "unknown",
           rootDir: "unknown",
           serverTime: new Date().toISOString(),
-          endpoint: `unix://${socketPath}`,
+          endpoint,
           selectedEngineId,
           errorMessage: error instanceof Error ? error.message : "Unable to reach Docker Engine",
         };
@@ -1000,7 +1013,12 @@ async function createDockerBackend(socketPath: string, selectedEngineId?: string
 }
 
 export async function createDockerBackendFromTarget(selectedEngineId: string, socketPath: string) {
-  return createDockerBackend(socketPath, selectedEngineId);
+  return createDockerBackend({ socketPath }, `unix://${socketPath}`, selectedEngineId);
+}
+
+export async function createDockerBackendFromTcpTlsTarget(selectedEngineId: string, target: unknown) {
+  const { dockerOptions, endpoint } = await createTcpTlsDockerConnectionConfig(target);
+  return createDockerBackend(dockerOptions, endpoint, selectedEngineId);
 }
 
 export async function createDockerBackendFromEnv() {
@@ -1008,5 +1026,5 @@ export async function createDockerBackendFromEnv() {
     return createMockBackend("system", DEFAULT_SOCKET_PATH);
   }
 
-  return createDockerBackend(DEFAULT_SOCKET_PATH, "system");
+  return createDockerBackend({ socketPath: DEFAULT_SOCKET_PATH }, `unix://${DEFAULT_SOCKET_PATH}`, "system");
 }
