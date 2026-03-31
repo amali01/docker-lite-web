@@ -156,6 +156,18 @@ export class EngineController implements DockerBackend {
     return this.backendPromise;
   }
 
+  async getContainerDetails(id: string) {
+    return (await this.currentBackend()).getContainerDetails(id);
+  }
+
+  async getContainerInspect(id: string) {
+    return (await this.currentBackend()).getContainerInspect(id);
+  }
+
+  async getContainerStats(id: string) {
+    return (await this.currentBackend()).getContainerStats(id);
+  }
+
   async listTargets(): Promise<EngineTarget[]> {
     return this.targetStore.listTargets();
   }

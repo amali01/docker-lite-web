@@ -73,6 +73,9 @@ export interface ExecSession {
 export interface DockerBackend {
   getEngineInfo(): Promise<EngineInfo>;
   listContainers(): Promise<ContainerSummary[]>;
+  getContainerDetails(id: string): Promise<ContainerDetails>;
+  getContainerInspect(id: string): Promise<ContainerInspectView>;
+  getContainerStats(id: string): Promise<ContainerStatsSample[]>;
   runContainer(payload: RunContainerPayload): Promise<ContainerSummary>;
   startContainer(id: string): Promise<ContainerSummary>;
   stopContainer(id: string): Promise<ContainerSummary>;

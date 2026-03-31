@@ -330,4 +330,52 @@ describe("DockLite backend app", () => {
     expect(response.body.id).toBe("e5f6g7h8i9j0");
     expect(response.body.status).toBe("running");
   });
+
+  it("returns container detail, inspect, and stats payloads", async () => {
+    process.env.DOCKLITE_ADAPTER = "mock";
+    const { app, dir } = await createTestApp();
+    tmpDirs.push(dir);
+
+    const detailResponse = await request(app).get("/api/containers/a1b2c3d4e5f6");
+    expect(detailResponse.status).toBe(200);
+    expect(detailResponse.body.summary).toEqual(
+      expect.objectContaining({
+        id: "a1b2c3d4e5f6",
+        name: "nginx-proxy",
+      }),
+    );
+
+    const inspectResponse = await request(app).get("/api/containers/a1b2c3d4e5f6/inspect");
+    expect(inspectResponse.status).toBe(200);
+    expect(inspectResponse.body.raw).toEqual(expect.objectContaining({ Id: "a1b2c3d4e5f6" }));
+
+    const statsResponse = await request(app).get("/api/containers/a1b2c3d4e5f6/stats");
+    expect(statsResponse.status).toBe(200);
+    expect(Array.isArray(statsResponse.body)).toBe(true);
+    expect(statsResponse.body[0]).toEqual(
+      expect.objectContaining({
+        sampledAt: expect.any(String),
+        cpuPercent: expect.any(Number),
+        memoryUsageBytes: expect.any(Number),
+      }),
+    );
+  });
+
+  it("returns 404 for missing container detail endpoints", async () => {
+    process.env.DOCKLITE_ADAPTER = "mock";
+    const { app, dir } = await createTestApp();
+    tmpDirs.push(dir);
+
+    const detailResponse = await request(app).get("/api/containers/missing-container");
+    expect(detailResponse.status).toBe(404);
+    expect(detailResponse.body.error.code).toBe("not_found");
+
+    const inspectResponse = await request(app).get("/api/containers/missing-container/inspect");
+    expect(inspectResponse.status).toBe(404);
+    expect(inspectResponse.body.error.code).toBe("not_found");
+
+    const statsResponse = await request(app).get("/api/containers/missing-container/stats");
+    expect(statsResponse.status).toBe(404);
+    expect(statsResponse.body.error.code).toBe("not_found");
+  });
 });
