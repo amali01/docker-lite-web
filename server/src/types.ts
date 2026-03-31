@@ -4,7 +4,6 @@ import type {
   CreateNetworkPayload,
   CreateVolumePayload,
   EngineInfo,
-  EngineTarget,
   ImageSummary,
   NetworkSummary,
   PullImagePayload,
@@ -12,6 +11,16 @@ import type {
   SelectEnginePayload,
   VolumeSummary,
 } from "../../src/lib/api/types";
+import type {
+  EngineTargetHealth,
+  EngineTargetHealthStatus,
+  EngineTarget as PublicEngineTarget,
+  EngineTargetKind,
+  EngineTargetProfile,
+  EngineTargetProfileInput,
+  EngineTargetSource,
+  EngineTargetStoreState,
+} from "./engine-targets/types";
 
 export type {
   ContainerLogsChunk,
@@ -19,7 +28,13 @@ export type {
   CreateNetworkPayload,
   CreateVolumePayload,
   EngineInfo,
-  EngineTarget,
+  EngineTargetHealth,
+  EngineTargetHealthStatus,
+  EngineTargetKind,
+  EngineTargetProfile,
+  EngineTargetProfileInput,
+  EngineTargetSource,
+  EngineTargetStoreState,
   ImageSummary,
   NetworkSummary,
   PullImagePayload,
@@ -27,6 +42,8 @@ export type {
   SelectEnginePayload,
   VolumeSummary,
 };
+
+export type EngineTarget = PublicEngineTarget;
 
 export interface ExecSession {
   stream: NodeJS.ReadWriteStream;
