@@ -17,6 +17,10 @@ export default function DockerSettings() {
   const [apiBaseUrl, setApiBaseUrlState] = useState(getApiBaseUrl());
 
   const engine = engineQuery.data;
+  const backendBaseUrlId = "backend-base-url";
+  const engineGroupLabelId = "docker-engine-label";
+  const dockerEndpointId = "docker-endpoint";
+  const apiVersionId = "docker-api-version";
 
   return (
     <div className="p-6 space-y-6 max-w-2xl">
@@ -32,20 +36,22 @@ export default function DockerSettings() {
         </h2>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-mono text-muted-foreground block mb-1">Backend Base URL</label>
+            <label htmlFor={backendBaseUrlId} className="text-xs font-mono text-muted-foreground block mb-1">Backend Base URL</label>
             <Input
+              id={backendBaseUrlId}
               value={apiBaseUrl}
               onChange={(event) => setApiBaseUrlState(event.target.value)}
               className="bg-background border-border font-mono text-sm h-9"
             />
           </div>
           <div>
-            <label className="text-xs font-mono text-muted-foreground block mb-1">Docker Engine</label>
+            <label id={engineGroupLabelId} className="text-xs font-mono text-muted-foreground block mb-1">Docker Engine</label>
             {engineTargetsQuery.data && engineTargetsQuery.data.length > 0 ? (
               <ToggleGroup
                 type="single"
                 value={engine?.selectedEngineId}
                 className="justify-start flex-wrap"
+                aria-labelledby={engineGroupLabelId}
                 onValueChange={async (value) => {
                   if (!value || value === engine?.selectedEngineId) {
                     return;
@@ -77,12 +83,12 @@ export default function DockerSettings() {
             )}
           </div>
           <div>
-            <label className="text-xs font-mono text-muted-foreground block mb-1">Docker Endpoint</label>
-            <Input value={engine?.endpoint ?? "unknown"} className="bg-background border-border font-mono text-sm h-9" readOnly />
+            <label htmlFor={dockerEndpointId} className="text-xs font-mono text-muted-foreground block mb-1">Docker Endpoint</label>
+            <Input id={dockerEndpointId} value={engine?.endpoint ?? "unknown"} className="bg-background border-border font-mono text-sm h-9" readOnly />
           </div>
           <div>
-            <label className="text-xs font-mono text-muted-foreground block mb-1">API Version</label>
-            <Input value={engine?.apiVersion ?? "unknown"} className="bg-background border-border font-mono text-sm h-9" readOnly />
+            <label htmlFor={apiVersionId} className="text-xs font-mono text-muted-foreground block mb-1">API Version</label>
+            <Input id={apiVersionId} value={engine?.apiVersion ?? "unknown"} className="bg-background border-border font-mono text-sm h-9" readOnly />
           </div>
           <p className="text-[11px] font-mono text-muted-foreground">
             Toggle between your local Docker engines. Targets are discovered from the backend defaults and current environment.
