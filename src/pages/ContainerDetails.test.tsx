@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import ContainerDetails from "./ContainerDetails";
@@ -21,6 +21,14 @@ vi.mock("@/hooks/use-containers", () => ({
 
 vi.mock("@/hooks/use-engine", () => ({
   useEngineInfo: (...args: unknown[]) => useEngineInfoMock(...args),
+}));
+
+vi.mock("@/components/ContainerLogs", () => ({
+  ContainerLogs: ({ containerName }: { containerName: string }) => <div>Embedded logs for {containerName}</div>,
+}));
+
+vi.mock("@/components/ContainerExec", () => ({
+  ContainerExec: ({ containerName }: { containerName: string }) => <div>Embedded terminal for {containerName}</div>,
 }));
 
 const containerDetails = {
@@ -62,7 +70,20 @@ const containerDetails = {
       },
     },
   },
-  stats: [],
+  stats: [
+    {
+      sampledAt: "2026-03-31T09:59:00Z",
+      cpuPercent: 0.12,
+      memoryUsageBytes: 25784320,
+      memoryLimitBytes: 536870912,
+    },
+    {
+      sampledAt: "2026-03-31T10:00:00Z",
+      cpuPercent: 0.2,
+      memoryUsageBytes: 26738688,
+      memoryLimitBytes: 536870912,
+    },
+  ],
 };
 
 describe("ContainerDetails route", () => {
@@ -198,5 +219,45 @@ describe("ContainerDetails route", () => {
     expect(screen.getByRole("button", { name: "Open terminal for nginx-proxy" })).toBeInTheDocument();
     expect(screen.getByText("Running")).toBeInTheDocument();
     expect(screen.getByText("edge-gateway / proxy")).toBeInTheDocument();
+  });
+
+  it("renders logs, terminal, inspect, and stats tab content", () => {
+    useContainerDetailsMock.mockReturnValue({
+      isLoading: false,
+      isPending: false,
+      isError: false,
+      data: containerDetails,
+      error: null,
+    });
+    useContainerInspectMock.mockReturnValue({
+      isLoading: false,
+      isPending: false,
+      isError: false,
+      data: containerDetails.inspect,
+      error: null,
+    });
+    useContainerStatsMock.mockReturnValue({
+      isLoading: false,
+      isPending: false,
+      isError: false,
+      data: containerDetails.stats,
+      error: null,
+    });
+
+    renderDetailsRoute();
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Logs" }));
+    expect(screen.getByText("Embedded logs for nginx-proxy")).toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Terminal" }));
+    expect(screen.getByText("Embedded terminal for nginx-proxy")).toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Inspect" }));
+    expect(screen.getByText("Inspect JSON")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy JSON" })).toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Stats" }));
+    expect(screen.getByText("Latest sample")).toBeInTheDocument();
+    expect(screen.getByText("Sample history")).toBeInTheDocument();
   });
 });
