@@ -4,7 +4,7 @@
 
 **Goal:** Add a real container details workflow with `Overview`, `Logs`, `Terminal`, `Inspect`, and `Stats` tabs that works against the currently selected local or remote engine target.
 
-**Architecture:** Add a dedicated `/containers/:containerId` route instead of forcing a split-pane retrofit into the current table page. Extend the backend with typed detail endpoints, keep Docker-specific shaping in the backend, and build the frontend around a focused detail shell plus small tab components that reuse the existing logs and exec widgets where possible.
+**Architecture:** Add a dedicated `/containers/:containerId` route instead of forcing a split-pane retrofit into the current table page. Extend the backend with typed detail endpoints that match the approved spec, keep Docker-specific shaping in the backend, and build the frontend around a focused detail shell plus small tab components that reuse the existing logs and exec widgets where possible.
 
 **Tech Stack:** React, React Router, React Query, TypeScript, Express, Zod, Vitest, Playwright, Dockerode-backed backend adapters
 
@@ -53,7 +53,7 @@ git add src/lib/api/types.ts src/lib/mock-data.ts src/lib/mock-data.test.ts serv
 git commit -m "feat: add container details api contracts"
 ```
 
-### Task 2: Add Backend Container Detail and Stats Endpoints
+### Task 2: Add Backend Container Detail, Inspect, and Stats Endpoints
 
 **Files:**
 - Modify: `server/src/types.ts`
@@ -78,15 +78,16 @@ In the mock backend path inside `server/src/docker/client.ts`, return seeded `Co
 Use `container.inspect()` plus existing list/stat helpers to build `ContainerDetails`:
 - overview fields from inspect output
 - mounts and labels summaries
-- formatted raw inspect object for the inspect tab
-- a recent stats sample series from `container.stats({ stream: false })`
+- enough inspect metadata for the overview route response
+- a point-in-time stats snapshot from `container.stats({ stream: false })`
 
 Keep Docker-specific parsing private to the backend implementation.
 
 - [ ] **Step 4: Add routes**
 
 Add:
-- `GET /api/containers/:id/details`
+- `GET /api/containers/:id`
+- `GET /api/containers/:id/inspect`
 - `GET /api/containers/:id/stats`
 
 Return `404` through the existing backend error flow when the container does not exist.
@@ -94,7 +95,8 @@ Return `404` through the existing backend error flow when the container does not
 - [ ] **Step 5: Add regression tests**
 
 Cover:
-- happy-path details response
+- happy-path detail response
+- happy-path inspect response
 - happy-path stats response
 - missing-container error response
 
@@ -113,28 +115,33 @@ git add server/src/types.ts server/src/docker/client.ts server/src/engine-contro
 git commit -m "feat: add container detail backend endpoints"
 ```
 
-### Task 3: Add Frontend Detail Queries and Routing
+### Task 3: Add Frontend Detail Queries and Base Routing
 
 **Files:**
 - Modify: `src/lib/api/resources.ts`
 - Modify: `src/hooks/use-containers.ts`
 - Modify: `src/App.tsx`
 - Create: `src/pages/ContainerDetails.tsx`
-- Test: `src/pages/Containers.test.tsx`
+- Test: `src/pages/ContainerDetails.test.tsx`
 
 - [ ] **Step 1: Add API helpers**
 
 Add:
 - `getContainerDetails(id: string)`
+- `getContainerInspect(id: string)`
 - `getContainerStats(id: string)`
 
 - [ ] **Step 2: Add React Query hooks**
 
 Add:
 - `useContainerDetails(containerId)`
+- `useContainerInspect(containerId)`
 - `useContainerStats(containerId)`
 
-Use stable query keys that include the active container id.
+Use stable query keys that include both `selectedEngineId` and `containerId`, for example:
+- `["container-details", selectedEngineId, containerId]`
+- `["container-inspect", selectedEngineId, containerId]`
+- `["container-stats", selectedEngineId, containerId]`
 
 - [ ] **Step 3: Add the route**
 
@@ -143,28 +150,28 @@ Register a dedicated details route:
 
 Keep `/containers` for the list page.
 
-- [ ] **Step 4: Add a failing navigation test**
+- [ ] **Step 4: Add a failing direct-route test**
 
-Update `src/pages/Containers.test.tsx` so a container row or explicit detail affordance navigates to the details route for a selected container.
+Add `src/pages/ContainerDetails.test.tsx` with a route-aware render that verifies `/containers/:containerId` mounts the page and requests detail data for the route param.
 
 - [ ] **Step 5: Run the targeted test to see it fail**
 
-Run: `npm test -- src/pages/Containers.test.tsx`
-Expected: FAIL because the route and affordance are not wired yet
+Run: `npm test -- src/pages/ContainerDetails.test.tsx`
+Expected: FAIL because the route-aware details page does not exist yet
 
 - [ ] **Step 6: Implement the minimal route wiring**
 
-Create `src/pages/ContainerDetails.tsx` with loading/error placeholders so the failing test can pass once navigation is wired.
+Create `src/pages/ContainerDetails.tsx` with loading/error placeholders so the failing direct-route test can pass once route wiring exists.
 
 - [ ] **Step 7: Re-run the targeted test**
 
-Run: `npm test -- src/pages/Containers.test.tsx`
+Run: `npm test -- src/pages/ContainerDetails.test.tsx`
 Expected: PASS
 
 - [ ] **Step 8: Commit**
 
 ```bash
-git add src/lib/api/resources.ts src/hooks/use-containers.ts src/App.tsx src/pages/ContainerDetails.tsx src/pages/Containers.test.tsx
+git add src/lib/api/resources.ts src/hooks/use-containers.ts src/App.tsx src/pages/ContainerDetails.tsx src/pages/ContainerDetails.test.tsx
 git commit -m "feat: add container details route and queries"
 ```
 
@@ -176,6 +183,7 @@ git commit -m "feat: add container details route and queries"
 - Create: `src/components/container-details/ContainerStatsMiniChart.tsx`
 - Modify: `src/pages/ContainerDetails.tsx`
 - Test: `src/pages/ContainerDetails.test.tsx`
+- Test: `src/components/ContainerActionButtons.test.tsx`
 
 - [ ] **Step 1: Write the failing detail-shell test**
 
@@ -211,6 +219,8 @@ Show:
 
 Use focused components rather than adding more logic to the page file.
 
+If the overview tab exposes quick actions in a details-specific layout, extend `src/components/ContainerActionButtons.test.tsx` to cover any new accessible names or affordances.
+
 - [ ] **Step 5: Re-run the targeted test**
 
 Run: `npm test -- src/pages/ContainerDetails.test.tsx`
@@ -232,6 +242,7 @@ git commit -m "feat: add container details shell"
 - Modify: `src/components/ContainerLogs.tsx`
 - Modify: `src/components/ContainerExec.tsx`
 - Test: `src/pages/ContainerDetails.test.tsx`
+- Test: `src/components/ContainerLogs.test.tsx`
 
 - [ ] **Step 1: Extend the failing detail test coverage**
 
@@ -255,8 +266,8 @@ Embed the existing `ContainerLogs` and `ContainerExec` components inside the det
 Implement:
 - searchable or scrollable formatted inspect JSON
 - copy raw JSON action
-- recent stats cards for CPU, memory, network I/O, and block I/O
-- a light trend visualization based on `ContainerStatsSample[]`
+- point-in-time stats cards for CPU, memory, network I/O, and block I/O
+- optional trend visualization only when more than one `ContainerStatsSample` is available
 
 - [ ] **Step 5: Re-run the detail test**
 
@@ -266,7 +277,7 @@ Expected: PASS
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/pages/ContainerDetails.tsx src/pages/ContainerDetails.test.tsx src/components/container-details/ContainerInspectTab.tsx src/components/container-details/ContainerStatsTab.tsx src/components/ContainerLogs.tsx src/components/ContainerExec.tsx
+git add src/pages/ContainerDetails.tsx src/pages/ContainerDetails.test.tsx src/components/container-details/ContainerInspectTab.tsx src/components/container-details/ContainerStatsTab.tsx src/components/ContainerLogs.tsx src/components/ContainerExec.tsx src/components/ContainerLogs.test.tsx
 git commit -m "feat: add container detail tabs"
 ```
 
@@ -278,6 +289,7 @@ git commit -m "feat: add container detail tabs"
 - Modify: `src/components/ContainerActionButtons.tsx`
 - Test: `src/pages/Containers.test.tsx`
 - Test: `src/pages/Dashboard.test.tsx`
+- Test: `src/components/ContainerActionButtons.test.tsx`
 
 - [ ] **Step 1: Add focused failing navigation tests**
 
@@ -309,7 +321,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/pages/Containers.tsx src/pages/Dashboard.tsx src/components/ContainerActionButtons.tsx src/pages/Containers.test.tsx src/pages/Dashboard.test.tsx
+git add src/pages/Containers.tsx src/pages/Dashboard.tsx src/components/ContainerActionButtons.tsx src/pages/Containers.test.tsx src/pages/Dashboard.test.tsx src/components/ContainerActionButtons.test.tsx
 git commit -m "feat: add container detail navigation"
 ```
 
