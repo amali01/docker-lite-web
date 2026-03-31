@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { mockContainers, mockImages, mockVolumes, mockNetworks, mockSystemInfo } from "@/lib/mock-data";
+import {
+  mockContainerDetails,
+  mockContainers,
+  mockImages,
+  mockNetworks,
+  mockSystemInfo,
+  mockVolumes,
+} from "@/lib/mock-data";
 
 describe("Mock Data", () => {
   it("has containers with required fields", () => {
@@ -32,5 +39,20 @@ describe("Mock Data", () => {
   it("has system info", () => {
     expect(mockSystemInfo.dockerVersion).toBeTruthy();
     expect(mockSystemInfo.cpus).toBeGreaterThan(0);
+  });
+
+  it("has deterministic container detail fixtures", () => {
+    expect(Object.keys(mockContainerDetails).sort()).toEqual(mockContainers.map((container) => container.id).sort());
+
+    mockContainers.forEach((container) => {
+      const details = mockContainerDetails[container.id];
+
+      expect(details).toBeDefined();
+      expect(details.summary.id).toBe(container.id);
+      expect(typeof details.inspect.raw).toBe("object");
+      expect(details.stats.length).toBeGreaterThan(0);
+      expect(details.stats[0].cpuPercent).toBeGreaterThanOrEqual(0);
+      expect(details.stats[0].memoryUsageBytes).toBeGreaterThanOrEqual(0);
+    });
   });
 });

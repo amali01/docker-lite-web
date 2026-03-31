@@ -1,6 +1,12 @@
 import type {
   CreateEngineTargetPayload,
   ContainerLogsChunk,
+  ContainerDetails,
+  ContainerInspectView,
+  ContainerLabelEntry,
+  ContainerMountSummary,
+  ContainerPortBinding,
+  ContainerStatsSample,
   ContainerSummary,
   CreateNetworkPayload,
   CreateVolumePayload,
@@ -27,6 +33,12 @@ import type {
 
 export type {
   ContainerLogsChunk,
+  ContainerDetails,
+  ContainerInspectView,
+  ContainerLabelEntry,
+  ContainerMountSummary,
+  ContainerPortBinding,
+  ContainerStatsSample,
   ContainerSummary,
   CreateEngineTargetPayload,
   CreateNetworkPayload,

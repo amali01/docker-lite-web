@@ -132,6 +132,46 @@ export interface ContainerSummary {
   blockIO: string | null;
 }
 
+export interface ContainerMountSummary {
+  source: string;
+  destination: string;
+  type: string;
+  readOnly: boolean;
+  propagation: string | null;
+}
+
+export interface ContainerPortBinding {
+  ip: string | null;
+  privatePort: number;
+  publicPort: number | null;
+  protocol: "tcp" | "udp";
+}
+
+export interface ContainerLabelEntry {
+  key: string;
+  value: string;
+}
+
+export interface ContainerInspectView {
+  raw: Record<string, unknown>;
+}
+
+export interface ContainerStatsSample {
+  sampledAt: string;
+  cpuPercent: number;
+  memoryUsageBytes: number;
+  memoryLimitBytes: number | null;
+}
+
+export interface ContainerDetails {
+  summary: ContainerSummary;
+  mounts: ContainerMountSummary[];
+  ports: ContainerPortBinding[];
+  labels: ContainerLabelEntry[];
+  inspect: ContainerInspectView;
+  stats: ContainerStatsSample[];
+}
+
 export interface ImageSummary {
   id: string;
   repository: string;
