@@ -28,6 +28,13 @@ export type {
   VolumeSummary,
 };
 
+export interface ExecSession {
+  stream: NodeJS.ReadWriteStream;
+  exec: {
+    resize(options: { w: number; h: number }): Promise<void>;
+  };
+}
+
 export interface DockerBackend {
   getEngineInfo(): Promise<EngineInfo>;
   listContainers(): Promise<ContainerSummary[]>;
@@ -50,7 +57,7 @@ export interface DockerBackend {
   listNetworks(): Promise<NetworkSummary[]>;
   createNetwork(payload: CreateNetworkPayload): Promise<NetworkSummary>;
   removeNetwork(id: string): Promise<void>;
-  execContainer(id: string, cols: number, rows: number): Promise<any>;
+  execContainer(id: string, cols: number, rows: number): Promise<ExecSession>;
 }
 
 export interface EngineSwitcher {

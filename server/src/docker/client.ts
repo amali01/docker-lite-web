@@ -34,6 +34,43 @@ type MutableMockState = {
   networks: NetworkSummary[];
 };
 
+type DockerNetworkStats = {
+  rx_bytes?: number;
+  tx_bytes?: number;
+};
+
+type DockerStatsSnapshot = {
+  cpu_stats: {
+    cpu_usage: {
+      total_usage: number;
+      percpu_usage?: number[];
+    };
+    system_cpu_usage: number;
+    online_cpus?: number;
+  };
+  precpu_stats: {
+    cpu_usage: {
+      total_usage: number;
+    };
+    system_cpu_usage: number;
+  };
+  memory_stats: {
+    usage?: number;
+    limit?: number;
+    stats?: {
+      cache?: number;
+      inactive_file?: number;
+    };
+  };
+  networks?: Record<string, DockerNetworkStats>;
+};
+
+type DestroyableStream = NodeJS.ReadWriteStream & {
+  destroy?: () => void;
+};
+
+const ANSI_ESCAPE_SEQUENCE = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*[A-Za-z]`, "g");
+
 function cloneMockState(): MutableMockState {
   return {
     containers: structuredClone(mockContainers),
@@ -96,6 +133,10 @@ function createBackendError(error: unknown) {
   }
 
   return new BackendError(500, "internal_error", "Unexpected backend error");
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Unexpected error";
 }
 
 function isAlreadyInDesiredStateError(error: unknown) {
@@ -384,11 +425,11 @@ export function createMockBackend(selectedEngineId = "mock", socketPath = DEFAUL
 }
 
 
-async function getStatsMap(runningContainers: any[], docker: any) {
+async function getStatsMap(runningContainers: Array<{ Id: string }>, docker: Pick<Docker, "getContainer">) {
   const statsMap = new Map();
-  await Promise.all(runningContainers.map(async (c: any) => {
+  await Promise.all(runningContainers.map(async (container) => {
     try {
-      const stats = await docker.getContainer(c.Id).stats({ stream: false });
+      const stats = (await docker.getContainer(container.Id).stats({ stream: false })) as DockerStatsSnapshot;
       
       let cpuPercent = 0;
       const cpuDelta = stats.cpu_stats.cpu_usage.total_usage - stats.precpu_stats.cpu_usage.total_usage;
@@ -413,7 +454,7 @@ async function getStatsMap(runningContainers: any[], docker: any) {
       if (stats.networks) {
         let totalRx = 0;
         let totalTx = 0;
-        for (const [key, networkData] of Object.entries(stats.networks) as any) {
+        for (const [, networkData] of Object.entries(stats.networks) as Array<[string, DockerNetworkStats]>) {
           totalRx += networkData.rx_bytes || 0;
           totalTx += networkData.tx_bytes || 0;
         }
@@ -422,8 +463,8 @@ async function getStatsMap(runningContainers: any[], docker: any) {
         netIO = `↓${rxMB.toFixed(2)} MB ,↑${txMB.toFixed(2)} MB`;
       }
       
-      statsMap.set(c.Id, { cpuPercent, memUsage, memPercent, netIO });
-    } catch (e) {
+      statsMap.set(container.Id, { cpuPercent, memUsage, memPercent, netIO });
+    } catch {
       // ignore errors for dead containers
     }
   }));
@@ -628,7 +669,7 @@ async function createDockerBackend(socketPath: string, selectedEngineId?: string
       }
 
       try {
-        const exposedPorts = payload.ports.reduce<Record<string, {}>>((ports, port) => {
+        const exposedPorts = payload.ports.reduce<Record<string, object>>((ports, port) => {
           if (port.container) {
             ports[`${port.container}/${port.protocol ?? "tcp"}`] = {};
           }
@@ -761,7 +802,7 @@ async function createDockerBackend(socketPath: string, selectedEngineId?: string
               const rawMsg = (firstSpace === -1 ? line : line.slice(firstSpace + 1)).replace(/\r$/, "");
               return {
                 time: firstSpace === -1 ? new Date().toISOString() : line.slice(0, firstSpace),
-                msg: rawMsg.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, ""),
+                msg: rawMsg.replace(ANSI_ESCAPE_SEQUENCE, ""),
               };
             });
 
@@ -783,22 +824,23 @@ async function createDockerBackend(socketPath: string, selectedEngineId?: string
           docker.modem.demuxStream(stream, outStream, outStream);
         }
 
-        (stream as NodeJS.ReadableStream).on("error", (error: any) => {
+        (stream as NodeJS.ReadableStream).on("error", (error: unknown) => {
           onChunk({
             containerId: id,
-            lines: [{ time: new Date().toISOString(), msg: `[ERROR] ${error.message}` }],
+            lines: [{ time: new Date().toISOString(), msg: `[ERROR] ${getErrorMessage(error)}` }],
           });
         });
 
         return async () => {
-          if (typeof (stream as any).destroy === "function") {
-            (stream as any).destroy();
+          const destroyableStream = stream as DestroyableStream;
+          if (typeof destroyableStream.destroy === "function") {
+            destroyableStream.destroy();
           }
         };
-      } catch (error: any) {
+      } catch (error) {
         onChunk({
           containerId: id,
-          lines: [{ time: new Date().toISOString(), msg: `[ERROR] ${error.message}` }],
+          lines: [{ time: new Date().toISOString(), msg: `[ERROR] ${getErrorMessage(error)}` }],
         });
         return async () => {};
       }
@@ -866,7 +908,7 @@ async function createDockerBackend(socketPath: string, selectedEngineId?: string
       try {
         const volume = await docker.createVolume({ Name: payload.name.trim(), Driver: "local" });
         const volumeHandle = docker.getVolume(volume.Name);
-        const details = (await volumeHandle.inspect()) as any;
+        const details = await volumeHandle.inspect();
 
         return {
           name: details.Name,

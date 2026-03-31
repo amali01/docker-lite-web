@@ -2,15 +2,14 @@ import { useEffect, useMemo, useState } from "react";
 
 export function useTableSelection(ids: string[]) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const idsKey = ids.join("\u0000");
+  const validIds = useMemo(() => new Set(ids), [ids]);
 
   useEffect(() => {
-    const validIds = new Set(ids);
     setSelectedIds((current) => {
       const next = current.filter((id) => validIds.has(id));
       return next.length === current.length ? current : next;
     });
-  }, [idsKey]);
+  }, [validIds]);
 
   const selectedIdSet = useMemo(() => new Set(selectedIds), [selectedIds]);
   const allSelected = ids.length > 0 && ids.every((id) => selectedIdSet.has(id));

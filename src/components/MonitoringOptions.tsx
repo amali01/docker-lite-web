@@ -2,13 +2,20 @@ import { useState } from "react";
 import { Activity } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { ContainerSummary } from "@/hooks/use-containers";
+import { ContainerSummary } from "@/lib/api/types";
+
+type MonitoringSettings = {
+  enabled: boolean;
+  autoRestart: boolean;
+  monitorLogs: boolean;
+  logPatterns: string;
+};
 
 export const MonitoringRow = ({ container, isGroupItem = false, isLast = false }: { container: ContainerSummary; isGroupItem?: boolean; isLast?: boolean }) => {
-  const [settings, setSettings] = useState(() => {
+  const [settings, setSettings] = useState<MonitoringSettings>(() => {
     try {
       const stored = localStorage.getItem(`docker-monitoring-${container.id}`);
-      return stored ? JSON.parse(stored) : {
+      return stored ? JSON.parse(stored) as MonitoringSettings : {
         enabled: false, autoRestart: false, monitorLogs: false, logPatterns: "error,panic,fatal,exception"
       };
     } catch {
@@ -16,7 +23,7 @@ export const MonitoringRow = ({ container, isGroupItem = false, isLast = false }
     }
   });
 
-  const updateSetting = (key: string, value: any) => {
+  const updateSetting = <K extends keyof MonitoringSettings>(key: K, value: MonitoringSettings[K]) => {
     const newSettings = { ...settings, [key]: value };
     setSettings(newSettings);
     localStorage.setItem(`docker-monitoring-${container.id}`, JSON.stringify(newSettings));
