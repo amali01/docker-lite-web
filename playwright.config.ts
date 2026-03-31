@@ -10,13 +10,13 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "npm run server:start:mock",
+      command: "FORCE_COLOR=0 npm run server:start:mock",
       url: "http://127.0.0.1:9001/api/health",
       reuseExistingServer: false,
       timeout: 120000,
     },
     {
-      command: "npm run dev -- --host 127.0.0.1 --port 8080",
+      command: "FORCE_COLOR=0 npm run dev -- --host 127.0.0.1 --port 8080",
       url: "http://127.0.0.1:8080",
       reuseExistingServer: false,
       timeout: 120000,

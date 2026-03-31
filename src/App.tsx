@@ -11,6 +11,11 @@ import Networks from "@/pages/Networks";
 import DockerSettings from "@/pages/DockerSettings";
 import NotFound from "@/pages/NotFound";
 
+const routerFutureFlags = {
+  v7_relativeSplatPath: true,
+  v7_startTransition: true,
+} as const;
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -26,7 +31,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter future={routerFutureFlags}>
         <Routes>
           <Route element={<AppLayout />}>
             <Route path="/" element={<Dashboard />} />
