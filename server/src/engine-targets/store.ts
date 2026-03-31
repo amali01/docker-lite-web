@@ -343,6 +343,19 @@ export class EngineTargetStore {
     return cloneTarget(this.state.savedTargets);
   }
 
+  async getTargetProfile(targetId: string): Promise<EngineTargetProfile | null> {
+    await this.loadState();
+    const target = this.getComposedTarget(targetId);
+    return target ? cloneTarget(target) : null;
+  }
+
+  async getActiveTargetProfile(): Promise<EngineTargetProfile | null> {
+    await this.loadState();
+    const activeTargetId = this.resolveActiveTargetId();
+    const target = activeTargetId ? this.getComposedTarget(activeTargetId) : undefined;
+    return target ? cloneTarget(target) : null;
+  }
+
   async saveTarget(input: EngineTargetProfileInput): Promise<EngineTargetProfile> {
     await this.loadState();
     const parsed = parseEngineTargetProfileInput(input);
