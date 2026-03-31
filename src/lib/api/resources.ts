@@ -1,15 +1,19 @@
 import { apiRequest } from "./client";
 import {
+  CreateEngineTargetPayload,
   ContainerSummary,
   CreateNetworkPayload,
   CreateVolumePayload,
   EngineInfo,
   EngineTarget,
+  EngineTargetHealth,
   ImageSummary,
   NetworkSummary,
   PullImagePayload,
   RunContainerPayload,
   SelectEnginePayload,
+  TestEngineTargetPayload,
+  UpdateEngineTargetPayload,
   VolumeSummary,
 } from "./types";
 
@@ -25,6 +29,39 @@ export function selectEngineTarget(payload: SelectEnginePayload) {
   return apiRequest<EngineInfo>("/api/engine/select", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export function createEngineTarget(payload: CreateEngineTargetPayload) {
+  return apiRequest<EngineTarget>("/api/engine/targets", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateEngineTarget(targetId: string, payload: UpdateEngineTargetPayload) {
+  return apiRequest<EngineTarget>(`/api/engine/targets/${encodeURIComponent(targetId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteEngineTarget(targetId: string) {
+  return apiRequest<void>(`/api/engine/targets/${encodeURIComponent(targetId)}`, {
+    method: "DELETE",
+  });
+}
+
+export function testEngineTarget(payload: TestEngineTargetPayload) {
+  return apiRequest<EngineTargetHealth>("/api/engine/targets/test", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function retestEngineTarget(targetId: string) {
+  return apiRequest<EngineTargetHealth>(`/api/engine/targets/${encodeURIComponent(targetId)}/test`, {
+    method: "POST",
   });
 }
 
