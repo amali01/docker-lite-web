@@ -23,7 +23,7 @@ import {
   RunContainerPayload,
   VolumeSummary,
 } from "../types";
-import { createTcpTlsDockerConnectionConfig } from "../engine-targets/connection-test";
+import { createSshDockerConnectionConfig, createTcpTlsDockerConnectionConfig } from "../engine-targets/connection-test";
 import { formatBytes, formatCreatedDate, formatPercentage, formatPorts, formatUnixDate } from "../format";
 
 const DEFAULT_SOCKET_PATH = process.env.DOCKLITE_DOCKER_SOCKET ?? "/var/run/docker.sock";
@@ -1018,6 +1018,11 @@ export async function createDockerBackendFromTarget(selectedEngineId: string, so
 
 export async function createDockerBackendFromTcpTlsTarget(selectedEngineId: string, target: unknown) {
   const { dockerOptions, endpoint } = await createTcpTlsDockerConnectionConfig(target);
+  return createDockerBackend(dockerOptions, endpoint, selectedEngineId);
+}
+
+export async function createDockerBackendFromSshTarget(selectedEngineId: string, target: unknown) {
+  const { dockerOptions, endpoint } = await createSshDockerConnectionConfig(target);
   return createDockerBackend(dockerOptions, endpoint, selectedEngineId);
 }
 

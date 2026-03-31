@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import { access } from "node:fs/promises";
 import { EngineTargetStore } from "./engine-targets/store";
 import type { EngineTargetProfile, EngineTargetProfileInput } from "./engine-targets/types";
-import { testTcpTlsConnection } from "./engine-targets/connection-test";
+import { testSshConnection, testTcpTlsConnection } from "./engine-targets/connection-test";
 import {
   BackendError,
   CreateEngineTargetPayload,
@@ -12,7 +12,12 @@ import {
   TestEngineTargetPayload,
   UpdateEngineTargetPayload,
 } from "./types";
-import { createDockerBackendFromTarget, createDockerBackendFromTcpTlsTarget, createMockBackend } from "./docker/client";
+import {
+  createDockerBackendFromSshTarget,
+  createDockerBackendFromTarget,
+  createDockerBackendFromTcpTlsTarget,
+  createMockBackend,
+} from "./docker/client";
 
 type EngineTargetConfig = {
   id: string;
@@ -132,7 +137,12 @@ export class EngineController implements DockerBackend {
         return createDockerBackendFromTcpTlsTarget(target.id, target);
       }
 
-      throw new BackendError(501, "not_supported", "SSH engine targets are not supported yet");
+      if (process.env.DOCKLITE_ADAPTER === "mock") {
+        const endpoint = `ssh://${target.ssh.username}@${target.connection.host}`;
+        return createMockBackend(target.id, DEFAULT_MOCK_SOCKET_PATH, endpoint);
+      }
+
+      return createDockerBackendFromSshTarget(target.id, target);
     }
 
     if (process.env.DOCKLITE_ADAPTER === "mock") {
@@ -382,12 +392,16 @@ export class EngineController implements DockerBackend {
       return (await testTcpTlsConnection(target)).health;
     }
 
-    if (process.env.DOCKLITE_ADAPTER === "mock") {
-      return {
-        status: "healthy",
-        message: `Mock ${target.kind} connection successful`,
-        checkedAt,
-      };
+    if (target.kind === "ssh") {
+      if (process.env.DOCKLITE_ADAPTER === "mock") {
+        return {
+          status: "healthy",
+          message: "Mock ssh connection successful",
+          checkedAt,
+        };
+      }
+
+      return (await testSshConnection(target)).health;
     }
 
     return {

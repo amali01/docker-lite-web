@@ -15,7 +15,10 @@ export type ConnectionTestCode =
   | "tls_validation_failed"
   | "docker_unavailable"
   | "insecure_tcp_not_supported"
-  | "invalid_profile";
+  | "invalid_profile"
+  | "ssh_auth_failed"
+  | "ssh_hostname_not_found"
+  | "unsupported_ssh_configuration";
 
 export interface ConnectionTestResult {
   code: ConnectionTestCode;
@@ -25,6 +28,7 @@ export interface ConnectionTestResult {
 export interface ConnectionTestDependencies {
   readFile?: ReadFileLike;
   createDockerClient?: (options: DockerOptions) => DockerInfoClient;
+  sshAgentPath?: string;
 }
 
 type TcpTlsTargetShape = {
@@ -40,6 +44,22 @@ type TcpTlsTargetShape = {
     caPath?: string | null;
     certPath?: string | null;
     keyPath?: string | null;
+  };
+};
+
+type SshTargetShape = {
+  kind: "ssh";
+  label?: string;
+  connection: {
+    host: string;
+    port: number;
+  };
+  ssh: {
+    username: string;
+    authMode: "agent" | "keyFile";
+    keyPath?: string | null;
+    knownHostsPath?: string | null;
+    dockerHostOverride?: string | null;
   };
 };
 
@@ -153,6 +173,87 @@ function classifyTcpTlsFailure(error: unknown, checkedAt: string): ConnectionTes
   };
 }
 
+function normalizeSshTarget(input: unknown): SshTargetShape {
+  if (!isRecord(input) || input.kind !== "ssh" || !isRecord(input.connection) || !isRecord(input.ssh)) {
+    throw new BackendError(400, "validation_error", "SSH Docker target input is invalid");
+  }
+
+  const host = readString(input.connection.host);
+  const port = typeof input.connection.port === "number" && Number.isInteger(input.connection.port) && input.connection.port > 0
+    ? input.connection.port
+    : null;
+  const username = readString(input.ssh.username);
+  const authMode =
+    input.ssh.authMode === "agent" || input.ssh.authMode === "keyFile" ? input.ssh.authMode : null;
+
+  if (!host || !port || !username || !authMode) {
+    throw new BackendError(400, "validation_error", "SSH Docker targets require host, port, username, and auth mode");
+  }
+
+  return {
+    kind: "ssh",
+    label: readString(input.label) ?? undefined,
+    connection: {
+      host,
+      port,
+    },
+    ssh: {
+      username,
+      authMode,
+      keyPath: readNullableString(input.ssh.keyPath),
+      knownHostsPath: readNullableString(input.ssh.knownHostsPath),
+      dockerHostOverride: readNullableString(input.ssh.dockerHostOverride),
+    },
+  };
+}
+
+function classifySshFailure(error: unknown, checkedAt: string): ConnectionTestResult {
+  const message = error instanceof Error ? error.message : "Unable to reach Docker Engine";
+  const errorCode = (error as { code?: unknown })?.code;
+
+  if (error instanceof BackendError) {
+    return {
+      code: "unsupported_ssh_configuration",
+      health: {
+        status: "unhealthy",
+        message,
+        checkedAt,
+      },
+    };
+  }
+
+  if (errorCode === "ENOTFOUND") {
+    return {
+      code: "ssh_hostname_not_found",
+      health: {
+        status: "unhealthy",
+        message,
+        checkedAt,
+      },
+    };
+  }
+
+  if (/authentication methods failed|permission denied|all configured authentication methods failed/i.test(message)) {
+    return {
+      code: "ssh_auth_failed",
+      health: {
+        status: "unhealthy",
+        message,
+        checkedAt,
+      },
+    };
+  }
+
+  return {
+    code: "docker_unavailable",
+    health: {
+      status: "unhealthy",
+      message,
+      checkedAt,
+    },
+  };
+}
+
 export async function createTcpTlsDockerConnectionConfig(
   input: unknown,
   dependencies: Pick<ConnectionTestDependencies, "readFile"> = {},
@@ -223,5 +324,70 @@ export async function testTcpTlsConnection(
     };
   } catch (error) {
     return classifyTcpTlsFailure(error, checkedAt);
+  }
+}
+
+export async function createSshDockerConnectionConfig(
+  input: unknown,
+  dependencies: Pick<ConnectionTestDependencies, "readFile" | "sshAgentPath"> = {},
+) {
+  const target = normalizeSshTarget(input);
+  const readFileImpl = dependencies.readFile ?? readFile;
+
+  const dockerOptions: DockerOptions = {
+    host: target.connection.host,
+    port: target.connection.port,
+    protocol: "ssh",
+    username: target.ssh.username,
+    sshOptions: {},
+  };
+
+  if (target.ssh.authMode === "agent") {
+    const agentPath = dependencies.sshAgentPath ?? process.env.SSH_AUTH_SOCK;
+    if (!agentPath) {
+      throw new BackendError(400, "validation_error", "SSH agent auth requires SSH_AUTH_SOCK or an explicit agent path");
+    }
+
+    dockerOptions.sshOptions = {
+      agent: agentPath,
+    };
+  } else {
+    if (!target.ssh.keyPath) {
+      throw new BackendError(400, "validation_error", "SSH key-file auth requires a private key path");
+    }
+
+    dockerOptions.sshOptions = {
+      privateKey: await readFileImpl(target.ssh.keyPath),
+    };
+  }
+
+  return {
+    dockerOptions,
+    endpoint: `ssh://${target.ssh.username}@${target.connection.host}`,
+  };
+}
+
+export async function testSshConnection(
+  input: unknown,
+  dependencies: ConnectionTestDependencies = {},
+): Promise<ConnectionTestResult> {
+  const checkedAt = new Date().toISOString();
+
+  try {
+    const { dockerOptions } = await createSshDockerConnectionConfig(input, dependencies);
+    const createDockerClient = dependencies.createDockerClient ?? ((options: DockerOptions) => new Docker(options));
+    const docker = createDockerClient(dockerOptions);
+    await docker.info();
+
+    return {
+      code: "connected",
+      health: {
+        status: "healthy",
+        message: "Connected",
+        checkedAt,
+      },
+    };
+  } catch (error) {
+    return classifySshFailure(error, checkedAt);
   }
 }
