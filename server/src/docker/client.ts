@@ -160,6 +160,7 @@ export function createMockBackend(selectedEngineId = "mock", socketPath = DEFAUL
         created: new Date().toISOString(),
         cpuPercent: 0,
         memUsage: "0 B",
+        memPercent: 0,
         memLimit: "512 MiB",
         netIO: "0 B / 0 B",
         blockIO: "0 B / 0 B",
@@ -191,6 +192,17 @@ export function createMockBackend(selectedEngineId = "mock", socketPath = DEFAUL
       return container;
     },
     async restartContainer(id) {
+      const container = state.containers.find((item) => item.id === id);
+
+      if (!container) {
+        throw new BackendError(404, "not_found", "Container not found");
+      }
+
+      container.status = "running";
+      container.state = "Up just now";
+      return container;
+    },
+    async rebuildContainer(id) {
       const container = state.containers.find((item) => item.id === id);
 
       if (!container) {
@@ -444,7 +456,6 @@ function mapContainerSummary(details: {
     memPercent: null,
     netIO: null,
     memLimit: null,
-    netIO: null,
     blockIO: null,
   };
 }
@@ -674,6 +685,22 @@ async function createDockerBackend(socketPath: string, selectedEngineId?: string
       try {
         const container = docker.getContainer(id);
         await container.restart();
+        return await getContainerSummaryById(id);
+      } catch (error) {
+        throw createBackendError(error);
+      }
+    },
+    async rebuildContainer(id) {
+      try {
+        const container = docker.getContainer(id);
+        const details = await container.inspect();
+
+        if (details.State?.Running) {
+          await container.restart();
+        } else {
+          await container.start();
+        }
+
         return await getContainerSummaryById(id);
       } catch (error) {
         throw createBackendError(error);

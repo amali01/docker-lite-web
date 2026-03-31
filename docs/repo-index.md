@@ -2,32 +2,29 @@
 
 ## What This App Is
 
-This repository is a frontend-first prototype for a lightweight Docker Desktop alternative.
+DockLite Web is a local-first Docker UI for Ubuntu with two runtime parts:
 
-The current app already models the core resource areas users expect:
+- A React frontend served in the browser
+- A lightweight local backend that talks to Docker over a Unix socket
 
-- Dashboard
-- Containers
-- Images
-- Volumes
-- Networks
-- Docker connection settings
+It is no longer a mock-only prototype. The app can run against:
 
-The app is not yet wired to a real Docker backend. Every screen is driven by mock state, local React state, and optimistic UI actions.
+- A real local Docker Engine
+- A mock backend for smoke tests and UI development
 
 ## Product Direction
 
-The intended product is:
+The intended product remains:
 
 - Faster and lighter than Docker Desktop
 - Browser-based
-- Able to run locally on the same Ubuntu machine as Docker
-- Capable of covering the common Docker Desktop workflows without replacing the Docker CLI
+- Same-device and local-first
+- Compatible with the Docker CLI mental model
 
 Important constraint:
 
-- A browser app cannot directly open `unix:///var/run/docker.sock`
-- The MVP therefore needs a small local bridge service on the same machine that talks to the Docker Engine and exposes a safe HTTP/WebSocket API to the web UI
+- A browser cannot open `unix:///var/run/docker.sock` directly
+- DockLite therefore needs the local backend bridge that exposes constrained HTTP/WebSocket APIs to the frontend
 
 ## Tech Stack
 
@@ -37,163 +34,122 @@ Important constraint:
 - Tailwind CSS
 - `shadcn/ui` and Radix UI
 - React Router
-- TanStack Query, currently unused for real data fetching
+- TanStack Query for resource queries and mutations
+- Express 5 + `ws` for the local backend
+- `dockerode` for Docker Engine access
 - Vitest + Testing Library
-- Playwright config present but not yet used for meaningful product coverage
+- Playwright for smoke coverage
 
 ## File Map
 
-### App Shell
+### Frontend Shell
 
 - [`src/main.tsx`](../src/main.tsx): React bootstrap and font imports
 - [`src/App.tsx`](../src/App.tsx): providers, router, and top-level routes
 - [`src/components/AppLayout.tsx`](../src/components/AppLayout.tsx): shell layout with sidebar and routed content
-- [`src/components/AppSidebar.tsx`](../src/components/AppSidebar.tsx): main navigation and hardcoded engine status indicator
+- [`src/components/AppSidebar.tsx`](../src/components/AppSidebar.tsx): navigation and engine status indicator
 
-### Pages
+### Frontend Pages
 
-- [`src/pages/Dashboard.tsx`](../src/pages/Dashboard.tsx): summary cards, system info, and container table
-- [`src/pages/Containers.tsx`](../src/pages/Containers.tsx): filterable container list, mock lifecycle actions, log panel toggle, and run dialog
-- [`src/pages/Images.tsx`](../src/pages/Images.tsx): filterable image list and mock deletion/copy actions
-- [`src/pages/Volumes.tsx`](../src/pages/Volumes.tsx): filterable volume list and guarded deletion
-- [`src/pages/Networks.tsx`](../src/pages/Networks.tsx): filterable network list and guarded deletion for default networks
-- [`src/pages/DockerSettings.tsx`](../src/pages/DockerSettings.tsx): placeholder connection UI for Docker socket/API endpoint
-- [`src/pages/NotFound.tsx`](../src/pages/NotFound.tsx): route fallback
-- [`src/pages/Index.tsx`](../src/pages/Index.tsx): unused Lovable placeholder page
+- [`src/pages/Dashboard.tsx`](../src/pages/Dashboard.tsx): engine summary, resource stats, and container actions
+- [`src/pages/Containers.tsx`](../src/pages/Containers.tsx): filterable list, compose grouping, run/start/stop/restart/remove, logs, and terminal
+- [`src/pages/Images.tsx`](../src/pages/Images.tsx): image list, pull, remove, copy image IDs
+- [`src/pages/Volumes.tsx`](../src/pages/Volumes.tsx): volume list, create, remove
+- [`src/pages/Networks.tsx`](../src/pages/Networks.tsx): network list, create, remove
+- [`src/pages/DockerSettings.tsx`](../src/pages/DockerSettings.tsx): backend URL, engine target switching, connection test
 
-### Domain and Mock Data
+### Frontend Data Layer
 
-- [`src/lib/mock-data.ts`](../src/lib/mock-data.ts): all current domain types and mock resources
+- [`src/lib/api/types.ts`](../src/lib/api/types.ts): shared frontend/backend API contracts
+- [`src/lib/api/client.ts`](../src/lib/api/client.ts): HTTP client and base URL persistence
+- [`src/lib/api/resources.ts`](../src/lib/api/resources.ts): resource-level request helpers
+- [`src/hooks/use-engine.ts`](../src/hooks/use-engine.ts): engine queries and mutations
+- [`src/hooks/use-containers.ts`](../src/hooks/use-containers.ts): container and compose actions
+- [`src/hooks/use-images.ts`](../src/hooks/use-images.ts): image queries and mutations
+- [`src/hooks/use-volumes.ts`](../src/hooks/use-volumes.ts): volume queries and mutations
+- [`src/hooks/use-networks.ts`](../src/hooks/use-networks.ts): network queries and mutations
+- [`src/lib/mock-data.ts`](../src/lib/mock-data.ts): fixture data used by the mock adapter
 
-Current domain types already cover:
+### Backend
 
-- Containers
-- Images
-- Volumes
-- Networks
-- System info
-
-This file is effectively the temporary contract for the app.
-
-### Reusable Product Components
-
-- [`src/components/StatusBadge.tsx`](../src/components/StatusBadge.tsx): visual state pill for container status
-- [`src/components/StatCard.tsx`](../src/components/StatCard.tsx): dashboard stat card
-- [`src/components/ContainerLogs.tsx`](../src/components/ContainerLogs.tsx): simulated streaming logs viewer
-- [`src/components/RunContainerDialog.tsx`](../src/components/RunContainerDialog.tsx): prototype container creation form using local-only state
-
-### Generated UI Layer
-
-- [`src/components/ui`](../src/components/ui): mostly generated `shadcn/ui` primitives
-
-Only a small subset is actually used. Most files in this folder are scaffolding rather than product logic.
-
-### Styling and Config
-
-- [`src/index.css`](../src/index.css): design tokens, dark industrial palette, font tokens, scrollbar styling
-- [`tailwind.config.ts`](../tailwind.config.ts): token mapping and custom animation
-- [`vite.config.ts`](../vite.config.ts): Vite config, path alias, port `8080`
-- [`vitest.config.ts`](../vitest.config.ts): test setup for jsdom and `@/` alias
-- [`eslint.config.js`](../eslint.config.js): baseline TypeScript + React linting
+- [`server/src/index.ts`](../server/src/index.ts): HTTP server bootstrap and terminal WebSocket upgrade handling
+- [`server/src/app.ts`](../server/src/app.ts): Express app, routing, CORS, error handling
+- [`server/src/engine-controller.ts`](../server/src/engine-controller.ts): selected-engine management and backend delegation
+- [`server/src/docker/client.ts`](../server/src/docker/client.ts): real Docker adapter and mock adapter
+- [`server/src/routes/engine.ts`](../server/src/routes/engine.ts): engine info and target selection routes
+- [`server/src/routes/containers.ts`](../server/src/routes/containers.ts): container and compose routes
+- [`server/src/routes/logs.ts`](../server/src/routes/logs.ts): SSE log streaming
+- [`server/src/routes/images.ts`](../server/src/routes/images.ts): image routes
+- [`server/src/routes/volumes.ts`](../server/src/routes/volumes.ts): volume routes
+- [`server/src/routes/networks.ts`](../server/src/routes/networks.ts): network routes
 
 ## Current Runtime Behavior
 
-### Dashboard
+### Engine
 
-- Reads all data from `mock-data.ts`
-- Shows Docker version, API version, system information, and container table
+- The frontend polls engine info every 30 seconds
+- Settings can list and switch between discovered engine targets
+- Backend target discovery currently covers the system Docker socket and Docker Desktop for Linux if present
 
 ### Containers
 
-- Supports filtering by name or image
-- Simulates start, stop, restart, remove, logs, and terminal actions
-- Maintains state only in component memory
-- Uses `RunContainerDialog` to prepend a synthetic container to the list
+- Lists containers from the backend
+- Supports run, start, stop, restart, remove, and compose-group start/stop/remove
+- Streams logs over SSE
+- Opens an interactive shell over WebSocket when the container is running
+- Shows CPU, memory, and network stats when the real adapter can collect them
 
-### Images
+### Images, Volumes, Networks
 
-- Supports filtering by repository and tag
-- Simulates image removal
-- Copies image IDs to the clipboard
-
-### Volumes and Networks
-
-- Support filtering and guarded deletion rules
-- Deletion is in-memory only
+- Images: list, pull, remove
+- Volumes: list, create, remove
+- Networks: list, create, remove
+- Mock mode supports the same surface area with in-memory fixture state
 
 ### Settings
 
-- Suggests direct Docker Engine connectivity
-- Does not yet persist settings or validate real connections
+- Persists the backend base URL in local storage
+- Can test backend connectivity
+- Exposes the selected Docker endpoint and API version
 
-## Gaps Against the Vision
+## Current Gaps
 
-### Backend Gap
+### Product Gaps
 
-There is no service layer yet. For the local-Ubuntu MVP, this is the main missing subsystem.
+- No container inspect page
+- No build progress UI
+- No events stream
+- No Compose project inspect/details view
+- No confirmation dialogs for destructive actions
 
-### Data Flow Gap
+### UX Gaps
 
-TanStack Query is installed, but the app does not yet use query hooks, mutations, polling, streaming, or cache invalidation.
+- Some actions still use legacy wording and lightweight optimistic toasts
+- Disconnected and permission states exist, but the diagnostics are still basic
+- Terminal behavior is functional but not yet deeply productized
 
-### Domain Gap
+### Engineering Gaps
 
-The domain model is too small for Docker parity. Missing examples:
-
-- Container inspect data
-- Real container create/run options
-- Exec sessions
-- Live stats
-- Build and pull progress
-- Compose projects
-- Events stream
-- Error states from the engine
-
-### UX Gap
-
-The prototype captures the page structure, but not production workflows such as:
-
-- Real-time refresh
-- Disabled states during mutations
-- Confirmation flows for destructive actions
-- Engine disconnected state
-- Permission and socket access failures
-
-## Recommended Near-Term Architecture
-
-For the local MVP on Ubuntu:
-
-1. Keep the existing React app as the browser UI.
-2. Add a lightweight local backend on the same machine.
-3. Have the backend talk to Docker through the local Unix socket or through the Docker CLI where appropriate.
-4. Expose a constrained HTTP/WebSocket API to the frontend.
-5. Move page state from mock arrays into query hooks and mutations.
-
-Practical implication:
-
-- The product is not "frontend only"
-- It is a local web app plus a local Docker bridge
+- The repo still carries historical doc drift in a few places
+- Frontend tests pass with noisy `xterm`/canvas warnings under jsdom
+- The production frontend bundle is large enough to trigger Vite chunk warnings
 
 ## Testing Status
 
-Current tests cover:
+Current automated coverage includes:
 
-- Dashboard rendering
-- Containers page rendering and filtering
-- StatusBadge
-- ContainerLogs
-- Mock data sanity
+- Frontend unit tests for Dashboard, Containers, Settings, logs, status badge, sidebar, and fixtures
+- Backend route and adapter tests in mock mode
+- One Playwright smoke test that boots the frontend plus mock backend and exercises a safe mutation path
 
-Current limitations:
+Important caveat:
 
-- No tests for a real API layer because none exists yet
-- No end-to-end product tests for engine-backed flows
-- Playwright is configured but not yet productized
+- The smoke test validates the mock-backed workflow, not a real Docker daemon on the machine
 
-## Suggested Work Order
+## Suggested Near-Term Work
 
-1. Introduce a real local API layer for Ubuntu Docker Engine access.
-2. Define typed API contracts that replace `mock-data.ts` as the UI contract.
-3. Migrate pages one resource at a time from mock state to real queries/mutations.
-4. Add streaming support for logs, events, and progress updates.
-5. Expand into inspect, exec, Compose, and richer settings after the core CRUD flows are stable.
+1. Add inspect/details flows for containers and compose projects.
+2. Improve destructive-action confirmations and mutation disabled states.
+3. Clean up test noise around `xterm` in jsdom.
+4. Reduce the large frontend bundle with route or feature-level code splitting.
+5. Expand Playwright coverage beyond the current single smoke path.
