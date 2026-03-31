@@ -1,4 +1,5 @@
-import { FileText, Play, RotateCcw, Square, Terminal, Trash2, ArrowUpCircle } from "lucide-react";
+import { FileText, Play, RotateCcw, Square, Terminal, Trash2, ArrowUpCircle, Eye } from "lucide-react";
+import { Link } from "react-router-dom";
 import { ContainerSummary } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +21,14 @@ export function ContainerActionButtons({ container, compact = false, logsActive,
 
   return (
     <div className={cn("flex items-center justify-end", compact ? "gap-0.5 md:gap-1" : "gap-1")}>
+      <Link
+        to={`/containers/${container.id}`}
+        className={cn(buttonClassName, "hover:bg-muted text-muted-foreground")}
+        title="Details"
+        aria-label={`View details for ${containerName}`}
+      >
+        <Eye className={iconClassName} />
+      </Link>
       {container.status === "stopped" ? (
         <button onClick={() => onAction("start", container)} className={cn(buttonClassName, "hover:bg-success/10 text-success")} title="Start" aria-label={`Start container ${containerName}`}>
           <Play className={iconClassName} />

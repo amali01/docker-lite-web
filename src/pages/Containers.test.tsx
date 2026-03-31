@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import Containers from "@/pages/Containers";
 import { renderWithProviders } from "@/test/render";
 
@@ -10,6 +12,26 @@ const containers = [
   { id: "ctr-2", name: "sports-postgres", image: "postgres:16", composeProject: "sportseventhub", composeService: "postgres", status: "stopped", state: "Exited", ports: "5432/tcp", created: new Date().toISOString(), cpuPercent: null, memUsage: null, memLimit: null, netIO: null, blockIO: null },
   { id: "ctr-3", name: "sportseventhub-redis", image: "redis:7-alpine", composeProject: "sportseventhub", composeService: "redis", status: "running", state: "Up 1 hour", ports: "6379/tcp", created: new Date().toISOString(), cpuPercent: null, memUsage: "10 MB", memLimit: "256 MB", netIO: null, blockIO: null },
 ];
+
+function renderContainersRoute() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }} initialEntries={["/containers"]}>
+        <Routes>
+          <Route path="/containers" element={<Containers />} />
+          <Route path="/containers/:containerId" element={<div>Container detail route reached</div>} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
 
 describe("Containers Page", () => {
   beforeEach(() => {
@@ -186,5 +208,14 @@ describe("Containers Page", () => {
     expect(screen.getAllByTitle("Restart").length).toBeGreaterThan(0);
     expect(screen.getAllByTitle("Logs").length).toBeGreaterThan(0);
     expect(screen.getAllByTitle("Remove").length).toBeGreaterThan(0);
+  });
+
+  it("navigates to the detail route from the containers page", async () => {
+    renderContainersRoute();
+
+    await screen.findByText("nginx-proxy");
+    fireEvent.click(screen.getByRole("link", { name: "View details for nginx-proxy" }));
+
+    expect(await screen.findByText("Container detail route reached")).toBeInTheDocument();
   });
 });
