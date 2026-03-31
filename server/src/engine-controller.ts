@@ -86,14 +86,27 @@ export class EngineController implements DockerBackend {
 
   async listTargets(): Promise<EngineTarget[]> {
     const currentId = this.currentTargetId;
+    const checkedAt = new Date().toISOString();
     const targets = await Promise.all(
-      this.targets.map(async (target) => ({
-        id: target.id,
-        label: target.label,
-        endpoint: `unix://${target.socketPath}`,
-        active: target.id === currentId,
-        available: target.adapter === "mock" ? true : await isSocketAvailable(target.socketPath),
-      })),
+      this.targets.map(async (target) => {
+        const available = target.adapter === "mock" ? true : await isSocketAvailable(target.socketPath);
+        const healthStatus: NonNullable<EngineTarget["lastHealth"]>["status"] = available ? "healthy" : "unhealthy";
+
+        return {
+          id: target.id,
+          label: target.label,
+          endpoint: `unix://${target.socketPath}`,
+          active: target.id === currentId,
+          available,
+          kind: "local" as const,
+          source: "builtin" as const,
+          lastHealth: {
+            status: healthStatus,
+            message: available ? "Connected" : "Docker socket not reachable",
+            checkedAt,
+          },
+        };
+      }),
     );
 
     return targets;
