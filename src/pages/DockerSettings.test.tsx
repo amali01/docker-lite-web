@@ -11,6 +11,9 @@ const testTargetPayload = {
   port: 22,
   username: "ops",
   authMode: "agent",
+  keyPath: null,
+  knownHostsPath: null,
+  dockerHostOverride: null,
 } as const;
 
 const createTargetResponse = {
@@ -167,8 +170,8 @@ describe("DockerSettings", () => {
   it("shows available docker engines and lets the user switch", async () => {
     renderWithProviders(<DockerSettings />);
 
-    expect(await screen.findByText("System Docker")).toBeInTheDocument();
-    expect(screen.getByText("Docker Desktop")).toBeInTheDocument();
+    expect(await screen.findByRole("radio", { name: "System Docker" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Docker Desktop" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("radio", { name: "Docker Desktop" }));
 
@@ -208,16 +211,15 @@ describe("DockerSettings", () => {
     renderWithProviders(<DockerSettings />);
 
     expect(await screen.findByRole("button", { name: "Add Engine Target" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Add Engine Target" }));
 
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining("/api/engine/targets"),
-        expect.objectContaining({
-          method: "POST",
-          body: JSON.stringify(testTargetPayload),
-        }),
-      );
+    fireEvent.change(screen.getByLabelText("Label"), {
+      target: { value: "Prod Server" },
+    });
+    fireEvent.change(screen.getByLabelText("Host"), {
+      target: { value: "prod.example.internal" },
+    });
+    fireEvent.change(screen.getByLabelText("Username"), {
+      target: { value: "ops" },
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Test Target" }));
@@ -225,6 +227,18 @@ describe("DockerSettings", () => {
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining("/api/engine/targets/test"),
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify(testTargetPayload),
+        }),
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Engine Target" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/engine/targets"),
         expect.objectContaining({
           method: "POST",
           body: JSON.stringify(testTargetPayload),
