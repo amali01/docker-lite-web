@@ -42,6 +42,30 @@ export function createContainersRouter(backend: DockerBackend) {
     }
   });
 
+  router.get("/:id", async (request, response, next) => {
+    try {
+      response.json(await backend.getContainerDetails(request.params.id));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/:id/inspect", async (request, response, next) => {
+    try {
+      response.json(await backend.getContainerInspect(request.params.id));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/:id/stats", async (request, response, next) => {
+    try {
+      response.json(await backend.getContainerStats(request.params.id));
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.post("/run", async (request, response, next) => {
     try {
       response.status(201).json(await backend.runContainer(runContainerSchema.parse(request.body)));

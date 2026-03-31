@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { access } from "node:fs/promises";
 import Docker from "dockerode";
 import {
+  mockContainerDetails,
   mockContainers,
   mockImages,
   mockNetworks,
@@ -11,7 +12,12 @@ import {
   mockVolumes,
 } from "../../../src/lib/mock-data";
 import {
+  ContainerDetails,
   ContainerLogsChunk,
+  ContainerLabelEntry,
+  ContainerMountSummary,
+  ContainerPortBinding,
+  ContainerStatsSample,
   ContainerSummary,
   CreateNetworkPayload,
   CreateVolumePayload,
@@ -64,6 +70,35 @@ type DockerStatsSnapshot = {
     };
   };
   networks?: Record<string, DockerNetworkStats>;
+};
+
+type DockerInspectPortBinding = {
+  HostIp?: string;
+  HostPort?: string;
+} | null;
+
+type DockerInspectInfo = {
+  Id: string;
+  Name: string;
+  Config: {
+    Image: string;
+    Labels?: Record<string, string>;
+  };
+  State?: {
+    Status?: string;
+    StartedAt?: string;
+  };
+  NetworkSettings: {
+    Ports?: Record<string, DockerInspectPortBinding[] | null>;
+  };
+  Mounts?: Array<{
+    Source?: string;
+    Destination?: string;
+    Type?: string;
+    RW?: boolean;
+    Propagation?: string;
+  }>;
+  Created?: string;
 };
 
 type DestroyableStream = NodeJS.ReadWriteStream & {
@@ -136,6 +171,15 @@ function createBackendError(error: unknown) {
   return new BackendError(500, "internal_error", "Unexpected backend error");
 }
 
+function createContainerNotFoundError(error: unknown) {
+  const statusCode = (error as { statusCode?: number })?.statusCode;
+  if (statusCode === 404) {
+    return new BackendError(404, "not_found", "Container not found");
+  }
+
+  return createBackendError(error);
+}
+
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unexpected error";
 }
@@ -164,6 +208,148 @@ async function ensureSocketAccessible(socketPath: string) {
   }
 }
 
+function mapInspectMounts(
+  mounts: Array<{ Source?: string; Destination?: string; Type?: string; RW?: boolean; Propagation?: string }> | undefined,
+): ContainerMountSummary[] {
+  return (mounts ?? []).map((mount) => ({
+    source: mount.Source ?? "",
+    destination: mount.Destination ?? "",
+    type: mount.Type ?? "volume",
+    readOnly: mount.RW === false,
+    propagation: mount.Propagation ? mount.Propagation : null,
+  }));
+}
+
+function mapInspectPorts(
+  ports: Record<string, DockerInspectPortBinding[] | null> | undefined,
+): ContainerPortBinding[] {
+  return Object.entries(ports ?? {}).flatMap(([containerPort, bindings]) => {
+    const [privatePortText, protocolText = "tcp"] = containerPort.split("/");
+    const privatePort = Number(privatePortText);
+    const protocol = protocolText === "udp" ? "udp" : "tcp";
+
+    if (!bindings || bindings.length === 0) {
+      return [{ ip: null, privatePort, publicPort: null, protocol }];
+    }
+
+    return bindings.map((binding) => ({
+      ip: binding?.HostIp ?? null,
+      privatePort,
+      publicPort: binding?.HostPort ? Number(binding.HostPort) : null,
+      protocol,
+    }));
+  });
+}
+
+function mapInspectLabels(labels: Record<string, string> | undefined): ContainerLabelEntry[] {
+  return Object.entries(labels ?? {}).map(([key, value]) => ({ key, value }));
+}
+
+function summarizeStats(stats: DockerStatsSnapshot) {
+  let cpuPercent = 0;
+  const cpuDelta = stats.cpu_stats.cpu_usage.total_usage - stats.precpu_stats.cpu_usage.total_usage;
+  const systemDelta = stats.cpu_stats.system_cpu_usage - stats.precpu_stats.system_cpu_usage;
+
+  if (systemDelta > 0 && cpuDelta > 0) {
+    const numCpus = stats.cpu_stats.online_cpus || stats.cpu_stats.cpu_usage.percpu_usage?.length || 1;
+    cpuPercent = (cpuDelta / systemDelta) * numCpus * 100.0;
+  }
+
+  const usage = stats.memory_stats.usage || 0;
+  const cache = stats.memory_stats.stats?.cache || stats.memory_stats.stats?.inactive_file || 0;
+  const realUsage = Math.max(0, usage - cache);
+  const limit = stats.memory_stats.limit || 0;
+  const memoryUsage = formatBytes(realUsage) ?? "0 B";
+  const memoryLimit = limit > 0 ? formatBytes(limit) : null;
+
+  let netIO: string | null = null;
+  if (stats.networks) {
+    let totalRx = 0;
+    let totalTx = 0;
+    for (const [, networkData] of Object.entries(stats.networks) as Array<[string, DockerNetworkStats]>) {
+      totalRx += networkData.rx_bytes || 0;
+      totalTx += networkData.tx_bytes || 0;
+    }
+    const rxMB = totalRx / (1024 * 1024);
+    const txMB = totalTx / (1024 * 1024);
+    netIO = `↓${rxMB.toFixed(2)} MB ,↑${txMB.toFixed(2)} MB`;
+  }
+
+  return {
+    cpuPercent: formatPercentage(cpuPercent) ?? 0,
+    memoryUsage,
+    memoryUsageBytes: realUsage,
+    memoryLimit,
+    memoryLimitBytes: limit > 0 ? limit : null,
+    memPercent: limit > 0 ? formatPercentage((realUsage / limit) * 100.0) ?? 0 : 0,
+    netIO,
+  };
+}
+
+function mapInspectToSummary(details: DockerInspectInfo, stats?: DockerStatsSnapshot): ContainerSummary {
+  const inspectDetails = details;
+  const summary = mapContainerSummary({
+    id: inspectDetails.Id.slice(0, 12),
+    name: inspectDetails.Name,
+    image: inspectDetails.Config.Image,
+    composeProject: inspectDetails.Config.Labels?.["com.docker.compose.project"] ?? null,
+    composeService: inspectDetails.Config.Labels?.["com.docker.compose.service"] ?? null,
+    state: inspectDetails.State?.Status,
+    status: inspectDetails.State?.Status === "running" ? `Up since ${inspectDetails.State.StartedAt}` : inspectDetails.State?.Status,
+    ports: Object.entries(inspectDetails.NetworkSettings.Ports ?? {}).flatMap(([containerPort, bindings]) => {
+      if (!bindings) {
+        const [privatePort, protocol] = containerPort.split("/");
+        return [{ PrivatePort: Number(privatePort), Type: protocol }];
+      }
+
+      return bindings.map((binding) => ({
+        IP: binding?.HostIp,
+        PublicPort: Number(binding?.HostPort),
+        PrivatePort: Number(containerPort.split("/")[0]),
+        Type: containerPort.split("/")[1],
+      }));
+    }),
+    createdAt: inspectDetails.Created,
+  });
+
+  if (!stats) {
+    return summary;
+  }
+
+  const statSummary = summarizeStats(stats);
+  return {
+    ...summary,
+    cpuPercent: statSummary.cpuPercent,
+    memUsage: statSummary.memoryUsage,
+    memPercent: statSummary.memPercent,
+    memLimit: statSummary.memoryLimit,
+    netIO: statSummary.netIO,
+  };
+}
+
+function buildContainerDetailsFromInspect(details: DockerInspectInfo, stats: DockerStatsSnapshot): ContainerDetails {
+  const inspectDetails = details;
+  const statSummary = summarizeStats(stats);
+
+  return {
+    summary: mapInspectToSummary(inspectDetails, stats),
+    mounts: mapInspectMounts(inspectDetails.Mounts),
+    ports: mapInspectPorts(inspectDetails.NetworkSettings.Ports),
+    labels: mapInspectLabels(inspectDetails.Config.Labels),
+    inspect: {
+      raw: structuredClone(inspectDetails) as Record<string, unknown>,
+    },
+    stats: [
+      {
+        sampledAt: new Date().toISOString(),
+        cpuPercent: statSummary.cpuPercent,
+        memoryUsageBytes: statSummary.memoryUsageBytes,
+        memoryLimitBytes: statSummary.memoryLimitBytes,
+      },
+    ],
+  };
+}
+
 export function createMockBackend(
   selectedEngineId = "mock",
   socketPath = DEFAULT_SOCKET_PATH,
@@ -183,6 +369,42 @@ export function createMockBackend(
     },
     async listContainers() {
       return state.containers;
+    },
+    async getContainerDetails(id) {
+      const container = state.containers.find((item) => item.id === id);
+
+      if (!container) {
+        throw new BackendError(404, "not_found", "Container not found");
+      }
+
+      const details = mockContainerDetails[id];
+
+      if (!details) {
+        throw new BackendError(404, "not_found", "Container not found");
+      }
+
+      return {
+        ...structuredClone(details),
+        summary: { ...container },
+      };
+    },
+    async getContainerInspect(id) {
+      const details = mockContainerDetails[id];
+
+      if (!details) {
+        throw new BackendError(404, "not_found", "Container not found");
+      }
+
+      return structuredClone(details.inspect);
+    },
+    async getContainerStats(id) {
+      const details = mockContainerDetails[id];
+
+      if (!details) {
+        throw new BackendError(404, "not_found", "Container not found");
+      }
+
+      return structuredClone(details.stats);
     },
     async runContainer(payload) {
       const image = payload.image.trim();
@@ -674,6 +896,42 @@ async function createDockerBackend(
         });
       } catch (error) {
         throw createBackendError(error);
+      }
+    },
+    async getContainerDetails(id) {
+      try {
+        const container = docker.getContainer(id);
+        const details = (await container.inspect()) as DockerInspectInfo;
+        const stats = (await container.stats({ stream: false })) as DockerStatsSnapshot;
+        return buildContainerDetailsFromInspect(details, stats);
+      } catch (error) {
+        throw createContainerNotFoundError(error);
+      }
+    },
+    async getContainerInspect(id) {
+      try {
+        const container = docker.getContainer(id);
+        const details = (await container.inspect()) as DockerInspectInfo;
+        return { raw: structuredClone(details) as Record<string, unknown> };
+      } catch (error) {
+        throw createContainerNotFoundError(error);
+      }
+    },
+    async getContainerStats(id) {
+      try {
+        const container = docker.getContainer(id);
+        const stats = (await container.stats({ stream: false })) as DockerStatsSnapshot;
+        const summary = summarizeStats(stats);
+        return [
+          {
+            sampledAt: new Date().toISOString(),
+            cpuPercent: summary.cpuPercent,
+            memoryUsageBytes: summary.memoryUsageBytes,
+            memoryLimitBytes: summary.memoryLimitBytes,
+          },
+        ];
+      } catch (error) {
+        throw createContainerNotFoundError(error);
       }
     },
     async runContainer(payload) {
