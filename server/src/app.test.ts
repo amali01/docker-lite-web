@@ -273,6 +273,33 @@ describe("DockLite backend app", () => {
     expect(switchResponse.body.endpoint).toBe("tcp://prod.example.internal:2376");
   });
 
+  it("selects a saved ssh engine target by id", async () => {
+    process.env.DOCKLITE_ADAPTER = "mock";
+    const { app, dir } = await createTestApp();
+    tmpDirs.push(dir);
+
+    const createResponse = await request(app).post("/api/engine/targets").send({
+      kind: "ssh",
+      label: "Prod SSH Docker",
+      host: "prod.example.internal",
+      port: 22,
+      username: "dockerops",
+      authMode: "agent",
+      keyPath: null,
+      knownHostsPath: null,
+      dockerHostOverride: null,
+    });
+
+    expect(createResponse.status).toBe(201);
+
+    const targetId = createResponse.body.id as string;
+    const switchResponse = await request(app).post("/api/engine/select").send({ targetId });
+
+    expect(switchResponse.status).toBe(200);
+    expect(switchResponse.body.selectedEngineId).toBe(targetId);
+    expect(switchResponse.body.endpoint).toBe("ssh://dockerops@prod.example.internal");
+  });
+
   it("stops all containers in a compose project", async () => {
     process.env.DOCKLITE_ADAPTER = "mock";
     const { app, dir } = await createTestApp();
