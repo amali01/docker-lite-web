@@ -19,7 +19,7 @@
     "server:typecheck": "tsc -p server/tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "FORCE_COLOR=0 playwright test"
   },
   "dependencies": {
     "@fontsource/inter": "^5.2.8",

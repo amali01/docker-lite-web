@@ -1,8 +1,6 @@
 import { useEffect, useRef } from "react";
-import { Terminal } from "@xterm/xterm";
-import { FitAddon } from "@xterm/addon-fit";
-import "@xterm/xterm/css/xterm.css";
 import { X } from "lucide-react";
+import { getApiBaseUrl } from "@/lib/api/client";
 
 interface ContainerExecProps {
   containerId: string;
@@ -12,75 +10,97 @@ interface ContainerExecProps {
 
 export function ContainerExec({ containerId, containerName, onClose }: ContainerExecProps) {
   const terminalRef = useRef<HTMLDivElement>(null);
-  const terminalInstance = useRef<Terminal | null>(null);
-  const fitAddon = useRef<FitAddon | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
     if (!terminalRef.current) return;
 
-    const term = new Terminal({
-      cursorBlink: true,
-      theme: {
-        background: "#000000",
-      },
-    });
-    
-    const fit = new FitAddon();
-    term.loadAddon(fit);
-    
-    term.open(terminalRef.current);
-    fit.fit();
+    let closed = false;
+    let terminal: import("@xterm/xterm").Terminal | null = null;
+    let handleResize = () => {};
 
-    terminalInstance.current = term;
-    fitAddon.current = fit;
+    void (async () => {
+      const [{ Terminal }, { FitAddon }] = await Promise.all([
+        import("@xterm/xterm"),
+        import("@xterm/addon-fit"),
+        import("@xterm/xterm/css/xterm.css"),
+      ]);
 
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const baseUrl = process.env.NODE_ENV === "development" ? "localhost:9001" : window.location.host;
-    const wsUrl = `${protocol}//${baseUrl}/api/containers/${containerId}/exec?cols=${term.cols}&rows=${term.rows}`;
-
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-
-    ws.onmessage = async (event) => {
-      let data = event.data;
-      if (data instanceof Blob) {
-        data = await data.text();
-      }
-      term.write(data);
-    };
-
-    ws.onclose = (event) => {
-      term.write("\r\n\x1b[33m[Terminal connection closed]\x1b[0m\r\n");
-    };
-
-    ws.onerror = (error) => {
-      term.write("\r\n\x1b[31m[Terminal connection error]\x1b[0m\r\n");
-    };
-
-    term.onData((data) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(data);
-      }
-    });
-
-    const handleResize = () => {
-      try {
-        fit.fit();
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
-        }
-      } catch {
+      if (closed || !terminalRef.current) {
         return;
       }
-    };
 
-    window.addEventListener("resize", handleResize);
+      const term = new Terminal({
+        cursorBlink: true,
+        theme: {
+          background: "#000000",
+        },
+      });
+      const fit = new FitAddon();
+
+      terminal = term;
+      term.loadAddon(fit);
+      term.open(terminalRef.current);
+      fit.fit();
+
+      const apiUrl = new URL(getApiBaseUrl(), window.location.origin);
+      const socketProtocol = apiUrl.protocol === "https:" ? "wss:" : "ws:";
+      const wsUrl = `${socketProtocol}//${apiUrl.host}/api/containers/${containerId}/exec?cols=${term.cols}&rows=${term.rows}`;
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      ws.onmessage = async (event) => {
+        let data = event.data;
+        if (data instanceof Blob) {
+          data = await data.text();
+        }
+        term.write(data);
+      };
+
+      ws.onclose = () => {
+        term.write("\r\n\x1b[33m[Terminal connection closed]\x1b[0m\r\n");
+      };
+
+      ws.onerror = () => {
+        term.write("\r\n\x1b[31m[Terminal connection error]\x1b[0m\r\n");
+      };
+
+      const dataSubscription = term.onData((data) => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(data);
+        }
+      });
+
+      handleResize = () => {
+        try {
+          fit.fit();
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
+          }
+        } catch {
+          return;
+        }
+      };
+
+      window.addEventListener("resize", handleResize);
+
+      if (closed) {
+        dataSubscription.dispose();
+        window.removeEventListener("resize", handleResize);
+        ws.close();
+        term.dispose();
+      }
+    })().catch(() => {
+      if (!closed && terminalRef.current) {
+        terminalRef.current.textContent = "Unable to start terminal.";
+      }
+    });
 
     return () => {
+      closed = true;
       window.removeEventListener("resize", handleResize);
-      ws.close();
-      term.dispose();
+      wsRef.current?.close();
+      terminal?.dispose();
     };
   }, [containerId]);
 

@@ -153,6 +153,27 @@ describe("Containers Page", () => {
     expect(await screen.findByText("Run Container")).toBeInTheDocument();
   });
 
+  it("renders without known test-environment warnings", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    try {
+      renderWithProviders(<Containers />);
+      await screen.findByText("nginx-proxy");
+
+      const messages = [...errorSpy.mock.calls, ...warnSpy.mock.calls]
+        .flat()
+        .map((value) => value instanceof Error ? value.message : String(value))
+        .join("\n");
+
+      expect(messages).not.toContain("HTMLCanvasElement.prototype.getContext");
+      expect(messages).not.toContain("React Router Future Flag Warning");
+    } finally {
+      errorSpy.mockRestore();
+      warnSpy.mockRestore();
+    }
+  });
+
   it("adds hover titles for container name and image values", async () => {
     renderWithProviders(<Containers />);
     expect(await screen.findByTitle("nginx-proxy")).toBeInTheDocument();
