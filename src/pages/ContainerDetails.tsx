@@ -1,6 +1,10 @@
 import { ApiState } from "@/components/ApiState";
+import { ContainerExec } from "@/components/ContainerExec";
 import { ContainerDetailsHeader } from "@/components/container-details/ContainerDetailsHeader";
+import { ContainerInspectTab } from "@/components/container-details/ContainerInspectTab";
 import { ContainerOverviewTab } from "@/components/container-details/ContainerOverviewTab";
+import { ContainerStatsTab } from "@/components/container-details/ContainerStatsTab";
+import { ContainerLogs } from "@/components/ContainerLogs";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useContainerDetails, useContainerInspect, useContainerStats } from "@/hooks/use-containers";
 import { useEngineInfo } from "@/hooks/use-engine";
@@ -77,16 +81,18 @@ export default function ContainerDetails() {
           <ContainerOverviewTab details={details} />
         </TabsContent>
         <TabsContent value="logs" className="mt-0">
-          <ApiState title="Logs tab pending" description="Streaming logs will be embedded here in the next task." />
+          <ContainerLogs containerId={details.summary.id} containerName={details.summary.name} onClose={() => {}} />
         </TabsContent>
         <TabsContent value="terminal" className="mt-0">
-          <ApiState title="Terminal tab pending" description="Interactive exec access will be embedded here in the next task." />
+          <div className="h-[32rem] overflow-hidden rounded-md border border-border bg-card">
+            <ContainerExec containerId={details.summary.id} containerName={details.summary.name} onClose={() => {}} />
+          </div>
         </TabsContent>
         <TabsContent value="inspect" className="mt-0">
-          <ApiState title="Inspect tab pending" description="Formatted inspect data will be rendered here in the next task." />
+          <ContainerInspectTab inspect={inspectQuery.data ?? details.inspect} />
         </TabsContent>
         <TabsContent value="stats" className="mt-0">
-          <ApiState title="Stats tab pending" description="Detailed runtime metrics will be rendered here in the next task." />
+          <ContainerStatsTab summary={details.summary} stats={statsQuery.data ?? details.stats} />
         </TabsContent>
       </Tabs>
     </div>
