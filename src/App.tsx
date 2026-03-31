@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/AppLayout";
 import Dashboard from "@/pages/Dashboard";
 import Containers from "@/pages/Containers";
+import ContainerDetails from "@/pages/ContainerDetails";
 import Images from "@/pages/Images";
 import Volumes from "@/pages/Volumes";
 import Networks from "@/pages/Networks";
@@ -36,6 +37,7 @@ const App = () => (
           <Route element={<AppLayout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/containers" element={<Containers />} />
+            <Route path="/containers/:containerId" element={<ContainerDetails />} />
             <Route path="/images" element={<Images />} />
             <Route path="/volumes" element={<Volumes />} />
             <Route path="/networks" element={<Networks />} />
