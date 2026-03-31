@@ -2,6 +2,7 @@ import { apiRequest } from "./client";
 import {
   CreateEngineTargetPayload,
   ContainerSummary,
+  ContainerDetails,
   CreateNetworkPayload,
   CreateVolumePayload,
   EngineInfo,
@@ -67,6 +68,18 @@ export function retestEngineTarget(targetId: string) {
 
 export function listContainers() {
   return apiRequest<ContainerSummary[]>("/api/containers");
+}
+
+export function getContainerDetails(id: string) {
+  return apiRequest<ContainerDetails>(`/api/containers/${encodeURIComponent(id)}`);
+}
+
+export function getContainerInspect(id: string) {
+  return apiRequest<ContainerDetails["inspect"]>(`/api/containers/${encodeURIComponent(id)}/inspect`);
+}
+
+export function getContainerStats(id: string) {
+  return apiRequest<ContainerDetails["stats"]>(`/api/containers/${encodeURIComponent(id)}/stats`);
 }
 
 export function runContainer(payload: RunContainerPayload) {

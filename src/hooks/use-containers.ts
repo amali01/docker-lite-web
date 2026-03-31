@@ -1,5 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  getContainerDetails,
+  getContainerInspect,
+  getContainerStats,
   listContainers,
   removeComposeProject,
   removeContainer,
@@ -11,6 +14,7 @@ import {
   stopComposeProject,
   stopContainer,
 } from "@/lib/api/resources";
+import { useEngineInfo } from "@/hooks/use-engine";
 
 export const containersQueryKey = ["containers"] as const;
 
@@ -19,6 +23,39 @@ export function useContainers() {
     queryKey: containersQueryKey,
     queryFn: listContainers,
     refetchInterval: 10000,
+  });
+}
+
+export function useContainerDetails(containerId?: string) {
+  const engineQuery = useEngineInfo();
+  const selectedEngineId = engineQuery.data?.selectedEngineId ?? null;
+
+  return useQuery({
+    queryKey: ["container-details", selectedEngineId, containerId ?? null] as const,
+    queryFn: () => getContainerDetails(containerId ?? ""),
+    enabled: Boolean(selectedEngineId && containerId),
+  });
+}
+
+export function useContainerInspect(containerId?: string) {
+  const engineQuery = useEngineInfo();
+  const selectedEngineId = engineQuery.data?.selectedEngineId ?? null;
+
+  return useQuery({
+    queryKey: ["container-inspect", selectedEngineId, containerId ?? null] as const,
+    queryFn: () => getContainerInspect(containerId ?? ""),
+    enabled: Boolean(selectedEngineId && containerId),
+  });
+}
+
+export function useContainerStats(containerId?: string) {
+  const engineQuery = useEngineInfo();
+  const selectedEngineId = engineQuery.data?.selectedEngineId ?? null;
+
+  return useQuery({
+    queryKey: ["container-stats", selectedEngineId, containerId ?? null] as const,
+    queryFn: () => getContainerStats(containerId ?? ""),
+    enabled: Boolean(selectedEngineId && containerId),
   });
 }
 
