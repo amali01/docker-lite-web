@@ -44,7 +44,6 @@ export interface ContainerSummary {
   memPercent: number | null;
   netIO: string | null;
   memLimit: string | null;
-  netIO: string | null;
   blockIO: string | null;
 }
 

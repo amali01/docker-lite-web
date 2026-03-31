@@ -207,9 +207,9 @@ export default function Containers() {
         return;
       }
       if (action === "rebuild") {
-        toast.info(`Rebuilding ${container.name}...`);
+        toast.info(`Refreshing ${container.name}...`);
         await rebuildMutation.mutateAsync(container.id);
-        toast.success(`Rebuilt ${container.name}`);
+        toast.success(`Refreshed ${container.name}`);
         return;
       }
 

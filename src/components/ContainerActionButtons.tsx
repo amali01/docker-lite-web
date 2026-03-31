@@ -28,7 +28,7 @@ export function ContainerActionButtons({ container, compact = false, logsActive,
           <Square className={iconClassName} />
         </button>
       )}
-            <button onClick={() => onAction("rebuild", container)} className={cn(buttonClassName, "hover:bg-primary/10 text-primary")} title="Update & Rebuild">
+      <button onClick={() => onAction("rebuild", container)} className={cn(buttonClassName, "hover:bg-primary/10 text-primary")} title="Refresh container">
         <ArrowUpCircle className={iconClassName} />
       </button>
       <button onClick={() => onAction("restart", container)} className={cn(buttonClassName, "hover:bg-primary/10 text-primary")} title="Restart">

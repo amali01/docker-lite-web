@@ -116,4 +116,16 @@ describe("DockLite backend app", () => {
     expect(composeContainers.length).toBeGreaterThan(0);
     expect(composeContainers.every((container: { status: string }) => container.status === "stopped")).toBe(true);
   });
+
+  it("rebuilds a container through the API", async () => {
+    process.env.DOCKLITE_ADAPTER = "mock";
+    const backend = new EngineController();
+    const app = createApp(backend);
+
+    const response = await request(app).post("/api/containers/e5f6g7h8i9j0/rebuild");
+
+    expect(response.status).toBe(200);
+    expect(response.body.id).toBe("e5f6g7h8i9j0");
+    expect(response.body.status).toBe("running");
+  });
 });

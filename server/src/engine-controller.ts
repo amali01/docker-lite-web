@@ -135,6 +135,9 @@ export class EngineController implements DockerBackend {
   async restartContainer(id: string) {
     return (await this.currentBackend()).restartContainer(id);
   }
+  async rebuildContainer(id: string) {
+    return (await this.currentBackend()).rebuildContainer(id);
+  }
   async removeContainer(id: string) {
     return (await this.currentBackend()).removeContainer(id);
   }

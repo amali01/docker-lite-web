@@ -156,7 +156,7 @@ export default function Dashboard() {
       if (action === "start") { await startMutation.mutateAsync(container.id); toast.success(`Started ${container.name}`); return; }
       if (action === "stop") { await stopMutation.mutateAsync(container.id); toast.success(`Stopped ${container.name}`); return; }
       if (action === "restart") { await restartMutation.mutateAsync(container.id); toast.success(`Restarted ${container.name}`); return; }
-      if (action === "rebuild") { await rebuildMutation.mutateAsync(container.id); toast.success(`Rebuilding ${container.name}...`); return; }
+      if (action === "rebuild") { await rebuildMutation.mutateAsync(container.id); toast.success(`Refreshed ${container.name}`); return; }
       if (action === "remove") {
         await removeMutation.mutateAsync(container.id);
         if (logsContainer?.id === container.id) setLogsContainer(null);
