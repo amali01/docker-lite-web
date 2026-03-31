@@ -17,17 +17,102 @@ export interface EngineInfo {
   errorMessage?: string;
 }
 
+export type EngineTargetKind = "local" | "ssh" | "tcpTls";
+export type EngineTargetHealthStatus = "healthy" | "degraded" | "unhealthy" | "unknown";
+export type EngineTargetSource = "builtin" | "saved";
+
+export interface EngineTargetHealth {
+  status: EngineTargetHealthStatus;
+  message?: string;
+  checkedAt?: string;
+}
+
 export interface EngineTarget {
   id: string;
   label: string;
   endpoint: string;
   active: boolean;
   available: boolean;
+  kind: EngineTargetKind;
+  source: EngineTargetSource;
+  lastHealth: EngineTargetHealth | null;
 }
 
 export interface SelectEnginePayload {
   targetId: string;
 }
+
+export interface LocalEngineTargetPayload {
+  kind: "local";
+  label: string;
+  socketPath: string;
+}
+
+export interface LocalEngineTargetUpdatePayload {
+  kind: "local";
+  label?: string;
+  socketPath?: string;
+}
+
+export interface SshEngineTargetPayload {
+  kind: "ssh";
+  label: string;
+  host: string;
+  port: number;
+  username: string;
+  authMode: "agent" | "keyFile";
+  keyPath?: string | null;
+  knownHostsPath?: string | null;
+  dockerHostOverride?: string | null;
+}
+
+export interface SshEngineTargetUpdatePayload {
+  kind: "ssh";
+  label?: string;
+  host?: string;
+  port?: number;
+  username?: string;
+  authMode?: "agent" | "keyFile";
+  keyPath?: string | null;
+  knownHostsPath?: string | null;
+  dockerHostOverride?: string | null;
+}
+
+export interface TcpTlsEngineTargetPayload {
+  kind: "tcpTls";
+  label: string;
+  host: string;
+  port: number;
+  serverName?: string | null;
+  tlsMode: "serverOnly" | "mtls";
+  caPath?: string | null;
+  certPath?: string | null;
+  keyPath?: string | null;
+}
+
+export interface TcpTlsEngineTargetUpdatePayload {
+  kind: "tcpTls";
+  label?: string;
+  host?: string;
+  port?: number;
+  serverName?: string | null;
+  tlsMode?: "serverOnly" | "mtls";
+  caPath?: string | null;
+  certPath?: string | null;
+  keyPath?: string | null;
+}
+
+export type CreateEngineTargetPayload =
+  | LocalEngineTargetPayload
+  | SshEngineTargetPayload
+  | TcpTlsEngineTargetPayload;
+
+export type UpdateEngineTargetPayload =
+  | LocalEngineTargetUpdatePayload
+  | SshEngineTargetUpdatePayload
+  | TcpTlsEngineTargetUpdatePayload;
+
+export type TestEngineTargetPayload = CreateEngineTargetPayload;
 
 export interface ContainerSummary {
   id: string;
