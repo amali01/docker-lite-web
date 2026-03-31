@@ -82,4 +82,14 @@ describe("DockerSettings", () => {
       );
     });
   });
+
+  it("associates settings fields with accessible labels", async () => {
+    renderWithProviders(<DockerSettings />);
+
+    expect(await screen.findByLabelText("Backend Base URL")).toBeInTheDocument();
+    expect(await screen.findByRole("radio", { name: "System Docker" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Docker Desktop" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Docker Endpoint")).toBeInTheDocument();
+    expect(screen.getByLabelText("API Version")).toBeInTheDocument();
+  });
 });

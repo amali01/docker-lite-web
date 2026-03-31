@@ -11,13 +11,24 @@ const navItems = [
   { to: "/networks", icon: Network, label: "Networks" },
 ];
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  variant?: "desktop" | "mobile";
+  onNavigate?: () => void;
+}
+
+export function AppSidebar({ variant = "desktop", onNavigate }: AppSidebarProps) {
   const location = useLocation();
   const engineQuery = useEngineInfo();
   const isConnected = engineQuery.data?.connected ?? false;
+  const isMobile = variant === "mobile";
 
   return (
-    <aside className="w-56 h-screen bg-sidebar border-r border-sidebar-border flex flex-col shrink-0">
+    <aside
+      className={cn(
+        "bg-sidebar flex flex-col",
+        isMobile ? "h-full w-full" : "h-screen w-56 shrink-0 border-r border-sidebar-border",
+      )}
+    >
       {/* Logo */}
       <div className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-2.5">
@@ -32,13 +43,14 @@ export function AppSidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-0.5">
+      <nav className="flex-1 p-3 space-y-0.5" aria-label="Primary navigation">
         {navItems.map((item) => {
           const isActive = location.pathname === item.to;
           return (
             <NavLink
               key={item.to}
               to={item.to}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors",
                 isActive
@@ -57,6 +69,7 @@ export function AppSidebar() {
       <div className="p-3 border-t border-sidebar-border">
         <NavLink
           to="/settings"
+          onClick={onNavigate}
           className={cn(
             "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors",
             location.pathname === '/settings'
