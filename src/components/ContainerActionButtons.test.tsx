@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { ContainerActionButtons } from "@/components/ContainerActionButtons";
 import { ContainerSummary } from "@/lib/api/types";
 
@@ -21,15 +22,23 @@ const runningContainer: ContainerSummary = {
   blockIO: "0 B / 0 B",
 };
 
+const routerFutureFlags = {
+  v7_relativeSplatPath: true,
+  v7_startTransition: true,
+} as const;
+
 describe("ContainerActionButtons", () => {
   it("exposes accessible names for icon-only controls", () => {
     render(
-      <ContainerActionButtons
-        container={runningContainer}
-        onAction={vi.fn()}
-      />,
+      <MemoryRouter future={routerFutureFlags}>
+        <ContainerActionButtons
+          container={runningContainer}
+          onAction={vi.fn()}
+        />
+      </MemoryRouter>,
     );
 
+    expect(screen.getByRole("link", { name: "View details for nginx-proxy" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Stop container nginx-proxy" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Refresh container nginx-proxy" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Restart container nginx-proxy" })).toBeInTheDocument();
@@ -41,10 +50,12 @@ describe("ContainerActionButtons", () => {
   it("communicates when terminal is unavailable", () => {
     const onAction = vi.fn();
     render(
-      <ContainerActionButtons
-        container={{ ...runningContainer, status: "stopped" }}
-        onAction={onAction}
-      />,
+      <MemoryRouter future={routerFutureFlags}>
+        <ContainerActionButtons
+          container={{ ...runningContainer, status: "stopped" }}
+          onAction={onAction}
+        />
+      </MemoryRouter>,
     );
 
     const button = screen.getByRole("button", { name: "Open terminal for nginx-proxy (container must be running)" });

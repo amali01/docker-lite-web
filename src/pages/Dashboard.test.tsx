@@ -1,9 +1,31 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import Dashboard from "@/pages/Dashboard";
 import { renderWithProviders } from "@/test/render";
 
 const fetchMock = vi.fn();
+
+function renderDashboardRoute() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false },
+    },
+  });
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }} initialEntries={["/"]}>
+        <Routes>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/containers/:containerId" element={<div>Dashboard detail route reached</div>} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
 
 describe("Dashboard", () => {
   beforeEach(() => {
@@ -142,5 +164,14 @@ describe("Dashboard", () => {
         expect.objectContaining({ method: "POST" }),
       );
     });
+  });
+
+  it("navigates to the detail route from the dashboard", async () => {
+    renderDashboardRoute();
+
+    await screen.findByText("nginx-proxy");
+    fireEvent.click(screen.getByRole("link", { name: "View details for nginx-proxy" }));
+
+    expect(await screen.findByText("Dashboard detail route reached")).toBeInTheDocument();
   });
 });
