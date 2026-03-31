@@ -1,14 +1,17 @@
 import type {
+  CreateEngineTargetPayload,
   ContainerLogsChunk,
   ContainerSummary,
   CreateNetworkPayload,
   CreateVolumePayload,
   EngineInfo,
+  TestEngineTargetPayload,
   ImageSummary,
   NetworkSummary,
   PullImagePayload,
   RunContainerPayload,
   SelectEnginePayload,
+  UpdateEngineTargetPayload,
   VolumeSummary,
 } from "../../src/lib/api/types";
 import type {
@@ -25,6 +28,7 @@ import type {
 export type {
   ContainerLogsChunk,
   ContainerSummary,
+  CreateEngineTargetPayload,
   CreateNetworkPayload,
   CreateVolumePayload,
   EngineInfo,
@@ -40,6 +44,8 @@ export type {
   PullImagePayload,
   RunContainerPayload,
   SelectEnginePayload,
+  TestEngineTargetPayload,
+  UpdateEngineTargetPayload,
   VolumeSummary,
 };
 
@@ -80,6 +86,14 @@ export interface DockerBackend {
 export interface EngineSwitcher {
   listTargets(): Promise<EngineTarget[]>;
   selectTarget(targetId: string): Promise<EngineInfo>;
+}
+
+export interface EngineTargetManager {
+  createTarget(payload: CreateEngineTargetPayload): Promise<EngineTarget>;
+  updateTarget(targetId: string, payload: UpdateEngineTargetPayload): Promise<EngineTarget>;
+  deleteTarget(targetId: string): Promise<void>;
+  testTarget(payload: TestEngineTargetPayload): Promise<EngineTargetHealth>;
+  retestTarget(targetId: string): Promise<EngineTargetHealth>;
 }
 
 export class BackendError extends Error {
