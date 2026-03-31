@@ -70,7 +70,9 @@ export function ContainerExec({ containerId, containerName, onClose }: Container
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
         }
-      } catch (e) {}
+      } catch {
+        return;
+      }
     };
 
     window.addEventListener("resize", handleResize);
