@@ -30,6 +30,18 @@ import type {
   EngineTargetSource,
   EngineTargetStoreState,
 } from "./engine-targets/types";
+import type {
+  AuthBootstrapState,
+  AuthConfig,
+  AuthPathSecurityWarning,
+  AuthRequestChannel,
+  AuthRequestClassification,
+  AuthSession,
+  BrowserOriginTrust,
+  ClassifyRequestInput,
+  CreateSessionInput,
+  GetSessionOptions,
+} from "./auth/types";
 
 export type {
   ContainerLogsChunk,
@@ -42,6 +54,7 @@ export type {
   ContainerSummary,
   CreateEngineTargetPayload,
   CreateNetworkPayload,
+  CreateSessionInput,
   CreateVolumePayload,
   EngineInfo,
   EngineTargetHealth,
@@ -52,6 +65,7 @@ export type {
   EngineTargetSource,
   EngineTargetStoreState,
   ImageSummary,
+  GetSessionOptions,
   NetworkSummary,
   PullImagePayload,
   RunContainerPayload,
@@ -59,6 +73,14 @@ export type {
   TestEngineTargetPayload,
   UpdateEngineTargetPayload,
   VolumeSummary,
+  AuthBootstrapState,
+  AuthConfig,
+  AuthPathSecurityWarning,
+  AuthRequestChannel,
+  AuthRequestClassification,
+  AuthSession,
+  BrowserOriginTrust,
+  ClassifyRequestInput,
 };
 
 export type EngineTarget = PublicEngineTarget;
