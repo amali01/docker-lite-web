@@ -6,6 +6,8 @@ DockLite should gain a first authentication layer aimed at one problem: protecti
 
 DockLite should remain standalone. It should serve HTTPS itself using operator-provided certificate and key files, manage its own login flow, issue secure session cookies, and allow the admin password to be changed from the frontend after login.
 
+This auth slice is also a product-scope expansion beyond DockLite's earlier local-only MVP assumptions. It requires matching runtime and documentation updates so the app can be intentionally exposed for remote use instead of only listening on loopback by default.
+
 ## Goals
 
 - Protect DockLite when accessed remotely over the web.
@@ -24,6 +26,7 @@ DockLite should remain standalone. It should serve HTTPS itself using operator-p
 - Email-based password reset.
 - Built-in public certificate automation for the first release.
 - Reverse-proxy-dependent auth as the primary deployment model.
+- Split-origin remote deployment for the first auth release.
 
 ## Product Direction
 
@@ -45,7 +48,7 @@ This gives DockLite a secure baseline without overbuilding account management be
 
 Implement built-in auth plus built-in HTTPS.
 
-Remote users must authenticate through a login page and secure server-side sessions. Local `localhost` requests bypass auth. Passwords are stored only as `argon2id` hashes in a backend-owned config file. HTTPS is terminated by DockLite itself using operator-provided TLS files.
+Remote users must authenticate through a login page and secure server-side sessions. Local `localhost` requests may bypass auth only when they satisfy both loopback network checks and browser-origin safety checks. Passwords are stored only as `argon2id` hashes in a backend-owned config file. HTTPS is terminated by DockLite itself using operator-provided TLS files.
 
 ### Why This Approach
 
@@ -54,6 +57,31 @@ Remote users must authenticate through a login page and secure server-side sessi
 - It keeps the browser untrusted and the backend authoritative.
 - It avoids coupling basic security to an external reverse proxy.
 - It keeps the first release small enough to reason about.
+
+## Deployment Model
+
+### Production Remote Mode
+
+Remote-auth mode should be same-origin in production.
+
+That means:
+
+- DockLite backend serves the built frontend itself
+- `/login`, app routes, `/api/*`, SSE streams, and WebSocket upgrades share one origin
+- session cookies are scoped to that single DockLite origin
+- remote auth does not support a separately hosted frontend in the first release
+
+This is the correct fit for standalone deployment. It avoids cross-origin cookie, CORS, and WebSocket auth drift in the first security-sensitive release.
+
+### Development Mode
+
+Split-origin frontend and backend development may continue for local-only development.
+
+Rules:
+
+- split-origin dev is not a supported remote deployment mode
+- remote auth requirements apply only to the same-origin production deployment path
+- dev-only API base URL overrides must not weaken remote production auth assumptions
 
 ## Trust Model
 
@@ -68,18 +96,33 @@ DockLite should classify every incoming request as either:
 
 Rules:
 
-- `localhost`, `127.0.0.1`, and `::1` requests may bypass auth.
+- `localhost`, `127.0.0.1`, and `::1` requests may bypass auth only when the request is observed on a loopback listener path and the browser origin is trusted for bypass.
 - non-loopback requests are treated as remote and require auth.
 - forwarded headers must not be trusted by default for auth bypass decisions.
+- browser-originated loopback requests must validate `Origin` when present.
+- same-origin browser requests from the DockLite origin qualify for bypass.
+- cross-origin browser requests to loopback must not receive bypass.
 
 This avoids dangerous “proxy says local” mistakes.
+
+### Browser Channel Rule
+
+Loopback source IP alone is not enough for browser traffic.
+
+For browser-initiated requests, DockLite should enforce origin checks across:
+
+- normal HTTP requests
+- Server-Sent Events
+- WebSocket upgrades
+
+If a request arrives on loopback but presents an unexpected browser origin, DockLite should reject it or require authenticated remote flow instead of granting bypass.
 
 ## Authentication Flow
 
 ### Local Access
 
 - local browser opens DockLite
-- no login required
+- no login required when loopback and origin checks pass
 - app works normally
 
 ### Remote Access
@@ -98,6 +141,19 @@ This avoids dangerous “proxy says local” mistakes.
 - if bootstrapped from plaintext env/config, DockLite should hash it immediately into backend-owned storage
 - admin may change password from the frontend after login
 - password change invalidates all existing remote sessions
+
+### First-Run Bootstrap
+
+Remote auth behavior must be explicit when no admin password hash exists.
+
+Chosen rule:
+
+- remote access is disabled until a local operator initializes auth or a backend bootstrap credential is provided
+- remote users must not receive a first-run setup flow
+- local operators may complete bootstrap from loopback access only
+- once the password hash exists, bootstrap endpoints close and normal login begins
+
+This preserves the standalone install flow without exposing account initialization to the network.
 
 ## HTTPS Model
 
@@ -153,6 +209,7 @@ Responsibilities:
 - persist session state
 - enforce idle timeout and absolute expiry
 - revoke all sessions on password change
+- terminate authenticated remote SSE streams and WebSocket sessions on logout, expiry, or password rotation
 
 Session storage may begin as a backend-local file or in-memory store persisted by DockLite, as long as the implementation is explicit and testable.
 
@@ -175,6 +232,14 @@ Responsibilities:
   - `/logout`
   - minimal bootstrap/status endpoints as needed
 
+Session enforcement must cover every browser-facing channel:
+
+- normal HTTP routes
+- SSE log streams
+- WebSocket exec upgrades
+
+Remote sessions are not valid unless the same session policy is consistently enforced across all three.
+
 ### `CsrfService`
 
 For authenticated remote browser sessions:
@@ -191,6 +256,18 @@ Responsibilities:
 - validate TLS file presence and readability
 - start HTTPS server when configured
 - coordinate HTTP behavior for local-only or redirect cases
+
+### `AuthStorage`
+
+Auth and session storage must use backend-owned filesystem paths with restrictive permissions.
+
+Rules:
+
+- auth and session directories should be created with `0700`
+- auth config, password hash, and session files should be written with `0600`
+- writes should be atomic
+- DockLite should reject or warn on world-writable or group-writable auth storage paths
+- TLS private key handling should follow the same restrictive ownership expectations
 
 ## Frontend Surface
 
@@ -218,6 +295,8 @@ Add a security section that exposes:
 - change password action
 - optional “log out other sessions” action
 
+In same-origin remote mode, the frontend should use the DockLite origin rather than a user-editable cross-origin API host for authenticated app traffic. Existing dev-oriented API base URL overrides should remain a local-development feature, not a remote deployment mechanism.
+
 Settings changes must still go through backend validation and CSRF protection.
 
 ## Security Requirements
@@ -230,8 +309,12 @@ Settings changes must still go through backend validation and CSRF protection.
 - CSRF protection is required for remote authenticated mutations.
 - Plain HTTP must not be accepted for remote authenticated use.
 - Auth bypass must never trust forwarded headers by default.
+- Loopback auth bypass must validate browser origin for HTTP, SSE, and WebSocket traffic.
+- Remote session validation must cover HTTP, SSE, and WebSocket channels consistently.
 - Password change must revoke all remote sessions.
 - Login and password change paths should support basic rate limiting.
+- Missing-password bootstrap must not be exposed to remote clients.
+- Same-origin remote deployment is required for the first release.
 
 ## API Shape
 
@@ -255,8 +338,19 @@ Response rules:
 - Keep auth messaging explicit, not vague.
 - Tell remote users when login is required.
 - Tell operators when remote access is blocked because HTTPS is not configured.
+- Tell operators when remote access is blocked because auth has not been initialized yet.
 - Do not add onboarding sprawl or multi-step account creation UI.
 - Preserve DockLite’s dense operational style instead of turning auth into a marketing-style flow.
+
+## Follow-On Runtime Changes
+
+This spec assumes accompanying platform changes outside the auth module itself:
+
+- update the backend runtime so DockLite can intentionally bind beyond `127.0.0.1` when remote mode is enabled
+- add a production serving path where the backend serves the built frontend on the same origin
+- update product and MVP docs that currently describe DockLite as local-only
+
+Without those runtime and documentation changes, the auth design would not match the deployed product shape.
 
 ## Risks
 
