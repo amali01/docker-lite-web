@@ -158,6 +158,7 @@ export const engineTargetProfileInputSchema = z.union([
 
 export const engineTargetStoreStateSchema = z
   .object({
+    version: z.number().int().positive().optional(),
     activeTargetId: z.string().trim().min(1).nullable(),
     savedTargets: z.array(engineTargetProfileSchema),
   })

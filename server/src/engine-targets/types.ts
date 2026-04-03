@@ -118,6 +118,7 @@ export type EngineTargetProfileInput =
   | TcpTlsEngineTargetInput;
 
 export interface EngineTargetStoreState {
+  version?: number;
   activeTargetId: string | null;
   savedTargets: EngineTargetProfile[];
 }

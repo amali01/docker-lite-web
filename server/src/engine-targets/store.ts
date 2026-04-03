@@ -6,7 +6,6 @@ import { BackendError } from "../types";
 import { engineTargetStoreStateSchema, parseEngineTargetProfileInput } from "./schemas";
 import type {
   EngineTarget,
-  EngineTargetHealth,
   EngineTargetProfile,
   EngineTargetProfileInput,
   EngineTargetStoreState,
@@ -22,9 +21,12 @@ export interface EngineTargetStoreOptions {
 }
 
 type EngineTargetStoreSnapshot = {
+  version: number;
   activeTargetId: string | null;
   savedTargets: EngineTargetProfile[];
 };
+
+const ENGINE_TARGET_STORE_VERSION = 2;
 
 function getDefaultFilePath() {
   return join(process.cwd(), "server", "data", "engine-targets.json");
@@ -51,21 +53,34 @@ function getDefaultBuiltinTargets(now: () => string): EngineTargetProfile[] {
         socketPath: process.env.DOCKLITE_SYSTEM_DOCKER_SOCKET ?? "/var/run/docker.sock",
       },
     },
+  ];
+}
+
+function getSeededSavedTargets(now: () => string): EngineTargetProfile[] {
+  const timestamp = now();
+  const systemSocketPath = process.env.DOCKLITE_SYSTEM_DOCKER_SOCKET ?? "/var/run/docker.sock";
+  const desktopSocketPath = process.env.DOCKLITE_DESKTOP_DOCKER_SOCKET ?? join(homedir(), ".docker", "desktop", "docker.sock");
+
+  if (desktopSocketPath === systemSocketPath) {
+    return [];
+  }
+
+  return [
     {
       id: "desktop-linux",
       label: "Docker Desktop",
       kind: "local",
-      source: "builtin",
+      source: "saved",
       enabled: true,
       lastHealth: {
-        status: "healthy",
-        message: "Connected to Docker Desktop",
+        status: "unknown",
+        message: "Saved local target not tested yet",
         checkedAt: timestamp,
       },
       createdAt: timestamp,
       updatedAt: timestamp,
       connection: {
-        socketPath: process.env.DOCKLITE_DESKTOP_DOCKER_SOCKET ?? join(homedir(), ".docker", "desktop", "docker.sock"),
+        socketPath: desktopSocketPath,
       },
     },
   ];
@@ -84,7 +99,15 @@ function getEndpoint(profile: EngineTargetProfile): string {
 }
 
 function isAvailable(profile: EngineTargetProfile): boolean {
-  return profile.enabled && profile.lastHealth?.status === "healthy";
+  if (!profile.enabled) {
+    return false;
+  }
+
+  if (profile.kind === "local") {
+    return profile.lastHealth?.status !== "unhealthy";
+  }
+
+  return profile.lastHealth?.status === "healthy";
 }
 
 function cloneTarget<T>(target: T): T {
@@ -253,10 +276,12 @@ function normalizeSavedTarget(
 export class EngineTargetStore {
   private readonly filePath: string;
   private readonly builtInTargets: EngineTargetProfile[];
+  private readonly seededSavedTargets: EngineTargetProfile[];
   private readonly now: () => string;
   private readonly idFactory: () => string;
   private loaded = false;
   private state: EngineTargetStoreSnapshot = {
+    version: ENGINE_TARGET_STORE_VERSION,
     activeTargetId: null,
     savedTargets: [],
   };
@@ -268,6 +293,7 @@ export class EngineTargetStore {
     this.builtInTargets = (options.builtInTargets ?? getDefaultBuiltinTargets(this.now)).map((target) =>
       normalizeBuiltinTarget(target, this.now),
     );
+    this.seededSavedTargets = getSeededSavedTargets(this.now);
   }
 
   private getAllTargets() {
@@ -285,6 +311,7 @@ export class EngineTargetStore {
 
   private snapshot(): EngineTargetStoreSnapshot {
     return {
+      version: ENGINE_TARGET_STORE_VERSION,
       activeTargetId: this.resolveActiveTargetId(),
       savedTargets: cloneTarget(this.state.savedTargets),
     };
@@ -304,24 +331,66 @@ export class EngineTargetStore {
       return;
     }
 
+    let shouldPersist = false;
+
     try {
       const raw = await readFile(this.filePath, "utf8");
       const parsed = engineTargetStoreStateSchema.parse(JSON.parse(raw)) as EngineTargetStoreState;
+      const migratedState = this.migrateLoadedState(parsed);
+      shouldPersist = migratedState.version !== parsed.version || migratedState.savedTargets.length !== parsed.savedTargets.length;
       this.state = {
-        activeTargetId: parsed.activeTargetId,
-        savedTargets: cloneTarget(parsed.savedTargets),
+        version: migratedState.version,
+        activeTargetId: migratedState.activeTargetId,
+        savedTargets: cloneTarget(migratedState.savedTargets),
       };
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
         throw error;
       }
       this.state = {
+        version: ENGINE_TARGET_STORE_VERSION,
         activeTargetId: this.builtInTargets[0]?.id ?? null,
-        savedTargets: [],
+        savedTargets: cloneTarget(this.seededSavedTargets),
       };
+      shouldPersist = true;
     }
 
     this.loaded = true;
+
+    if (shouldPersist) {
+      await this.persistState();
+    }
+  }
+
+  private migrateLoadedState(parsed: EngineTargetStoreState): EngineTargetStoreSnapshot {
+    const legacyActiveTargetId =
+      parsed.version === ENGINE_TARGET_STORE_VERSION
+        ? parsed.activeTargetId
+        : parsed.activeTargetId === "desktop-linux"
+          ? this.builtInTargets[0]?.id ?? null
+          : parsed.activeTargetId;
+
+    if (parsed.version === ENGINE_TARGET_STORE_VERSION) {
+      return {
+        version: ENGINE_TARGET_STORE_VERSION,
+        activeTargetId: legacyActiveTargetId,
+        savedTargets: parsed.savedTargets,
+      };
+    }
+
+    const nextSavedTargets = [...parsed.savedTargets];
+
+    for (const seededTarget of this.seededSavedTargets) {
+      if (!nextSavedTargets.some((target) => target.id === seededTarget.id)) {
+        nextSavedTargets.push(cloneTarget(seededTarget));
+      }
+    }
+
+    return {
+      version: ENGINE_TARGET_STORE_VERSION,
+      activeTargetId: legacyActiveTargetId,
+      savedTargets: nextSavedTargets,
+    };
   }
 
   private getSavedTarget(id: string) {
@@ -371,6 +440,7 @@ export class EngineTargetStore {
       : [...this.state.savedTargets, savedTarget];
 
     this.state = {
+      version: ENGINE_TARGET_STORE_VERSION,
       activeTargetId: this.resolveActiveTargetId(),
       savedTargets: nextSavedTargets,
     };
@@ -395,6 +465,7 @@ export class EngineTargetStore {
     const nextActiveTargetId = activeTargetId === targetId ? this.getAllTargets().find((target) => target.id !== targetId)?.id ?? null : activeTargetId;
 
     this.state = {
+      version: ENGINE_TARGET_STORE_VERSION,
       activeTargetId: nextActiveTargetId,
       savedTargets: nextSavedTargets,
     };
@@ -411,6 +482,7 @@ export class EngineTargetStore {
     }
 
     this.state = {
+      version: ENGINE_TARGET_STORE_VERSION,
       activeTargetId: targetId,
       savedTargets: cloneTarget(this.state.savedTargets),
     };
