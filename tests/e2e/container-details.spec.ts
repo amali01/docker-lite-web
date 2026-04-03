@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { signIn } from "./helpers";
 
 test("opens container details and switches across key tabs", async ({ page }) => {
+  await signIn(page);
   await page.goto("/containers");
 
   await expect(page.getByRole("heading", { name: "Containers" })).toBeVisible();

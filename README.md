@@ -84,6 +84,8 @@ npm run test:e2e
 - Default backend URL: `http://127.0.0.1:9001`
 - Default frontend URL: `http://127.0.0.1:8080`
 
+On first boot, DockLite seeds the admin login from env defaults. If nothing is configured, it uses `admin` / `admin`. Change both in Settings after signing in.
+
 Before starting the real backend, run:
 
 ```bash

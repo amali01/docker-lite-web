@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "bootstrap:runtime": "tsx server/src/bootstrap.ts",
     "dev": "vite",
     "dev:full": "concurrently -k \"npm run server:dev\" \"npm run dev\"",
     "dev:mock": "concurrently -k \"npm run server:dev:mock\" \"npm run dev\"",

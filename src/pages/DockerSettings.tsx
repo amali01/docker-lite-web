@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pencil, PlugZap, Plus, Server, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  useAuthConfig,
+  useUpdateCredentials,
+} from "@/hooks/use-auth";
 import {
   useCreateEngineTarget,
   useDeleteEngineTarget,
@@ -23,6 +27,7 @@ import {
 import { getApiBaseUrl, setApiBaseUrl } from "@/lib/api/client";
 import type {
   CreateEngineTargetPayload,
+  AuthConfigView,
   EngineTarget,
   EngineTargetHealthStatus,
   EngineTargetKind,
@@ -210,12 +215,17 @@ export default function DockerSettings() {
   const testTargetMutation = useTestEngineTarget();
   const retestTargetMutation = useRetestEngineTarget();
   const testConnectionMutation = useTestEngineConnection();
+  const authConfigQuery = useAuthConfig();
+  const updateCredentialsMutation = useUpdateCredentials();
   const [apiBaseUrl, setApiBaseUrlState] = useState(getApiBaseUrl());
   const [draft, setDraft] = useState<EngineTargetDraft>(defaultDraft);
   const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
+  const [adminUsername, setAdminUsername] = useState("admin");
+  const [adminPassword, setAdminPassword] = useState("");
 
   const engine = engineQuery.data;
   const engineTargets = engineTargetsQuery.data ?? [];
+  const authConfig = authConfigQuery.data;
   const isEditing = editingTargetId !== null;
   const busy =
     selectEngineMutation.isPending ||
@@ -224,11 +234,14 @@ export default function DockerSettings() {
     deleteTargetMutation.isPending ||
     testTargetMutation.isPending ||
     retestTargetMutation.isPending;
+  const authBusy = updateCredentialsMutation.isPending;
 
   const backendBaseUrlId = "backend-base-url";
   const engineGroupLabelId = "docker-engine-label";
   const dockerEndpointId = "docker-endpoint";
   const apiVersionId = "docker-api-version";
+  const adminUsernameId = "admin-username";
+  const adminPasswordId = "admin-password";
 
   const selectedTarget =
     engineTargets.find((target) => target.id === engine?.selectedEngineId) ??
@@ -243,6 +256,14 @@ export default function DockerSettings() {
     setEditingTargetId(null);
     setDraft(defaultDraft);
   }
+
+  useEffect(() => {
+    if (!authConfig) {
+      return;
+    }
+
+    setAdminUsername(authConfig.adminUsername);
+  }, [authConfig]);
 
   async function handleSaveTarget() {
     try {
@@ -281,11 +302,93 @@ export default function DockerSettings() {
     }
   }
 
+  async function handleUpdateCredentials() {
+    try {
+      if (!adminUsername.trim()) {
+        throw new Error("Admin username is required");
+      }
+
+      if (!adminPassword.trim()) {
+        throw new Error("Admin password is required");
+      }
+
+      await updateCredentialsMutation.mutateAsync({
+        username: adminUsername.trim(),
+        password: adminPassword,
+      });
+
+      setAdminPassword("");
+      toast.success("Updated admin credentials");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to update admin credentials");
+    }
+  }
+
   return (
     <div className="max-w-5xl space-y-6 p-6">
       <div>
         <h1 className="text-xl font-bold tracking-tight">Settings</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">Configure DockLite backend and Docker Engine access</p>
+      </div>
+
+      <div className="rounded-md border border-border bg-card p-5">
+        <div className="mb-4 flex items-center gap-2 text-sm font-mono font-semibold">
+          <ShieldCheck className="h-4 w-4 text-primary" />
+          Admin Credentials
+        </div>
+
+        {authConfig ? (
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary">Password login enabled</Badge>
+              {authConfig.defaultCredentialsActive ? (
+                <Badge variant="destructive">Default admin password active</Badge>
+              ) : null}
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <Label htmlFor={adminUsernameId} className="mb-1 block text-xs font-mono text-muted-foreground">
+                  Admin Username
+                </Label>
+                <Input
+                  id={adminUsernameId}
+                  value={adminUsername}
+                  onChange={(event) => setAdminUsername(event.target.value)}
+                  className="h-9 border-border bg-background font-mono text-sm"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor={adminPasswordId} className="mb-1 block text-xs font-mono text-muted-foreground">
+                  Admin Password
+                </Label>
+                <Input
+                  id={adminPasswordId}
+                  type="password"
+                  autoComplete="new-password"
+                  value={adminPassword}
+                  onChange={(event) => setAdminPassword(event.target.value)}
+                  className="h-9 border-border bg-background font-mono text-sm"
+                />
+              </div>
+            </div>
+
+            <p className="text-xs font-mono text-muted-foreground">
+              Updating credentials refreshes the current admin token immediately.
+            </p>
+
+            <div className="flex justify-end">
+              <Button onClick={() => void handleUpdateCredentials()} disabled={authBusy || !adminUsername.trim() || !adminPassword.trim()}>
+                Update Credentials
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground">
+            {authConfigQuery.isLoading ? "Loading admin credentials…" : "Unable to load admin credentials."}
+          </div>
+        )}
       </div>
 
       <div className="rounded-md border border-border bg-card p-5">

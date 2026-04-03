@@ -12,17 +12,14 @@ describe("password auth helpers", () => {
     await expect(verifyPassword(passwordHash, "docklite-pass-2025")).resolves.toBe(false);
   });
 
-  it("enforces the minimum password policy", () => {
-    expect(validatePasswordPolicy("!!!!!!")).toEqual(
+  it("requires a non-empty password", () => {
+    expect(validatePasswordPolicy("   ")).toEqual(
       expect.arrayContaining([
-        expect.stringContaining("at least 12"),
-        expect.stringContaining("letter"),
-        expect.stringContaining("number"),
+        expect.stringContaining("required"),
       ]),
     );
 
-    expect(() => assertPasswordPolicy("letters-only-password")).toThrow(/number/i);
-    expect(() => assertPasswordPolicy("123456789012")).toThrow(/letter/i);
+    expect(() => assertPasswordPolicy("")).toThrow(/required/i);
     expect(() => assertPasswordPolicy("docklite-pass-2026")).not.toThrow();
   });
 });

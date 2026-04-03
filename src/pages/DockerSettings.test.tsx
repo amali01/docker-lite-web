@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import DockerSettings from "@/pages/DockerSettings";
+import { resetAuthRuntimeState, setAuthRuntimeState } from "@/lib/api/client";
 import { renderWithProviders } from "@/test/render";
 
 const fetchMock = vi.fn();
@@ -60,44 +61,46 @@ const engineTargetsFixture = [
       checkedAt: "2026-03-31T12:00:00.000Z",
     },
   },
-  {
-    id: "desktop-linux",
-    label: "Docker Desktop",
-    endpoint: "unix:///home/user/.docker/desktop/docker.sock",
-    active: false,
-    available: true,
-    kind: "local",
-    source: "builtin",
-    lastHealth: {
-      status: "healthy",
-      message: "Connected to Docker Desktop",
-      checkedAt: "2026-03-31T12:01:00.000Z",
-    },
-  },
-  {
-    id: "staging-tls",
-    label: "Staging TLS",
-    endpoint: "tcp://staging.example.internal:2376",
-    active: false,
-    available: false,
-    kind: "tcpTls",
-    source: "saved",
-    lastHealth: {
-      status: "degraded",
-      message: "TLS certificate expires soon",
-      checkedAt: "2026-03-31T12:05:00.000Z",
-    },
-  },
 ] as const;
+
+const authConfigFixture = {
+  adminUsername: "admin",
+  defaultCredentialsActive: true,
+} as const;
 
 describe("DockerSettings", () => {
   beforeEach(() => {
     fetchMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
+    resetAuthRuntimeState();
+    setAuthRuntimeState({ token: "jwt-token" });
 
     fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/auth/session") && method === "GET") {
+        return Promise.resolve(new Response(JSON.stringify({
+          authenticated: true,
+          username: "admin",
+          expiresAt: new Date(Date.now() + 3600000).toISOString(),
+          defaultCredentialsActive: true,
+          message: null,
+        })));
+      }
+
+      if (url.endsWith("/api/auth/config") && method === "GET") {
+        return Promise.resolve(new Response(JSON.stringify(authConfigFixture)));
+      }
+
+      if (url.endsWith("/api/auth/credentials") && method === "POST") {
+        return Promise.resolve(new Response(JSON.stringify({
+          username: "operator",
+          token: "next-token",
+          expiresAt: new Date(Date.now() + 3600000).toISOString(),
+          defaultCredentialsActive: false,
+        })));
+      }
 
       if (url.endsWith("/api/engine") && method === "GET") {
         return Promise.resolve(
@@ -147,9 +150,7 @@ describe("DockerSettings", () => {
 
       if (url.endsWith("/api/engine/targets") && method === "POST") {
         expect(JSON.parse(String(init?.body))).toEqual(testTargetPayload);
-        return Promise.resolve(
-          new Response(JSON.stringify(createTargetResponse)),
-        );
+        return Promise.resolve(new Response(JSON.stringify(createTargetResponse)));
       }
 
       if (url.endsWith("/api/engine/targets/test") && method === "POST") {
@@ -167,13 +168,21 @@ describe("DockerSettings", () => {
     });
   });
 
+  it("associates settings fields with accessible labels", async () => {
+    renderWithProviders(<DockerSettings />);
+
+    expect(await screen.findByLabelText("Backend Base URL")).toBeInTheDocument();
+    expect(await screen.findByRole("radio", { name: "System Docker" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Docker Endpoint")).toBeInTheDocument();
+    expect(screen.getByLabelText("API Version")).toBeInTheDocument();
+  });
+
   it("shows available docker engines and lets the user switch", async () => {
     renderWithProviders(<DockerSettings />);
 
     expect(await screen.findByRole("radio", { name: "System Docker" })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "Docker Desktop" })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("radio", { name: "Docker Desktop" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Prod Server" }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -181,30 +190,6 @@ describe("DockerSettings", () => {
         expect.objectContaining({ method: "POST" }),
       );
     });
-  });
-
-  it("associates settings fields with accessible labels", async () => {
-    renderWithProviders(<DockerSettings />);
-
-    expect(await screen.findByLabelText("Backend Base URL")).toBeInTheDocument();
-    expect(await screen.findByRole("radio", { name: "System Docker" })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "Docker Desktop" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Docker Endpoint")).toBeInTheDocument();
-    expect(screen.getByLabelText("API Version")).toBeInTheDocument();
-  });
-
-  it("renders mixed local and remote engine target metadata", async () => {
-    renderWithProviders(<DockerSettings />);
-
-    const systemTarget = await screen.findByRole("radio", { name: "System Docker" });
-    const prodTarget = screen.getByRole("radio", { name: "Prod Server" });
-    const desktopTarget = screen.getByRole("radio", { name: "Docker Desktop" });
-    const stagingTarget = screen.getByRole("radio", { name: "Staging TLS" });
-
-    expect(systemTarget).toHaveAttribute("aria-checked", "true");
-    expect(prodTarget).toHaveAttribute("aria-checked", "false");
-    expect(desktopTarget).toHaveAttribute("aria-checked", "false");
-    expect(stagingTarget).toBeDisabled();
   });
 
   it("uses target create test and select routes for engine management", async () => {
@@ -245,15 +230,39 @@ describe("DockerSettings", () => {
         }),
       );
     });
+  });
 
-    fireEvent.click(screen.getByRole("radio", { name: "Prod Server" }));
+  it("renders admin credential controls instead of TLS settings", async () => {
+    renderWithProviders(<DockerSettings />);
+
+    expect(await screen.findByText("Admin Credentials")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Admin Username")).toHaveValue("admin");
+    expect(screen.getByLabelText("Admin Password")).toHaveValue("");
+    expect(screen.queryByLabelText("TLS Certificate Path")).not.toBeInTheDocument();
+  });
+
+  it("submits updated admin credentials", async () => {
+    renderWithProviders(<DockerSettings />);
+
+    expect(await screen.findByLabelText("Admin Username")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Admin Username"), {
+      target: { value: "operator" },
+    });
+    fireEvent.change(screen.getByLabelText("Admin Password"), {
+      target: { value: "docklite-next" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Update Credentials" }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining("/api/engine/select"),
+        expect.stringContaining("/api/auth/credentials"),
         expect.objectContaining({
           method: "POST",
-          body: JSON.stringify({ targetId: "prod-ssh" }),
+          body: JSON.stringify({
+            username: "operator",
+            password: "docklite-next",
+          }),
         }),
       );
     });

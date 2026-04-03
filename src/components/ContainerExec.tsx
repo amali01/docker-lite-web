@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
-import { getApiBaseUrl } from "@/lib/api/client";
+import { getApiBaseUrl, getAuthToken } from "@/lib/api/client";
 
 interface ContainerExecProps {
   containerId: string;
@@ -45,7 +45,13 @@ export function ContainerExec({ containerId, containerName, onClose }: Container
 
       const apiUrl = new URL(getApiBaseUrl(), window.location.origin);
       const socketProtocol = apiUrl.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${socketProtocol}//${apiUrl.host}/api/containers/${containerId}/exec?cols=${term.cols}&rows=${term.rows}`;
+      const wsUrl = new URL(`${socketProtocol}//${apiUrl.host}/api/containers/${containerId}/exec`);
+      wsUrl.searchParams.set("cols", String(term.cols));
+      wsUrl.searchParams.set("rows", String(term.rows));
+      const authToken = getAuthToken();
+      if (authToken) {
+        wsUrl.searchParams.set("access_token", authToken);
+      }
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
