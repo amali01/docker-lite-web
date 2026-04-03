@@ -1,7 +1,7 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EngineTargetStore } from "./store";
 import type { EngineTargetProfileInput } from "./types";
 
@@ -21,20 +21,6 @@ function createBuiltinTargets(): EngineTargetProfileInput[] {
       },
       connection: {
         socketPath: "/var/run/docker.sock",
-      },
-    },
-    {
-      id: "desktop-linux",
-      label: "Docker Desktop",
-      kind: "local",
-      enabled: true,
-      lastHealth: {
-        status: "healthy",
-        message: "Connected to Docker Desktop",
-        checkedAt: fixedNow,
-      },
-      connection: {
-        socketPath: "/home/amali/.docker/desktop/docker.sock",
       },
     },
   ];
@@ -58,12 +44,17 @@ async function createStore() {
 describe("EngineTargetStore", () => {
   const tmpDirs: string[] = [];
 
+  beforeEach(() => {
+    vi.stubEnv("DOCKLITE_DESKTOP_DOCKER_SOCKET", "/tmp/docker-desktop.sock");
+  });
+
   afterEach(async () => {
+    vi.unstubAllEnvs();
     await Promise.all(tmpDirs.map((dir) => rm(dir, { recursive: true, force: true })));
     tmpDirs.length = 0;
   });
 
-  it("loads an empty store with built-in defaults", async () => {
+  it("loads an empty store with system docker builtin and desktop seeded as saved", async () => {
     const { dir, store } = await createStore();
     tmpDirs.push(dir);
 
@@ -81,6 +72,105 @@ describe("EngineTargetStore", () => {
         source: "builtin",
       }),
     );
+    expect(targets[1]).toEqual(
+      expect.objectContaining({
+        id: "desktop-linux",
+        label: "Docker Desktop",
+        endpoint: "unix:///tmp/docker-desktop.sock",
+        active: false,
+        available: true,
+        kind: "local",
+        source: "saved",
+      }),
+    );
+  });
+
+  it("migrates legacy stores so desktop becomes a saved target while system stays default", async () => {
+    const { dir, filePath } = await createStore();
+    tmpDirs.push(dir);
+
+    await writeFile(
+      filePath,
+      JSON.stringify(
+        {
+          activeTargetId: "system",
+          savedTargets: [],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const store = new EngineTargetStore({
+      filePath,
+      builtInTargets: createBuiltinTargets(),
+      now: () => fixedNow,
+    });
+
+    const targets = await store.listTargets();
+    const desktopTarget = targets.find((target) => target.id === "desktop-linux");
+    const systemTarget = targets.find((target) => target.id === "system");
+
+    expect(systemTarget?.active).toBe(true);
+    expect(systemTarget?.source).toBe("builtin");
+    expect(desktopTarget).toEqual(
+      expect.objectContaining({
+        id: "desktop-linux",
+        source: "saved",
+        available: true,
+      }),
+    );
+
+    const raw = JSON.parse(await readFile(filePath, "utf8")) as {
+      version: number;
+      savedTargets: Array<{ id: string; source: string }>;
+    };
+    expect(raw.version).toBe(2);
+    expect(raw.savedTargets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "desktop-linux",
+          source: "saved",
+        }),
+      ]),
+    );
+  });
+
+  it("resets legacy desktop-linux selection back to system docker", async () => {
+    const { dir, filePath } = await createStore();
+    tmpDirs.push(dir);
+
+    await writeFile(
+      filePath,
+      JSON.stringify(
+        {
+          activeTargetId: "desktop-linux",
+          savedTargets: [],
+        },
+        null,
+        2,
+      ),
+      "utf8",
+    );
+
+    const store = new EngineTargetStore({
+      filePath,
+      builtInTargets: createBuiltinTargets(),
+      now: () => fixedNow,
+    });
+
+    const targets = await store.listTargets();
+    const activeTarget = targets.find((target) => target.active);
+
+    expect(activeTarget?.id).toBe("system");
+
+    const raw = JSON.parse(await readFile(filePath, "utf8")) as {
+      version: number;
+      activeTargetId: string;
+    };
+    expect(raw.version).toBe(2);
+    expect(raw.activeTargetId).toBe("system");
   });
 
   it("persists saved SSH and TLS targets", async () => {
@@ -127,24 +217,28 @@ describe("EngineTargetStore", () => {
     };
 
     expect(raw.activeTargetId).toBe("system");
-    expect(raw.savedTargets).toHaveLength(2);
-    expect(raw.savedTargets[0]).toEqual(
-      expect.objectContaining({
-        id: "prod-ssh",
-        kind: "ssh",
-        ssh: expect.objectContaining({
-          username: "ops",
+    expect(raw.savedTargets).toHaveLength(3);
+    expect(raw.savedTargets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "desktop-linux",
+          kind: "local",
         }),
-      }),
-    );
-    expect(raw.savedTargets[1]).toEqual(
-      expect.objectContaining({
-        id: "staging-tls",
-        kind: "tcpTls",
-        tls: expect.objectContaining({
-          tlsMode: "mtls",
+        expect.objectContaining({
+          id: "prod-ssh",
+          kind: "ssh",
+          ssh: expect.objectContaining({
+            username: "ops",
+          }),
         }),
-      }),
+        expect.objectContaining({
+          id: "staging-tls",
+          kind: "tcpTls",
+          tls: expect.objectContaining({
+            tlsMode: "mtls",
+          }),
+        }),
+      ]),
     );
 
     const reloaded = new EngineTargetStore({
@@ -266,7 +360,15 @@ describe("EngineTargetStore", () => {
       savedTargets: unknown[];
     };
 
-    expect(raw.savedTargets).toHaveLength(0);
+    expect(raw.savedTargets).toHaveLength(1);
+    expect(raw.savedTargets).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "desktop-linux",
+          kind: "local",
+        }),
+      ]),
+    );
 
     const targets = await store.listTargets();
     expect(targets.some((target) => target.id === "prod-ssh")).toBe(false);

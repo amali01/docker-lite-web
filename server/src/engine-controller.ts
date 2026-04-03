@@ -1,4 +1,3 @@
-import { homedir } from "node:os";
 import { access } from "node:fs/promises";
 import { EngineTargetStore } from "./engine-targets/store";
 import type { EngineTargetProfile, EngineTargetProfileInput } from "./engine-targets/types";
@@ -42,18 +41,11 @@ function uniqueTargets(targets: EngineTargetConfig[]) {
 }
 
 export function getDefaultEngineTargets(): EngineTargetConfig[] {
-  const home = homedir();
   return uniqueTargets([
     {
       id: "system",
       label: "System Docker",
       socketPath: process.env.DOCKLITE_SYSTEM_DOCKER_SOCKET ?? "/var/run/docker.sock",
-      adapter: process.env.DOCKLITE_ADAPTER === "mock" ? "mock" : "real",
-    },
-    {
-      id: "desktop-linux",
-      label: "Docker Desktop",
-      socketPath: process.env.DOCKLITE_DESKTOP_DOCKER_SOCKET ?? `${home}/.docker/desktop/docker.sock`,
       adapter: process.env.DOCKLITE_ADAPTER === "mock" ? "mock" : "real",
     },
   ]);
