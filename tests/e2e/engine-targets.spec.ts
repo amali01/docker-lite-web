@@ -1,9 +1,11 @@
 import { expect, test } from "@playwright/test";
+import { signIn } from "./helpers";
 
 test("manages engine targets from settings", async ({ page }) => {
   const targetName = `Playwright SSH ${Date.now()}`;
   const notifications = page.getByLabel("Notifications alt+T");
 
+  await signIn(page);
   await page.goto("/settings");
 
   await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();

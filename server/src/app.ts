@@ -1,6 +1,9 @@
 import cors from "cors";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import express, { ErrorRequestHandler } from "express";
 import { ZodError } from "zod";
+import { DockLiteAuth } from "./auth/middleware";
 import { createContainersRouter } from "./routes/containers";
 import { createEngineRouter } from "./routes/engine";
 import { createImagesRouter } from "./routes/images";
@@ -8,6 +11,7 @@ import { createLogsRouter } from "./routes/logs";
 import { createNetworksRouter } from "./routes/networks";
 import { createVolumesRouter } from "./routes/volumes";
 import { BackendError, DockerBackend } from "./types";
+import { createAuthRouter } from "./routes/auth";
 
 function isAllowedOrigin(origin?: string) {
   if (!origin) {
@@ -17,33 +21,55 @@ function isAllowedOrigin(origin?: string) {
   return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(origin);
 }
 
-export function createApp(backend: DockerBackend) {
+export interface CreateAppOptions {
+  auth?: DockLiteAuth;
+  sameOriginMode?: boolean;
+  staticDir?: string | null;
+}
+
+export function createApp(backend: DockerBackend, options: CreateAppOptions = {}) {
   const app = express();
+  const auth = options.auth ?? new DockLiteAuth();
+  const sameOriginMode = options.sameOriginMode ?? false;
 
-  app.use(
-    cors({
-      origin(origin, callback) {
-        if (isAllowedOrigin(origin)) {
-          callback(null, true);
-          return;
-        }
+  if (!sameOriginMode) {
+    app.use(
+      cors({
+        origin(origin, callback) {
+          if (isAllowedOrigin(origin)) {
+            callback(null, true);
+            return;
+          }
 
-        callback(new Error("Origin is not allowed by DockLite"));
-      },
-    }),
-  );
+          callback(new Error("Origin is not allowed by DockLite"));
+        },
+      }),
+    );
+  }
+
   app.use(express.json({ limit: "1mb" }));
 
   app.get("/api/health", (_request, response) => {
     response.json({ ok: true });
   });
 
-  app.use("/api/engine", createEngineRouter(backend));
-  app.use("/api/containers", createContainersRouter(backend));
-  app.use("/api/images", createImagesRouter(backend));
-  app.use("/api/volumes", createVolumesRouter(backend));
-  app.use("/api/networks", createNetworksRouter(backend));
-  app.use("/api", createLogsRouter(backend));
+  app.use("/api/auth", createAuthRouter(auth));
+  app.use("/api/engine", auth.requireAuth(), createEngineRouter(backend));
+  app.use("/api/containers", auth.requireAuth(), createContainersRouter(backend));
+  app.use("/api/images", auth.requireAuth(), createImagesRouter(backend));
+  app.use("/api/volumes", auth.requireAuth(), createVolumesRouter(backend));
+  app.use("/api/networks", auth.requireAuth(), createNetworksRouter(backend));
+  app.use("/api", createLogsRouter(backend, auth));
+
+  const staticDir = options.staticDir ? resolve(options.staticDir) : null;
+  const indexHtmlPath = staticDir ? resolve(staticDir, "index.html") : null;
+
+  if (sameOriginMode && staticDir && indexHtmlPath && existsSync(indexHtmlPath)) {
+    app.use(express.static(staticDir));
+    app.get(/^(?!\/api\/).*/, (_request, response) => {
+      response.sendFile(indexHtmlPath);
+    });
+  }
 
   const errorHandler: ErrorRequestHandler = (error, _request, response, _next) => {
     if (error instanceof ZodError) {

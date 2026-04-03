@@ -42,6 +42,8 @@ npm install
 npm run dev:full
 ```
 
+DockLite seeds the admin login from env defaults on first boot. If you do not override them, the default login is `admin` / `admin`. Change both in Settings after signing in.
+
 ## Start DockLite Against the Mock Backend
 
 Use this for UI work or smoke tests when you do not want to touch the real Docker daemon.

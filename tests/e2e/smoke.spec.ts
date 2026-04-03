@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
+import { signIn } from "./helpers";
 
 test("loads dashboard and performs a safe container mutation", async ({ page }) => {
+  await signIn(page);
   await page.goto("/");
 
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible();

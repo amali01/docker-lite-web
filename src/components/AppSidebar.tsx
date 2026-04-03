@@ -1,6 +1,8 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Box, HardDrive, LayoutDashboard, Network, Image, Settings } from "lucide-react";
+import { Box, HardDrive, LayoutDashboard, Network, Image, LogOut, Settings } from "lucide-react";
+import { useLogout, useAuthSession } from "@/hooks/use-auth";
 import { useEngineInfo } from "@/hooks/use-engine";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -18,9 +20,12 @@ interface AppSidebarProps {
 
 export function AppSidebar({ variant = "desktop", onNavigate }: AppSidebarProps) {
   const location = useLocation();
+  const authSession = useAuthSession();
+  const logoutMutation = useLogout();
   const engineQuery = useEngineInfo();
   const isConnected = engineQuery.data?.connected ?? false;
   const isMobile = variant === "mobile";
+  const showLogout = Boolean(authSession.data?.authenticated);
 
   return (
     <aside
@@ -80,6 +85,20 @@ export function AppSidebar({ variant = "desktop", onNavigate }: AppSidebarProps)
           <Settings className="w-4 h-4" />
           <span>Settings</span>
         </NavLink>
+        {showLogout ? (
+          <Button
+            variant="ghost"
+            className="mt-2 w-full justify-start gap-2.5 px-3"
+            onClick={() => {
+              void logoutMutation.mutateAsync().finally(() => {
+                onNavigate?.();
+              });
+            }}
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Log Out</span>
+          </Button>
+        ) : null}
         <div className="mt-3 px-3">
           <div className="flex items-center gap-1.5">
             <span className={cn("w-1.5 h-1.5 rounded-full", isConnected ? "bg-success animate-pulse-dot" : "bg-destructive")} />

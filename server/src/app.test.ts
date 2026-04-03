@@ -4,6 +4,8 @@ import { join } from "node:path";
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
+import { AuthConfigStore } from "./auth/config";
+import { DockLiteAuth } from "./auth/middleware";
 import { EngineController, getDefaultEngineTargets } from "./engine-controller";
 import { EngineTargetStore } from "./engine-targets/store";
 import type { EngineTargetProfileInput } from "./engine-targets/types";
@@ -39,10 +41,43 @@ async function createTestApp() {
     }),
   );
 
+  const auth = new DockLiteAuth({
+    configStore: new AuthConfigStore({
+      filePath: join(dir, "auth-config.json"),
+      env: {
+        DOCKLITE_ADMIN_USERNAME: "admin",
+        DOCKLITE_ADMIN_PASSWORD: "admin",
+        DOCKLITE_AUTH_JWT_SECRET: "test-secret",
+      },
+    }),
+  });
+
   return {
     dir,
     backend,
-    app: createApp(backend),
+    app: createApp(backend, { auth }),
+  };
+}
+
+async function createAuthenticatedApi(app: ReturnType<typeof createApp>) {
+  const loginResponse = await request(app)
+    .post("/api/auth/login")
+    .send({
+      username: "admin",
+      password: "admin",
+    });
+
+  expect(loginResponse.status).toBe(200);
+
+  const authHeader = {
+    Authorization: `Bearer ${loginResponse.body.token as string}`,
+  };
+
+  return {
+    get: (path: string) => request(app).get(path).set(authHeader),
+    post: (path: string) => request(app).post(path).set(authHeader),
+    patch: (path: string) => request(app).patch(path).set(authHeader),
+    delete: (path: string) => request(app).delete(path).set(authHeader),
   };
 }
 
@@ -58,8 +93,9 @@ describe("DockLite backend app", () => {
     process.env.DOCKLITE_ADAPTER = "mock";
     const { app, dir } = await createTestApp();
     tmpDirs.push(dir);
+    const api = await createAuthenticatedApi(app);
 
-    const response = await request(app).get("/api/engine");
+    const response = await api.get("/api/engine");
 
     expect(response.status).toBe(200);
     expect(response.body.connected).toBe(true);
@@ -70,8 +106,9 @@ describe("DockLite backend app", () => {
     process.env.DOCKLITE_ADAPTER = "mock";
     const { app, dir } = await createTestApp();
     tmpDirs.push(dir);
+    const api = await createAuthenticatedApi(app);
 
-    const response = await request(app).post("/api/containers/run").send({
+    const response = await api.post("/api/containers/run").send({
       image: "",
       ports: [],
       envVars: [],
@@ -86,8 +123,9 @@ describe("DockLite backend app", () => {
     process.env.DOCKLITE_ADAPTER = "mock";
     const { app, dir } = await createTestApp();
     tmpDirs.push(dir);
+    const api = await createAuthenticatedApi(app);
 
-    const runResponse = await request(app).post("/api/containers/run").send({
+    const runResponse = await api.post("/api/containers/run").send({
       image: "busybox:latest",
       name: "smoke-container",
       ports: [{ host: "8081", container: "80" }],
@@ -98,7 +136,7 @@ describe("DockLite backend app", () => {
     expect(runResponse.status).toBe(201);
     expect(runResponse.body.name).toBe("smoke-container");
 
-    const listResponse = await request(app).get("/api/containers");
+    const listResponse = await api.get("/api/containers");
 
     expect(listResponse.status).toBe(200);
     expect(listResponse.body.some((container: { name: string }) => container.name === "smoke-container")).toBe(true);
@@ -108,8 +146,9 @@ describe("DockLite backend app", () => {
     process.env.DOCKLITE_ADAPTER = "mock";
     const { app, dir } = await createTestApp();
     tmpDirs.push(dir);
+    const api = await createAuthenticatedApi(app);
 
-    const response = await request(app).get("/api/engine/targets");
+    const response = await api.get("/api/engine/targets");
 
     expect(response.status).toBe(200);
     expect(Array.isArray(response.body)).toBe(true);
@@ -127,8 +166,9 @@ describe("DockLite backend app", () => {
     process.env.DOCKLITE_ADAPTER = "mock";
     const { app, dir } = await createTestApp();
     tmpDirs.push(dir);
+    const api = await createAuthenticatedApi(app);
 
-    const createResponse = await request(app).post("/api/engine/targets").send({
+    const createResponse = await api.post("/api/engine/targets").send({
       kind: "local",
       label: "Remote Mock Docker",
       socketPath: "/tmp/mock-docker.sock",
@@ -147,7 +187,7 @@ describe("DockLite backend app", () => {
 
     const createdTargetId = createResponse.body.id as string;
 
-    const testResponse = await request(app).post("/api/engine/targets/test").send({
+    const testResponse = await api.post("/api/engine/targets/test").send({
       kind: "local",
       label: "Test Mock Docker",
       socketPath: "/tmp/test-mock-docker.sock",
@@ -161,7 +201,7 @@ describe("DockLite backend app", () => {
       }),
     );
 
-    const retestResponse = await request(app).post(`/api/engine/targets/${createdTargetId}/test`);
+    const retestResponse = await api.post(`/api/engine/targets/${createdTargetId}/test`);
 
     expect(retestResponse.status).toBe(200);
     expect(retestResponse.body).toEqual(
@@ -170,7 +210,7 @@ describe("DockLite backend app", () => {
       }),
     );
 
-    const updateResponse = await request(app).patch(`/api/engine/targets/${createdTargetId}`).send({
+    const updateResponse = await api.patch(`/api/engine/targets/${createdTargetId}`).send({
       kind: "local",
       label: "Updated Mock Docker",
       socketPath: "/tmp/updated-mock-docker.sock",
@@ -185,14 +225,14 @@ describe("DockLite backend app", () => {
       }),
     );
 
-    const listResponse = await request(app).get("/api/engine/targets");
+    const listResponse = await api.get("/api/engine/targets");
     expect(listResponse.status).toBe(200);
     expect(listResponse.body.some((target: { id: string }) => target.id === createdTargetId)).toBe(true);
 
-    const deleteResponse = await request(app).delete(`/api/engine/targets/${createdTargetId}`);
+    const deleteResponse = await api.delete(`/api/engine/targets/${createdTargetId}`);
     expect(deleteResponse.status).toBe(204);
 
-    const afterDeleteResponse = await request(app).get("/api/engine/targets");
+    const afterDeleteResponse = await api.get("/api/engine/targets");
     expect(afterDeleteResponse.status).toBe(200);
     expect(afterDeleteResponse.body.some((target: { id: string }) => target.id === createdTargetId)).toBe(false);
   });
@@ -202,22 +242,23 @@ describe("DockLite backend app", () => {
     process.env.DOCKLITE_DOCKER_SOCKET = "/var/run/docker.sock";
     const { app, dir } = await createTestApp();
     tmpDirs.push(dir);
+    const api = await createAuthenticatedApi(app);
 
-    const targetsResponse = await request(app).get("/api/engine/targets");
+    const targetsResponse = await api.get("/api/engine/targets");
     expect(targetsResponse.status).toBe(200);
     expect(targetsResponse.body.length).toBeGreaterThan(1);
 
     const nextTarget = targetsResponse.body.find((target: { active: boolean }) => !target.active);
     expect(nextTarget).toBeTruthy();
 
-    const switchResponse = await request(app)
+    const switchResponse = await api
       .post("/api/engine/select")
       .send({ targetId: nextTarget.id });
 
     expect(switchResponse.status).toBe(200);
     expect(switchResponse.body.endpoint).toBe(nextTarget.endpoint);
 
-    const selectedResponse = await request(app).get("/api/engine");
+    const selectedResponse = await api.get("/api/engine");
     expect(selectedResponse.status).toBe(200);
     expect(selectedResponse.body.endpoint).toBe(nextTarget.endpoint);
   });
@@ -226,8 +267,9 @@ describe("DockLite backend app", () => {
     process.env.DOCKLITE_ADAPTER = "mock";
     const { app, dir } = await createTestApp();
     tmpDirs.push(dir);
+    const api = await createAuthenticatedApi(app);
 
-    const createResponse = await request(app).post("/api/engine/targets").send({
+    const createResponse = await api.post("/api/engine/targets").send({
       kind: "local",
       label: "Selectable Mock Docker",
       socketPath: "/tmp/selectable-mock-docker.sock",
@@ -236,13 +278,13 @@ describe("DockLite backend app", () => {
     expect(createResponse.status).toBe(201);
 
     const targetId = createResponse.body.id as string;
-    const switchResponse = await request(app).post("/api/engine/select").send({ targetId });
+    const switchResponse = await api.post("/api/engine/select").send({ targetId });
 
     expect(switchResponse.status).toBe(200);
     expect(switchResponse.body.selectedEngineId).toBe(targetId);
     expect(switchResponse.body.endpoint).toBe("unix:///tmp/selectable-mock-docker.sock");
 
-    const targetsResponse = await request(app).get("/api/engine/targets");
+    const targetsResponse = await api.get("/api/engine/targets");
     expect(targetsResponse.status).toBe(200);
     expect(targetsResponse.body.find((target: { id: string }) => target.id === targetId)?.active).toBe(true);
   });
@@ -251,8 +293,9 @@ describe("DockLite backend app", () => {
     process.env.DOCKLITE_ADAPTER = "mock";
     const { app, dir } = await createTestApp();
     tmpDirs.push(dir);
+    const api = await createAuthenticatedApi(app);
 
-    const createResponse = await request(app).post("/api/engine/targets").send({
+    const createResponse = await api.post("/api/engine/targets").send({
       kind: "tcpTls",
       label: "Prod TLS Docker",
       host: "prod.example.internal",
@@ -266,7 +309,7 @@ describe("DockLite backend app", () => {
     expect(createResponse.status).toBe(201);
 
     const targetId = createResponse.body.id as string;
-    const switchResponse = await request(app).post("/api/engine/select").send({ targetId });
+    const switchResponse = await api.post("/api/engine/select").send({ targetId });
 
     expect(switchResponse.status).toBe(200);
     expect(switchResponse.body.selectedEngineId).toBe(targetId);
@@ -277,8 +320,9 @@ describe("DockLite backend app", () => {
     process.env.DOCKLITE_ADAPTER = "mock";
     const { app, dir } = await createTestApp();
     tmpDirs.push(dir);
+    const api = await createAuthenticatedApi(app);
 
-    const createResponse = await request(app).post("/api/engine/targets").send({
+    const createResponse = await api.post("/api/engine/targets").send({
       kind: "ssh",
       label: "Prod SSH Docker",
       host: "prod.example.internal",
@@ -293,7 +337,7 @@ describe("DockLite backend app", () => {
     expect(createResponse.status).toBe(201);
 
     const targetId = createResponse.body.id as string;
-    const switchResponse = await request(app).post("/api/engine/select").send({ targetId });
+    const switchResponse = await api.post("/api/engine/select").send({ targetId });
 
     expect(switchResponse.status).toBe(200);
     expect(switchResponse.body.selectedEngineId).toBe(targetId);
@@ -304,11 +348,12 @@ describe("DockLite backend app", () => {
     process.env.DOCKLITE_ADAPTER = "mock";
     const { app, dir } = await createTestApp();
     tmpDirs.push(dir);
+    const api = await createAuthenticatedApi(app);
 
-    const stopResponse = await request(app).post("/api/containers/compose/app-stack/stop");
+    const stopResponse = await api.post("/api/containers/compose/app-stack/stop");
     expect(stopResponse.status).toBe(204);
 
-    const containersResponse = await request(app).get("/api/containers");
+    const containersResponse = await api.get("/api/containers");
     expect(containersResponse.status).toBe(200);
 
     const composeContainers = containersResponse.body.filter(
@@ -323,8 +368,9 @@ describe("DockLite backend app", () => {
     process.env.DOCKLITE_ADAPTER = "mock";
     const { app, dir } = await createTestApp();
     tmpDirs.push(dir);
+    const api = await createAuthenticatedApi(app);
 
-    const response = await request(app).post("/api/containers/e5f6g7h8i9j0/rebuild");
+    const response = await api.post("/api/containers/e5f6g7h8i9j0/rebuild");
 
     expect(response.status).toBe(200);
     expect(response.body.id).toBe("e5f6g7h8i9j0");
@@ -335,8 +381,9 @@ describe("DockLite backend app", () => {
     process.env.DOCKLITE_ADAPTER = "mock";
     const { app, dir } = await createTestApp();
     tmpDirs.push(dir);
+    const api = await createAuthenticatedApi(app);
 
-    const detailResponse = await request(app).get("/api/containers/a1b2c3d4e5f6");
+    const detailResponse = await api.get("/api/containers/a1b2c3d4e5f6");
     expect(detailResponse.status).toBe(200);
     expect(detailResponse.body.summary).toEqual(
       expect.objectContaining({
@@ -345,11 +392,11 @@ describe("DockLite backend app", () => {
       }),
     );
 
-    const inspectResponse = await request(app).get("/api/containers/a1b2c3d4e5f6/inspect");
+    const inspectResponse = await api.get("/api/containers/a1b2c3d4e5f6/inspect");
     expect(inspectResponse.status).toBe(200);
     expect(inspectResponse.body.raw).toEqual(expect.objectContaining({ Id: "a1b2c3d4e5f6" }));
 
-    const statsResponse = await request(app).get("/api/containers/a1b2c3d4e5f6/stats");
+    const statsResponse = await api.get("/api/containers/a1b2c3d4e5f6/stats");
     expect(statsResponse.status).toBe(200);
     expect(Array.isArray(statsResponse.body)).toBe(true);
     expect(statsResponse.body[0]).toEqual(
@@ -365,16 +412,17 @@ describe("DockLite backend app", () => {
     process.env.DOCKLITE_ADAPTER = "mock";
     const { app, dir } = await createTestApp();
     tmpDirs.push(dir);
+    const api = await createAuthenticatedApi(app);
 
-    const detailResponse = await request(app).get("/api/containers/missing-container");
+    const detailResponse = await api.get("/api/containers/missing-container");
     expect(detailResponse.status).toBe(404);
     expect(detailResponse.body.error.code).toBe("not_found");
 
-    const inspectResponse = await request(app).get("/api/containers/missing-container/inspect");
+    const inspectResponse = await api.get("/api/containers/missing-container/inspect");
     expect(inspectResponse.status).toBe(404);
     expect(inspectResponse.body.error.code).toBe("not_found");
 
-    const statsResponse = await request(app).get("/api/containers/missing-container/stats");
+    const statsResponse = await api.get("/api/containers/missing-container/stats");
     expect(statsResponse.status).toBe(404);
     expect(statsResponse.body.error.code).toBe("not_found");
   });

@@ -1,7 +1,16 @@
 import { ApiErrorResponse } from "./types";
 
 const LOCAL_STORAGE_KEY = "docklite.api-base-url";
+const AUTH_TOKEN_STORAGE_KEY = "docklite.auth-token";
 const DEFAULT_API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:9001";
+
+type AuthRuntimeState = {
+  token: string | null;
+};
+
+const authRuntimeState: AuthRuntimeState = {
+  token: typeof window === "undefined" ? null : window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY),
+};
 
 export class ApiClientError extends Error {
   code: string;
@@ -13,6 +22,32 @@ export class ApiClientError extends Error {
     this.code = code;
     this.details = details;
   }
+}
+
+export function setAuthRuntimeState(state: Partial<AuthRuntimeState>) {
+  if (typeof state.token !== "undefined") {
+    authRuntimeState.token = state.token;
+
+    if (typeof window !== "undefined") {
+      if (state.token) {
+        window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, state.token);
+      } else {
+        window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+      }
+    }
+  }
+}
+
+export function resetAuthRuntimeState() {
+  authRuntimeState.token = null;
+
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+  }
+}
+
+export function getAuthToken() {
+  return authRuntimeState.token;
 }
 
 export function getApiBaseUrl() {
@@ -38,15 +73,20 @@ export function setApiBaseUrl(url: string) {
 
 type ApiRequestInit = RequestInit & {
   baseUrl?: string;
+  auth?: boolean;
 };
 
 export async function apiRequest<T>(path: string, init?: ApiRequestInit): Promise<T> {
+  const includeAuth = init?.auth ?? false;
+  const headers = {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    ...(includeAuth && authRuntimeState.token ? { Authorization: `Bearer ${authRuntimeState.token}` } : {}),
+    ...init?.headers,
+  };
+
   const response = await fetch(`${init?.baseUrl ?? getApiBaseUrl()}${path}`, {
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
+    headers,
     ...init,
   });
 
@@ -74,5 +114,11 @@ export async function apiRequest<T>(path: string, init?: ApiRequestInit): Promis
 }
 
 export function createStreamUrl(path: string) {
-  return `${getApiBaseUrl()}${path}`;
+  const url = new URL(`${getApiBaseUrl()}${path}`);
+
+  if (authRuntimeState.token) {
+    url.searchParams.set("access_token", authRuntimeState.token);
+  }
+
+  return url.toString();
 }

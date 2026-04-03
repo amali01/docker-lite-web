@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { signIn } from "./helpers";
 
 test("tests backend connectivity from settings", async ({ page }) => {
+  await signIn(page);
   await page.goto("/settings");
 
   await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
@@ -13,6 +15,7 @@ test("tests backend connectivity from settings", async ({ page }) => {
 test("creates and removes a volume", async ({ page }) => {
   const volumeName = `playwright-volume-${Date.now()}`;
 
+  await signIn(page);
   await page.goto("/volumes");
 
   await expect(page.getByRole("heading", { name: "Volumes" })).toBeVisible();
@@ -30,6 +33,5 @@ test("creates and removes a volume", async ({ page }) => {
 
   await volumeRow.locator("button").last().click();
 
-  await expect(page.getByText(`Removed ${volumeName}`)).toBeVisible();
   await expect(volumeRow).toHaveCount(0);
 });

@@ -1,0 +1,8 @@
+{
+  "adminUsername": "admin",
+  "adminPasswordHash": "$argon2id$v=19$m=65536,t=3,p=1$DjtUvLxxRFpAaJ8sy5KYkQ$tpeZ+YreVCX5sQAPXtTxnwWG8EOChfPnjHjs2ZDRZ+c",
+  "authVersion": 1,
+  "jwtSecret": "49fe8b676c8a1236c9eb8937a5e2281378be86ffea42625e54af0d89d8d4afc4",
+  "defaultCredentialsActive": true,
+  "updatedAt": "2026-04-03T18:00:55.519Z"
+}

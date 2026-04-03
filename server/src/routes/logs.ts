@@ -1,18 +1,23 @@
 import { Router } from "express";
+import { DockLiteAuth } from "../auth/middleware";
 import { DockerBackend } from "../types";
 
-export function createLogsRouter(backend: DockerBackend) {
+export function createLogsRouter(backend: DockerBackend, auth: DockLiteAuth) {
   const router = Router();
 
   router.get("/containers/:id/logs/stream", async (request, response, next) => {
-    response.setHeader("Content-Type", "text/event-stream");
-    response.setHeader("Cache-Control", "no-cache");
-    response.setHeader("Connection", "keep-alive");
-    response.flushHeaders();
-
     try {
+      const resolved = await auth.resolveExpressRequest(request);
+      auth.assertResolvedRequest(resolved);
+      request.dockliteAuth = resolved;
+
+      response.setHeader("Content-Type", "text/event-stream");
+      response.setHeader("Cache-Control", "no-cache");
+      response.setHeader("Connection", "keep-alive");
+      response.flushHeaders();
+
       const unsubscribe = await backend.subscribeToContainerLogs(request.params.id, (chunk) => {
-        response.write(`event: log\n`);
+        response.write("event: log\n");
         response.write(`data: ${JSON.stringify(chunk)}\n\n`);
       });
 

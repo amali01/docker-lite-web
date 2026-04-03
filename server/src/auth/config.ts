@@ -1,45 +1,27 @@
 import { chmod, mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
+import { randomBytes, randomUUID } from "node:crypto";
 import { dirname, join } from "node:path";
-import { randomUUID } from "node:crypto";
 import { BackendError } from "../types";
-import type { AuthBootstrapState, AuthConfig, AuthPathSecurityWarning } from "./types";
+import { hashSeedPassword } from "./password";
+import type { AuthConfig, AuthPathSecurityWarning } from "./types";
 
-export const DEFAULT_SESSION_IDLE_TIMEOUT_MINUTES = 30;
-export const DEFAULT_SESSION_ABSOLUTE_TIMEOUT_HOURS = 12;
-
-export const DEFAULT_AUTH_CONFIG: AuthConfig = {
-  authEnabled: true,
-  adminPasswordHash: null,
-  passwordUpdatedAt: null,
-  passwordVersion: 0,
-  sessionIdleTimeoutMinutes: DEFAULT_SESSION_IDLE_TIMEOUT_MINUTES,
-  sessionAbsoluteTimeoutHours: DEFAULT_SESSION_ABSOLUTE_TIMEOUT_HOURS,
-  httpsEnabled: false,
-  tlsCertPath: null,
-  tlsKeyPath: null,
-};
+export const DEFAULT_ADMIN_USERNAME = "admin";
+export const DEFAULT_ADMIN_PASSWORD = "admin";
+export const DEFAULT_AUTH_JWT_SECRET_ENV_KEY = "DOCKLITE_AUTH_JWT_SECRET";
 
 export interface AuthConfigStoreOptions {
   filePath?: string;
   now?: () => string;
+  env?: NodeJS.ProcessEnv;
 }
 
-function getDefaultFilePath() {
-  return join(process.cwd(), "server", "data", "auth-config.json");
+function normalizeUsername(value: string | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : DEFAULT_ADMIN_USERNAME;
 }
 
-function normalizeAuthConfig(input: Partial<AuthConfig>): AuthConfig {
-  return {
-    authEnabled: input.authEnabled ?? DEFAULT_AUTH_CONFIG.authEnabled,
-    adminPasswordHash: input.adminPasswordHash ?? null,
-    passwordUpdatedAt: input.passwordUpdatedAt ?? null,
-    passwordVersion: input.passwordVersion ?? 0,
-    sessionIdleTimeoutMinutes: input.sessionIdleTimeoutMinutes ?? DEFAULT_SESSION_IDLE_TIMEOUT_MINUTES,
-    sessionAbsoluteTimeoutHours: input.sessionAbsoluteTimeoutHours ?? DEFAULT_SESSION_ABSOLUTE_TIMEOUT_HOURS,
-    httpsEnabled: input.httpsEnabled ?? DEFAULT_AUTH_CONFIG.httpsEnabled,
-    tlsCertPath: input.tlsCertPath ?? null,
-    tlsKeyPath: input.tlsKeyPath ?? null,
-  };
+function normalizePassword(value: string | undefined) {
+  return value && value.length > 0 ? value : DEFAULT_ADMIN_PASSWORD;
 }
 
 function getInsecureMode(mode: number): number {
@@ -70,46 +52,54 @@ async function inspectPath(path: string): Promise<AuthPathSecurityWarning[]> {
   }
 }
 
+export function getDefaultAuthConfigPath() {
+  return process.env.DOCKLITE_AUTH_CONFIG_PATH ?? join(process.cwd(), "server", "data", "auth-config.json");
+}
+
 export class AuthConfigStore {
   private readonly filePath: string;
   private readonly now: () => string;
-  private snapshot: AuthConfig = DEFAULT_AUTH_CONFIG;
+  private readonly env: NodeJS.ProcessEnv;
+  private snapshot: AuthConfig | null = null;
 
   constructor(options: AuthConfigStoreOptions = {}) {
-    this.filePath = options.filePath ?? getDefaultFilePath();
+    this.filePath = options.filePath ?? getDefaultAuthConfigPath();
     this.now = options.now ?? (() => new Date().toISOString());
+    this.env = options.env ?? process.env;
   }
 
   async read(): Promise<AuthConfig> {
+    if (this.snapshot) {
+      return this.snapshot;
+    }
+
     await this.ensureStorageDirectory();
 
     try {
-      const raw = JSON.parse(await readFile(this.filePath, "utf8")) as Partial<AuthConfig>;
-      this.snapshot = normalizeAuthConfig(raw);
-      return this.snapshot;
+      const raw = JSON.parse(await readFile(this.filePath, "utf8")) as AuthConfig;
+      this.snapshot = raw;
+      return raw;
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        this.snapshot = DEFAULT_AUTH_CONFIG;
-        return this.snapshot;
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        throw error;
       }
-
-      throw error;
     }
+
+    const seeded = await this.write(await this.createInitialConfig());
+    this.snapshot = seeded;
+    return seeded;
   }
 
   async write(config: AuthConfig): Promise<AuthConfig> {
     await this.ensureStorageDirectory();
 
-    const normalized = normalizeAuthConfig(config);
+    const normalized: AuthConfig = {
+      ...config,
+      adminUsername: config.adminUsername.trim(),
+      updatedAt: this.now(),
+    };
     const tempPath = `${this.filePath}.${randomUUID()}.tmp`;
-    const payload = JSON.stringify(
-      {
-        ...normalized,
-        updatedAt: this.now(),
-      },
-      null,
-      2,
-    );
+    const payload = JSON.stringify(normalized, null, 2);
 
     await writeFile(tempPath, `${payload}\n`, { mode: 0o600 });
     await chmod(tempPath, 0o600);
@@ -117,17 +107,7 @@ export class AuthConfigStore {
     await chmod(this.filePath, 0o600);
 
     this.snapshot = normalized;
-
-    return this.snapshot;
-  }
-
-  getBootstrapState(config: AuthConfig = this.snapshot): AuthBootstrapState {
-    return {
-      hasPassword: Boolean(config.adminPasswordHash),
-      requiresBootstrap: !config.adminPasswordHash,
-      passwordUpdatedAt: config.passwordUpdatedAt,
-      passwordVersion: config.passwordVersion,
-    };
+    return normalized;
   }
 
   async inspectStoragePermissions(): Promise<AuthPathSecurityWarning[]> {
@@ -143,20 +123,19 @@ export class AuthConfigStore {
     }
   }
 
-  async inspectTlsKeyPermissions(tlsKeyPath: string | null): Promise<AuthPathSecurityWarning[]> {
-    if (!tlsKeyPath) {
-      return [];
-    }
+  private async createInitialConfig(): Promise<AuthConfig> {
+    const adminUsername = normalizeUsername(this.env.DOCKLITE_ADMIN_USERNAME);
+    const adminPassword = normalizePassword(this.env.DOCKLITE_ADMIN_PASSWORD);
+    const jwtSecret = this.env[DEFAULT_AUTH_JWT_SECRET_ENV_KEY] || randomBytes(32).toString("hex");
 
-    return inspectPath(tlsKeyPath);
-  }
-
-  async assertTlsKeyPermissions(tlsKeyPath: string | null): Promise<void> {
-    const warnings = await this.inspectTlsKeyPermissions(tlsKeyPath);
-
-    if (warnings.length > 0) {
-      throw new BackendError(500, "insecure_path_permissions", warnings[0].message);
-    }
+    return {
+      adminUsername,
+      adminPasswordHash: await hashSeedPassword(adminPassword),
+      authVersion: 1,
+      jwtSecret,
+      defaultCredentialsActive: true,
+      updatedAt: this.now(),
+    };
   }
 
   private async ensureStorageDirectory(): Promise<void> {

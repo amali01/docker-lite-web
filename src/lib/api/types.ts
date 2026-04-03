@@ -254,3 +254,33 @@ export interface ApiErrorResponse {
     details?: string;
   };
 }
+
+export interface AuthConfigView {
+  adminUsername: string;
+  defaultCredentialsActive: boolean;
+}
+
+export interface AuthSessionState {
+  authenticated: boolean;
+  username: string | null;
+  expiresAt: string | null;
+  defaultCredentialsActive: boolean;
+  message: string | null;
+}
+
+export interface AuthLoginPayload {
+  username: string;
+  password: string;
+}
+
+export interface AuthLoginResponse {
+  username: string;
+  token: string;
+  expiresAt: string;
+  defaultCredentialsActive: boolean;
+}
+
+export interface UpdateCredentialsPayload {
+  username: string;
+  password: string;
+}
