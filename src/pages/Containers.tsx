@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Boxes, ChevronDown, ChevronRight, Play, Plus, RotateCcw, Search, Square, Trash2, Activity } from "lucide-react";
 import { toast } from "sonner";
+import { Link } from "react-router-dom";
 import { ApiState } from "@/components/ApiState";
 import { ContainerActionButtons } from "@/components/ContainerActionButtons";
 import { MonitoringRow } from "@/components/MonitoringOptions";
@@ -72,6 +73,18 @@ function PortLinks({ ports }: { ports: string | null | undefined }) {
         return <span key={idx}>{part}</span>;
       })}
     </div>
+  );
+}
+
+function ContainerNameLink({ containerId, containerName, displayName }: { containerId: string; containerName: string; displayName: string }) {
+  return (
+    <Link
+      to={`/containers/${containerId}`}
+      className="block truncate text-foreground transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
+      title={containerName}
+    >
+      {displayName}
+    </Link>
   );
 }
 
@@ -533,11 +546,12 @@ export default function Containers() {
                               <div className="flex items-start gap-2 pl-6 relative z-10">
                                 <div className="mt-1 h-2 w-2 rounded-full border border-primary/60 bg-background shrink-0" />
                                 <div>
-                                  <div
-                                    className="font-mono font-medium text-foreground max-w-[8rem] truncate md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]"
-                                    title={container.name}
-                                  >
-                                    {(() => { const n = (entry.project && container.name.startsWith(entry.project + "-")) ? container.name.replace(entry.project + "-", "") : container.name; return (typeof n === "string" && n.length > 20) ? n.substring(0, 20) + "…" : n; })()}
+                                  <div className="font-mono font-medium max-w-[8rem] md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]">
+                                    <ContainerNameLink
+                                      containerId={container.id}
+                                      containerName={container.name}
+                                      displayName={(() => { const n = (entry.project && container.name.startsWith(entry.project + "-")) ? container.name.replace(entry.project + "-", "") : container.name; return (typeof n === "string" && n.length > 20) ? n.substring(0, 20) + "…" : n; })()}
+                                    />
                                   </div>
                                   <div className="font-mono text-[10px] text-muted-foreground">{container.id}</div>
                                 </div>
@@ -630,11 +644,12 @@ export default function Containers() {
                       />
                     </td>
                     <td className="p-3">
-                      <div
-                        className="font-mono font-medium text-foreground max-w-[8rem] truncate md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]"
-                        title={container.name}
-                      >
-                        {(typeof container.name === "string" && container.name.length > 20) ? container.name.substring(0, 20) + "…" : container.name}
+                      <div className="font-mono font-medium max-w-[8rem] md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]">
+                        <ContainerNameLink
+                          containerId={container.id}
+                          containerName={container.name}
+                          displayName={(typeof container.name === "string" && container.name.length > 20) ? container.name.substring(0, 20) + "…" : container.name}
+                        />
                       </div>
                       <div className="font-mono text-[10px] text-muted-foreground">{container.id}</div>
                     </td>

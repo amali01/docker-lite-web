@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Box, Boxes, ChevronDown, ChevronRight, HardDrive, Image as ImageIcon, Network, Play, RotateCcw, Server, Square, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
 import { ApiState } from "@/components/ApiState";
 import { ContainerActionButtons } from "@/components/ContainerActionButtons";
 import { ContainerLogs } from "@/components/ContainerLogs";
@@ -67,6 +68,18 @@ function PortLinks({ ports }: { ports: string | null | undefined }) {
         return <span key={idx}>{part}</span>;
       })}
     </div>
+  );
+}
+
+function ContainerNameLink({ containerId, containerName, displayName }: { containerId: string; containerName: string; displayName: string }) {
+  return (
+    <Link
+      to={`/containers/${containerId}`}
+      className="block truncate text-foreground transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
+      title={containerName}
+    >
+      {displayName}
+    </Link>
   );
 }
 
@@ -360,7 +373,13 @@ export default function Dashboard() {
                             <div className="absolute left-[20px] top-1/2 w-[20px] h-px bg-primary/50 z-0" />
                             <div className="flex items-center gap-2 pl-6 relative z-10">
                               <div className="h-2 w-2 rounded-full border border-primary/60 bg-background shrink-0" />
-                              <div className="font-mono font-medium text-foreground max-w-[8rem] truncate md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]" title={container.name}>{(() => { const n = (entry.project && container.name.startsWith(entry.project + "-")) ? container.name.replace(entry.project + "-", "") : container.name; return (typeof n === "string" && n.length > 20) ? n.substring(0, 20) + "…" : n; })()}</div>
+                              <div className="font-mono font-medium max-w-[8rem] md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]">
+                                <ContainerNameLink
+                                  containerId={container.id}
+                                  containerName={container.name}
+                                  displayName={(() => { const n = (entry.project && container.name.startsWith(entry.project + "-")) ? container.name.replace(entry.project + "-", "") : container.name; return (typeof n === "string" && n.length > 20) ? n.substring(0, 20) + "…" : n; })()}
+                                />
+                              </div>
                             </div>
                           </td>
                           <td className="p-3 font-mono text-muted-foreground"><div className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]" title={container.image}>{(typeof container.image === "string" && container.image.length > 20) ? container.image.substring(0, 20) + "…" : container.image}</div></td>
@@ -406,7 +425,15 @@ export default function Dashboard() {
                   <Fragment key={container.id}>
                   <tr key={container.id} onClick={(e) => { if (!(e.target as HTMLElement).closest('button, a, input, [role="checkbox"], .cursor-default')) toggleMonitoring(container.id); }} className="cursor-pointer group border-b border-border/50 hover:bg-muted/30 transition-colors bg-card">
                     <td className="p-3"><Checkbox aria-label={`Select dashboard container ${container.name}`} checked={selection.selectedIds.includes(container.id)} onCheckedChange={(checked) => selection.toggleOne(container.id, checked === true)} /></td>
-                    <td className="p-3 font-mono font-medium text-foreground"><div className="max-w-[8rem] truncate md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]" title={container.name}>{(typeof container.name === "string" && container.name.length > 20) ? container.name.substring(0, 20) + "…" : container.name}</div></td>
+                    <td className="p-3 font-mono font-medium">
+                      <div className="max-w-[8rem] md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]">
+                        <ContainerNameLink
+                          containerId={container.id}
+                          containerName={container.name}
+                          displayName={(typeof container.name === "string" && container.name.length > 20) ? container.name.substring(0, 20) + "…" : container.name}
+                        />
+                      </div>
+                    </td>
                     <td className="p-3 font-mono text-muted-foreground"><div className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]" title={container.image}>{(typeof container.image === "string" && container.image.length > 20) ? container.image.substring(0, 20) + "…" : container.image}</div></td>
                     <td className="p-3"><StatusBadge status={container.status} /></td>
                     <td className="p-3 font-mono text-muted-foreground">{formatMetric(container.cpuPercent)}</td>

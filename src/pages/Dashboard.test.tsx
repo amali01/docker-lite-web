@@ -174,4 +174,12 @@ describe("Dashboard", () => {
 
     expect(await screen.findByText("Dashboard detail route reached")).toBeInTheDocument();
   });
+
+  it("navigates to the detail route when the dashboard container name is clicked", async () => {
+    renderDashboardRoute();
+
+    fireEvent.click(await screen.findByRole("link", { name: "nginx-proxy" }));
+
+    expect(await screen.findByText("Dashboard detail route reached")).toBeInTheDocument();
+  });
 });

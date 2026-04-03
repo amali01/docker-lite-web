@@ -218,4 +218,12 @@ describe("Containers Page", () => {
 
     expect(await screen.findByText("Container detail route reached")).toBeInTheDocument();
   });
+
+  it("navigates to the detail route when the container name is clicked", async () => {
+    renderContainersRoute();
+
+    fireEvent.click(await screen.findByRole("link", { name: "nginx-proxy" }));
+
+    expect(await screen.findByText("Container detail route reached")).toBeInTheDocument();
+  });
 });
