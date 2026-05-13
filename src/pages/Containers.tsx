@@ -468,7 +468,7 @@ export default function Containers() {
                         </td>
                         <td className="p-3 relative">
                           {expandedGroups[entry.project] && (
-                            <div className="absolute left-[20px] top-1/2 -bottom-[1px] w-px bg-primary/50 z-0" />
+                            <div className="absolute left-5 top-1/2 -bottom-px w-px bg-primary/50 z-0" />
                           )}
                           <button
                             type="button"
@@ -476,8 +476,8 @@ export default function Containers() {
                             className="flex items-center gap-2 text-left relative z-10"
                             aria-label={`${expandedGroups[entry.project] ? "Collapse" : "Expand"} compose stack ${entry.project}`}
                           >
-                            {expandedGroups[entry.project] ? <ChevronDown className="h-4 w-4 text-primary" /> : <ChevronRight className="h-4 w-4 text-primary" />}
-                            <Boxes className="h-4 w-4 text-primary" />
+                            {expandedGroups[entry.project] ? <ChevronDown className="h-4 w-4 text-primary shrink-0" /> : <ChevronRight className="h-4 w-4 text-primary shrink-0" />}
+                            <Boxes className="h-4 w-4 text-primary shrink-0" />
                             <div>
                               <div className="font-mono font-medium text-foreground">{entry.project}</div>
                               <div className="font-mono text-[10px] text-muted-foreground">
@@ -538,13 +538,13 @@ export default function Containers() {
                               />
                             </td>
                             <td className="p-3 relative">
-                              <div className="absolute left-[20px] top-0 h-[20px] w-px bg-primary/50 z-0" />
+                              <div className="absolute left-5 top-0 bottom-1/2 w-px bg-primary/50 z-0" />
                               {index !== arr.length - 1 && (
-                                <div className="absolute left-[20px] top-[20px] -bottom-[1px] w-px bg-primary/50 z-0" />
+                                <div className="absolute left-5 top-1/2 -bottom-px w-px bg-primary/50 z-0" />
                               )}
-                              <div className="absolute left-[20px] top-[20px] w-[20px] h-px bg-primary/50 z-0" />
-                              <div className="flex items-start gap-2 pl-6 relative z-10">
-                                <div className="mt-1 h-2 w-2 rounded-full border border-primary/60 bg-background shrink-0" />
+                              <div className="absolute left-5 top-1/2 w-5 h-px bg-primary/50 z-0" />
+                              <div className="flex items-center gap-2 pl-6 relative z-10">
+                                <div className="h-2 w-2 rounded-full border border-primary/60 bg-background shrink-0" />
                                 <div>
                                   <div className="font-mono font-medium max-w-[8rem] md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]">
                                     <ContainerNameLink
