@@ -38,24 +38,24 @@ export function ContainerActionButtons({ container, compact = false, logsActive,
           <Square className={iconClassName} />
         </button>
       )}
-      <button onClick={() => onAction("rebuild", container)} className={cn(buttonClassName, "hover:bg-primary/10 text-primary")} title="Refresh container" aria-label={`Refresh container ${containerName}`}>
+      <button onClick={() => onAction("rebuild", container)} className={cn(buttonClassName, "hover:bg-primary/10 text-primary hidden sm:inline-flex")} title="Refresh container" aria-label={`Refresh container ${containerName}`}>
         <ArrowUpCircle className={iconClassName} />
       </button>
-      <button onClick={() => onAction("restart", container)} className={cn(buttonClassName, "hover:bg-primary/10 text-primary")} title="Restart" aria-label={`Restart container ${containerName}`}>
+      <button onClick={() => onAction("restart", container)} className={cn(buttonClassName, "hover:bg-primary/10 text-primary hidden sm:inline-flex")} title="Restart" aria-label={`Restart container ${containerName}`}>
         <RotateCcw className={iconClassName} />
       </button>
       <button
         onClick={() => onAction("logs", container)}
-        className={cn(buttonClassName, "hover:bg-muted", logsActive ? "text-primary bg-primary/10" : "text-muted-foreground")}
+        className={cn(buttonClassName, "hover:bg-muted hidden sm:inline-flex", logsActive ? "text-primary bg-primary/10" : "text-muted-foreground")}
         title="Logs"
         aria-label={`View logs for ${containerName}`}
       >
         <FileText className={iconClassName} />
       </button>
-      <button 
+      <button
         disabled={container.status !== "running"}
-        onClick={() => onAction("terminal", container)} 
-        className={cn(buttonClassName, "hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed", terminalActive ? "text-primary bg-primary/10" : "text-muted-foreground")} 
+        onClick={() => onAction("terminal", container)}
+        className={cn(buttonClassName, "hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed hidden sm:inline-flex", terminalActive ? "text-primary bg-primary/10" : "text-muted-foreground")}
         title={container.status === "running" ? "Terminal" : "Terminal (container must be running)"}
         aria-label={container.status === "running" ? `Open terminal for ${containerName}` : `Open terminal for ${containerName} (container must be running)`}
       >

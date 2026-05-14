@@ -303,7 +303,7 @@ export default function Dashboard() {
           )}
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-[52rem] w-full text-xs">
+          <table className="w-full text-xs md:min-w-[52rem]">
             <thead>
               <tr className="border-b border-border text-muted-foreground font-mono uppercase tracking-wider">
                 <th className="w-10 p-3">
@@ -314,11 +314,11 @@ export default function Dashboard() {
                   />
                 </th>
                 <th className="text-left p-3">Name</th>
-                <th className="text-left p-3">Image</th>
-                <th className="text-left p-3">Status</th>
-                <th className="text-left p-3">CPU</th>
-                <th className="text-center p-3">Memory</th>
-                <th className="text-left p-3">Ports</th>
+                <th className="text-left p-3 hidden md:table-cell">Image</th>
+                <th className="text-left p-3 hidden sm:table-cell">Status</th>
+                <th className="text-left p-3 hidden lg:table-cell">CPU</th>
+                <th className="text-center p-3 hidden lg:table-cell">Memory</th>
+                <th className="text-left p-3 hidden lg:table-cell">Ports</th>
                 <th className="sticky right-0 z-20 bg-card text-right p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)]">
                   Actions
                 </th>
@@ -342,17 +342,17 @@ export default function Dashboard() {
                           <button type="button" onClick={() => toggleGroup(entry.project)} className="flex items-center gap-2 text-left relative z-10">
                             {expandedGroups[entry.project] ? <ChevronDown className="h-4 w-4 text-primary shrink-0" /> : <ChevronRight className="h-4 w-4 text-primary shrink-0" />}
                             <Boxes className="h-4 w-4 text-primary shrink-0" />
-                            <div>
-                              <div className="font-mono font-medium text-foreground" title={entry.project}>{(typeof entry.project === "string" && entry.project.length > 20) ? entry.project.substring(0, 20) + "…" : entry.project}</div>
+                            <div className="min-w-0">
+                              <div className="font-mono font-medium text-foreground truncate max-w-[14rem] sm:max-w-[18rem] md:max-w-[14rem] lg:max-w-[18rem]" title={entry.project}>{(typeof entry.project === "string" && entry.project.length > 20) ? entry.project.substring(0, 20) + "…" : entry.project}</div>
                               <div className="font-mono text-[10px] text-muted-foreground">Compose Stack • {entry.containers.length} containers</div>
                             </div>
                           </button>
                         </td>
-                        <td className="p-3 font-mono text-muted-foreground">Compose Stack</td>
-                        <td className="p-3"><span className="font-mono text-[11px] text-muted-foreground">{runningCount}/{entry.containers.length} running</span></td>
-                        <td className="p-3 text-muted-foreground">—</td>
-                        <td className="p-3 text-muted-foreground">—</td>
-                        <td className="p-3 text-muted-foreground">—</td>
+                        <td className="p-3 font-mono text-muted-foreground hidden md:table-cell">Compose Stack</td>
+                        <td className="p-3 hidden sm:table-cell"><span className="font-mono text-[11px] text-muted-foreground">{runningCount}/{entry.containers.length} running</span></td>
+                        <td className="p-3 text-muted-foreground hidden lg:table-cell">—</td>
+                        <td className="p-3 text-muted-foreground hidden lg:table-cell">—</td>
+                        <td className="p-3 text-muted-foreground hidden lg:table-cell">—</td>
                         <td className="sticky right-0 z-10 bg-muted p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
                           <div className="flex items-center justify-end gap-1">
                             <button onClick={() => void handleGroupAction("start", entry.project, entry.containers)} className="rounded p-1.5 text-success transition-colors hover:bg-success/10" title="Start stack"><Play className="h-3.5 w-3.5" /></button>
@@ -382,22 +382,22 @@ export default function Dashboard() {
                               </div>
                             </div>
                           </td>
-                          <td className="p-3 font-mono text-muted-foreground"><div className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]" title={container.image}>{(typeof container.image === "string" && container.image.length > 20) ? container.image.substring(0, 20) + "…" : container.image}</div></td>
-                          <td className="p-3"><StatusBadge status={container.status} /></td>
-                          <td className="p-3 font-mono text-muted-foreground">{formatMetric(container.cpuPercent)}</td>
-                          <td className="p-3 text-center align-middle">
+                          <td className="p-3 font-mono text-muted-foreground hidden md:table-cell"><div className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]" title={container.image}>{(typeof container.image === "string" && container.image.length > 20) ? container.image.substring(0, 20) + "…" : container.image}</div></td>
+                          <td className="p-3 hidden sm:table-cell"><StatusBadge status={container.status} /></td>
+                          <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">{formatMetric(container.cpuPercent)}</td>
+                          <td className="p-3 text-center align-middle hidden lg:table-cell">
           <div className="flex flex-col items-center justify-center" title={container.memUsage || "N/A"}>
             <div className="relative w-10 h-5 flex items-end justify-center mb-1">
               <svg viewBox="0 0 100 50" className="absolute top-0 left-0 w-full h-full overflow-visible">
                 <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" className="stroke-muted/30" strokeWidth="12" strokeLinecap="round" />
-                <path 
-                  d="M 10 50 A 40 40 0 0 1 90 50" 
-                  fill="none" 
-                  className={`transition-all duration-500 ease-in-out ${(container.memPercent || 0) > 80 ? 'stroke-destructive' : 'stroke-primary'}`} 
-                  strokeWidth="12" 
-                  strokeLinecap="round" 
-                  strokeDasharray="125.6" 
-                  strokeDashoffset={125.6 - ((container.memPercent || 0) / 100) * 125.6} 
+                <path
+                  d="M 10 50 A 40 40 0 0 1 90 50"
+                  fill="none"
+                  className={`transition-all duration-500 ease-in-out ${(container.memPercent || 0) > 80 ? 'stroke-destructive' : 'stroke-primary'}`}
+                  strokeWidth="12"
+                  strokeLinecap="round"
+                  strokeDasharray="125.6"
+                  strokeDashoffset={125.6 - ((container.memPercent || 0) / 100) * 125.6}
                 />
               </svg>
               <span className="text-[10px] font-mono leading-none z-10 font-bold translate-y-[2px]">
@@ -409,7 +409,7 @@ export default function Dashboard() {
             </span>
           </div>
         </td>
-                          <td className="p-3 font-mono text-muted-foreground text-[11px]"><PortLinks ports={container.ports} /></td>
+                          <td className="p-3 font-mono text-muted-foreground text-[11px] hidden lg:table-cell"><PortLinks ports={container.ports} /></td>
                           <td className="sticky right-0 z-10 bg-card p-2 sm:p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
                             <ContainerActionButtons compact container={container} logsActive={logsContainer?.id === container.id} terminalActive={terminalContainer?.id === container.id} onAction={(action, currentContainer) => void handleAction(action, currentContainer)} />
                           </td>
@@ -434,10 +434,10 @@ export default function Dashboard() {
                         />
                       </div>
                     </td>
-                    <td className="p-3 font-mono text-muted-foreground"><div className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]" title={container.image}>{(typeof container.image === "string" && container.image.length > 20) ? container.image.substring(0, 20) + "…" : container.image}</div></td>
-                    <td className="p-3"><StatusBadge status={container.status} /></td>
-                    <td className="p-3 font-mono text-muted-foreground">{formatMetric(container.cpuPercent)}</td>
-                    <td className="p-3 text-center align-middle">
+                    <td className="p-3 font-mono text-muted-foreground hidden md:table-cell"><div className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]" title={container.image}>{(typeof container.image === "string" && container.image.length > 20) ? container.image.substring(0, 20) + "…" : container.image}</div></td>
+                    <td className="p-3 hidden sm:table-cell"><StatusBadge status={container.status} /></td>
+                    <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">{formatMetric(container.cpuPercent)}</td>
+                    <td className="p-3 text-center align-middle hidden lg:table-cell">
           <div className="flex flex-col items-center justify-center" title={container.memUsage || "N/A"}>
             <div className="relative w-10 h-5 flex items-end justify-center mb-1">
               <svg viewBox="0 0 100 50" className="absolute top-0 left-0 w-full h-full overflow-visible">
@@ -461,7 +461,7 @@ export default function Dashboard() {
             </span>
           </div>
         </td>
-                    <td className="p-3 font-mono text-muted-foreground text-[11px]"><PortLinks ports={container.ports} /></td>
+                    <td className="p-3 font-mono text-muted-foreground text-[11px] hidden lg:table-cell"><PortLinks ports={container.ports} /></td>
                     <td className="sticky right-0 z-10 bg-card p-2 sm:p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
                       <ContainerActionButtons compact container={container} logsActive={logsContainer?.id === container.id} terminalActive={terminalContainer?.id === container.id} onAction={(action, currentContainer) => void handleAction(action, currentContainer)} />
                     </td>
