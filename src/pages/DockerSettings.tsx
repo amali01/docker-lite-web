@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Info, Pencil, PlugZap, Plus, Server, ShieldCheck, Trash2 } from "lucide-react";
+import { Info, Pencil, PlugZap, Plus, Save, Server, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -501,10 +501,10 @@ export default function DockerSettings() {
             </div>
           ) : null}
 
-          <div className="flex gap-2 pt-1">
+          <div className="flex flex-wrap gap-2 pt-1">
             <Button
               size="sm"
-              className="font-mono text-xs"
+              className="gap-1.5 font-mono text-xs"
               disabled={testConnectionMutation.isPending}
               onClick={async () => {
                 try {
@@ -519,18 +519,20 @@ export default function DockerSettings() {
                 }
               }}
             >
+              <PlugZap className="h-3.5 w-3.5" />
               Test Connection
             </Button>
             <Button
               size="sm"
               variant="outline"
-              className="font-mono text-xs"
+              className="gap-1.5 font-mono text-xs"
               onClick={async () => {
                 setApiBaseUrl(apiBaseUrl);
                 await queryClient.invalidateQueries();
                 toast.success("Saved backend URL");
               }}
             >
+              <Save className="h-3.5 w-3.5" />
               Save
             </Button>
           </div>
@@ -881,11 +883,12 @@ export default function DockerSettings() {
           </div>
 
           <div className="flex flex-wrap gap-2 pt-1">
-            <Button size="sm" variant="outline" className="font-mono text-xs" disabled={busy} onClick={handleTestTarget}>
+            <Button size="sm" variant="outline" className="gap-1.5 font-mono text-xs" disabled={busy} onClick={handleTestTarget}>
+              <PlugZap className="h-3.5 w-3.5" />
               Test Target
             </Button>
             <Button size="sm" className="gap-1.5 font-mono text-xs" disabled={busy} onClick={handleSaveTarget}>
-              <Plus className="h-3.5 w-3.5" />
+              {isEditing ? <Save className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
               {isEditing ? "Save Changes" : "Add Engine Target"}
             </Button>
             <Button size="sm" variant="ghost" className="font-mono text-xs" disabled={busy} onClick={resetDraft}>
