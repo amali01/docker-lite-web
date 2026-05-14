@@ -424,7 +424,7 @@ export default function Containers() {
 
       <div className="bg-card border border-border rounded-md overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-[56rem] w-full text-xs">
+          <table className="w-full text-xs md:min-w-[56rem]">
             <thead>
               <tr className="border-b border-border text-muted-foreground font-mono uppercase tracking-wider">
                 <th className="w-10 p-3">
@@ -435,12 +435,12 @@ export default function Containers() {
                   />
                 </th>
                 <th className="text-left p-3">Container</th>
-                <th className="text-left p-3">Image</th>
-                <th className="text-left p-3">Status</th>
-                <th className="text-left p-3">CPU</th>
-                <th className="text-center p-3">Memory</th>
-                <th className="text-left p-3">Network I/O</th>
-                <th className="text-left p-3">Ports</th>
+                <th className="text-left p-3 hidden md:table-cell">Image</th>
+                <th className="text-left p-3 hidden sm:table-cell">Status</th>
+                <th className="text-left p-3 hidden lg:table-cell">CPU</th>
+                <th className="text-center p-3 hidden lg:table-cell">Memory</th>
+                <th className="text-left p-3 hidden xl:table-cell">Network I/O</th>
+                <th className="text-left p-3 hidden lg:table-cell">Ports</th>
                 <th className="sticky right-0 z-20 bg-card text-right p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)]">
                   Actions
                 </th>
@@ -478,25 +478,24 @@ export default function Containers() {
                           >
                             {expandedGroups[entry.project] ? <ChevronDown className="h-4 w-4 text-primary shrink-0" /> : <ChevronRight className="h-4 w-4 text-primary shrink-0" />}
                             <Boxes className="h-4 w-4 text-primary shrink-0" />
-                            <div>
-                              <div className="font-mono font-medium text-foreground">{entry.project}</div>
+                            <div className="min-w-0">
+                              <div className="font-mono font-medium text-foreground truncate max-w-[14rem] sm:max-w-[18rem] md:max-w-[14rem] lg:max-w-[18rem]" title={entry.project}>{entry.project}</div>
                               <div className="font-mono text-[10px] text-muted-foreground">
                                 {entry.containers.length} containers
                               </div>
                             </div>
                           </button>
                         </td>
-                        <td className="p-3 font-mono text-muted-foreground">Compose Stack</td>
-                        <td className="p-3">
+                        <td className="p-3 font-mono text-muted-foreground hidden md:table-cell">Compose Stack</td>
+                        <td className="p-3 hidden sm:table-cell">
                           <span className="font-mono text-[11px] text-muted-foreground">
                             {runningCount}/{entry.containers.length} running
                           </span>
                         </td>
-                        <td className="p-3 font-mono text-muted-foreground">—</td>
-                        <td className="p-3 font-mono text-muted-foreground">—</td>
-                        <td className="p-3 font-mono text-muted-foreground">—</td>
-                        <td className="p-3 font-mono text-muted-foreground">—</td>
-                        <td className="p-3 font-mono text-muted-foreground text-[11px]">—</td>
+                        <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">—</td>
+                        <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">—</td>
+                        <td className="p-3 font-mono text-muted-foreground hidden xl:table-cell">—</td>
+                        <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">—</td>
                         <td className="sticky right-0 z-10 bg-muted p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
                           <div className="flex items-center justify-end gap-1">
                             <button
@@ -545,19 +544,19 @@ export default function Containers() {
                               <div className="absolute left-5 top-1/2 w-5 h-px bg-primary/50 z-0" />
                               <div className="flex items-center gap-2 pl-6 relative z-10">
                                 <div className="h-2 w-2 rounded-full border border-primary/60 bg-background shrink-0" />
-                                <div>
-                                  <div className="font-mono font-medium max-w-[8rem] md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]">
+                                <div className="min-w-0">
+                                  <div className="font-mono font-medium truncate max-w-[10rem] sm:max-w-[12rem] md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]">
                                     <ContainerNameLink
                                       containerId={container.id}
                                       containerName={container.name}
                                       displayName={(() => { const n = (entry.project && container.name.startsWith(entry.project + "-")) ? container.name.replace(entry.project + "-", "") : container.name; return (typeof n === "string" && n.length > 20) ? n.substring(0, 20) + "…" : n; })()}
                                     />
                                   </div>
-                                  <div className="font-mono text-[10px] text-muted-foreground">{container.id}</div>
+                                  <div className="font-mono text-[10px] text-muted-foreground truncate max-w-[10rem]">{container.id}</div>
                                 </div>
                               </div>
                             </td>
-                            <td className="p-3 font-mono text-muted-foreground">
+                            <td className="p-3 font-mono text-muted-foreground hidden md:table-cell">
                               <div
                                 className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]"
                                 title={container.image}
@@ -565,12 +564,12 @@ export default function Containers() {
                                 {(typeof container.image === "string" && container.image.length > 20) ? container.image.substring(0, 20) + "…" : container.image}
                               </div>
                             </td>
-                            <td className="p-3">
+                            <td className="p-3 hidden sm:table-cell">
                               <StatusBadge status={container.status} />
                               <div className="font-mono text-[10px] text-muted-foreground mt-0.5">{container.state}</div>
                             </td>
-                            <td className="p-3 font-mono text-muted-foreground">{container.cpuPercent != null ? `${container.cpuPercent}%` : "—"}</td>
-                            <td className="p-3 text-center align-middle">
+                            <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">{container.cpuPercent != null ? `${container.cpuPercent}%` : "—"}</td>
+                            <td className="p-3 text-center align-middle hidden lg:table-cell">
           <div className="flex flex-col items-center justify-center" title={container.memUsage || "N/A"}>
             <div className="relative w-10 h-5 flex items-end justify-center mb-1">
               <svg viewBox="0 0 100 50" className="absolute top-0 left-0 w-full h-full overflow-visible">
@@ -594,7 +593,7 @@ export default function Containers() {
             </span>
           </div>
         </td>
-                    <td className="p-3">
+                    <td className="p-3 hidden xl:table-cell">
   {container.netIO && (container.netIO.includes(",") || container.netIO.includes("/")) ? (
     <div className="flex flex-col text-[12px] font-mono leading-[1.3] text-muted-foreground w-max">
       <div className="text-blue-400 flex items-center gap-1" title="Download">
@@ -610,10 +609,10 @@ export default function Containers() {
     <div className="font-mono text-muted-foreground text-sm">{container.netIO ?? "—"}</div>
   )}
 </td>
-                            <td className="p-3 font-mono text-muted-foreground text-[11px]"><PortLinks ports={container.ports} /></td>
+                            <td className="p-3 font-mono text-muted-foreground text-[11px] hidden lg:table-cell"><PortLinks ports={container.ports} /></td>
                             <td className="sticky right-0 z-10 bg-card p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
                               <div className="flex items-center justify-end gap-1">
-                              <button onClick={() => toggleMonitoring(container.id)} className={`p-1.5 rounded transition-colors ${expandedMonitoring[container.id] ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground"}`} title="Monitoring Options">
+                              <button onClick={() => toggleMonitoring(container.id)} className={`p-1.5 rounded transition-colors hidden sm:inline-flex ${expandedMonitoring[container.id] ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground"}`} title="Monitoring Options">
                                 <Activity className="w-3.5 h-3.5" />
                               </button>
                               <ContainerActionButtons
@@ -644,16 +643,16 @@ export default function Containers() {
                       />
                     </td>
                     <td className="p-3">
-                      <div className="font-mono font-medium max-w-[8rem] md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]">
+                      <div className="font-mono font-medium truncate max-w-[12rem] sm:max-w-[14rem] md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]">
                         <ContainerNameLink
                           containerId={container.id}
                           containerName={container.name}
                           displayName={(typeof container.name === "string" && container.name.length > 20) ? container.name.substring(0, 20) + "…" : container.name}
                         />
                       </div>
-                      <div className="font-mono text-[10px] text-muted-foreground">{container.id}</div>
+                      <div className="font-mono text-[10px] text-muted-foreground truncate max-w-[12rem]">{container.id}</div>
                     </td>
-                    <td className="p-3 font-mono text-muted-foreground">
+                    <td className="p-3 font-mono text-muted-foreground hidden md:table-cell">
                       <div
                         className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]"
                         title={container.image}
@@ -661,12 +660,12 @@ export default function Containers() {
                         {(typeof container.image === "string" && container.image.length > 20) ? container.image.substring(0, 20) + "…" : container.image}
                       </div>
                     </td>
-                    <td className="p-3">
+                    <td className="p-3 hidden sm:table-cell">
                       <StatusBadge status={container.status} />
                       <div className="font-mono text-[10px] text-muted-foreground mt-0.5">{container.state}</div>
                     </td>
-                    <td className="p-3 font-mono text-muted-foreground">{container.cpuPercent != null ? `${container.cpuPercent}%` : "—"}</td>
-                    <td className="p-3 text-center align-middle">
+                    <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">{container.cpuPercent != null ? `${container.cpuPercent}%` : "—"}</td>
+                    <td className="p-3 text-center align-middle hidden lg:table-cell">
           <div className="flex flex-col items-center justify-center" title={container.memUsage || "N/A"}>
             <div className="relative w-10 h-5 flex items-end justify-center mb-1">
               <svg viewBox="0 0 100 50" className="absolute top-0 left-0 w-full h-full overflow-visible">
@@ -690,7 +689,7 @@ export default function Containers() {
             </span>
           </div>
         </td>
-                    <td className="p-3">
+                    <td className="p-3 hidden xl:table-cell">
   {container.netIO && (container.netIO.includes(",") || container.netIO.includes("/")) ? (
     <div className="flex flex-col text-[12px] font-mono leading-[1.3] text-muted-foreground w-max">
       <div className="text-blue-400 flex items-center gap-1" title="Download">
@@ -706,10 +705,10 @@ export default function Containers() {
     <div className="font-mono text-muted-foreground text-sm">{container.netIO ?? "—"}</div>
   )}
 </td>
-                    <td className="p-3 font-mono text-muted-foreground text-[11px]"><PortLinks ports={container.ports} /></td>
+                    <td className="p-3 font-mono text-muted-foreground text-[11px] hidden lg:table-cell"><PortLinks ports={container.ports} /></td>
                     <td className="sticky right-0 z-10 bg-card p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
                       <div className="flex items-center justify-end gap-1">
-                              <button onClick={() => toggleMonitoring(container.id)} className={`p-1.5 rounded transition-colors ${expandedMonitoring[container.id] ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground"}`} title="Monitoring Options">
+                              <button onClick={() => toggleMonitoring(container.id)} className={`p-1.5 rounded transition-colors hidden sm:inline-flex ${expandedMonitoring[container.id] ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground"}`} title="Monitoring Options">
                                 <Activity className="w-3.5 h-3.5" />
                               </button>
                               <ContainerActionButtons

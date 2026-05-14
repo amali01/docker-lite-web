@@ -59,7 +59,7 @@ export default function ContainerDetails() {
       <ContainerDetailsHeader container={details.summary} endpoint={engineQuery.data?.endpoint ?? "unknown"} />
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="h-auto flex-wrap justify-start gap-1 bg-card p-1">
+        <TabsList className="h-auto flex-nowrap justify-start gap-1 bg-card p-1 overflow-x-auto w-full max-w-full">
           <TabsTrigger value="overview" className="font-mono text-xs">
             Overview
           </TabsTrigger>

@@ -188,18 +188,18 @@ export default function Networks() {
 
       <div className="bg-card border border-border rounded-md overflow-hidden">
         <div className="overflow-x-auto">
-        <table className="min-w-[48rem] w-full text-xs">
+        <table className="w-full text-xs md:min-w-[48rem]">
           <thead>
             <tr className="border-b border-border text-muted-foreground font-mono uppercase tracking-wider">
               <th className="w-10 p-3">
                 <Checkbox aria-label="Select all" checked={selection.allSelected ? true : selection.partiallySelected ? "indeterminate" : false} onCheckedChange={(checked) => selection.toggleAll(checked === true)} />
               </th>
               <th className="text-left p-3">Name</th>
-              <th className="text-left p-3">Driver</th>
-              <th className="text-left p-3">Scope</th>
-              <th className="text-left p-3">Subnet</th>
-              <th className="text-left p-3">Gateway</th>
-              <th className="text-left p-3">Containers</th>
+              <th className="text-left p-3 hidden sm:table-cell">Driver</th>
+              <th className="text-left p-3 hidden md:table-cell">Scope</th>
+              <th className="text-left p-3 hidden lg:table-cell">Subnet</th>
+              <th className="text-left p-3 hidden lg:table-cell">Gateway</th>
+              <th className="text-left p-3 hidden md:table-cell">Containers</th>
               <th className="text-right p-3 sticky right-0 bg-card z-20 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l">Actions</th>
             </tr>
           </thead>
@@ -223,11 +223,11 @@ export default function Networks() {
                           </div>
                         </button>
                       </td>
-                      <td className="p-3 text-muted-foreground">—</td>
-                      <td className="p-3 text-muted-foreground">—</td>
-                      <td className="p-3 text-muted-foreground">—</td>
-                      <td className="p-3 text-muted-foreground">—</td>
-                      <td className="p-3 text-muted-foreground">—</td>
+                      <td className="p-3 text-muted-foreground hidden sm:table-cell">—</td>
+                      <td className="p-3 text-muted-foreground hidden md:table-cell">—</td>
+                      <td className="p-3 text-muted-foreground hidden lg:table-cell">—</td>
+                      <td className="p-3 text-muted-foreground hidden lg:table-cell">—</td>
+                      <td className="p-3 text-muted-foreground hidden md:table-cell">—</td>
                       <td className="p-3 sticky right-0 bg-muted z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted transition-colors">
                         <div className="flex items-center justify-end gap-1">
                           <button onClick={() => void handleGroupAction("remove", entry.project, entry.networks)} className="rounded p-1.5 text-destructive transition-colors hover:bg-destructive/10" title="Delete stack networks">
@@ -239,15 +239,18 @@ export default function Networks() {
                     {expandedGroups[entry.project] && entry.networks.map((network) => (
                       <tr key={network.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors">
                         <td className="p-3"><Checkbox checked={selection.selectedIds.includes(network.id)} onCheckedChange={(checked) => selection.toggleOne(network.id, checked === true)} /></td>
-                        <td className="p-3 font-mono text-foreground flex items-center gap-2 pl-8">
-                          <Network className="w-3.5 h-3.5 text-primary" /> {network.name}
-                          {defaultNetworks.includes(network.name) && <span className="text-[9px] px-1 py-0.5 bg-muted rounded text-muted-foreground uppercase">default</span>}
+                        <td className="p-3 font-mono text-foreground pl-8">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Network className="w-3.5 h-3.5 text-primary shrink-0" /> <span>{network.name}</span>
+                            {defaultNetworks.includes(network.name) && <span className="text-[9px] px-1 py-0.5 bg-muted rounded text-muted-foreground uppercase">default</span>}
+                            <span className="sm:hidden text-[10px] text-muted-foreground font-mono">{network.driver}</span>
+                          </div>
                         </td>
-                        <td className="p-3 font-mono text-muted-foreground">{network.driver}</td>
-                        <td className="p-3 font-mono text-muted-foreground">{network.scope}</td>
-                        <td className="p-3 font-mono text-muted-foreground">{network.subnet || "—"}</td>
-                        <td className="p-3 font-mono text-muted-foreground">{network.gateway || "—"}</td>
-                        <td className="p-3 font-mono text-muted-foreground">{network.containers}</td>
+                        <td className="p-3 font-mono text-muted-foreground hidden sm:table-cell">{network.driver}</td>
+                        <td className="p-3 font-mono text-muted-foreground hidden md:table-cell">{network.scope}</td>
+                        <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">{network.subnet || "—"}</td>
+                        <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">{network.gateway || "—"}</td>
+                        <td className="p-3 font-mono text-muted-foreground hidden md:table-cell">{network.containers}</td>
                         <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
                           <div className="flex items-center justify-end gap-1">
                             <button onClick={async () => { try { await removeMutation.mutateAsync(network.id); toast.success(`Removed ${network.name}`); } catch (e) { toast.error("Error removing network"); } }} className="p-1.5 rounded hover:bg-destructive/10 text-destructive disabled:opacity-30" disabled={defaultNetworks.includes(network.name)}><Trash2 className="w-3.5 h-3.5" /></button>
@@ -262,15 +265,18 @@ export default function Networks() {
               return (
                 <tr key={network.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors group">
                   <td className="p-3"><Checkbox checked={selection.selectedIds.includes(network.id)} onCheckedChange={(checked) => selection.toggleOne(network.id, checked === true)} /></td>
-                  <td className="p-3 font-mono font-medium text-foreground flex items-center gap-2">
-                    <Network className="w-3.5 h-3.5 text-primary" />{network.name}
-                    {defaultNetworks.includes(network.name) && <span className="text-[9px] px-1 py-0.5 bg-muted rounded text-muted-foreground uppercase">default</span>}
+                  <td className="p-3 font-mono font-medium text-foreground">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Network className="w-3.5 h-3.5 text-primary shrink-0" /><span>{network.name}</span>
+                      {defaultNetworks.includes(network.name) && <span className="text-[9px] px-1 py-0.5 bg-muted rounded text-muted-foreground uppercase">default</span>}
+                      <span className="sm:hidden text-[10px] text-muted-foreground font-mono">{network.driver}</span>
+                    </div>
                   </td>
-                  <td className="p-3 font-mono text-muted-foreground">{network.driver}</td>
-                  <td className="p-3 font-mono text-muted-foreground">{network.scope}</td>
-                  <td className="p-3 font-mono text-muted-foreground">{network.subnet || "—"}</td>
-                  <td className="p-3 font-mono text-muted-foreground">{network.gateway || "—"}</td>
-                  <td className="p-3 font-mono text-muted-foreground">{network.containers}</td>
+                  <td className="p-3 font-mono text-muted-foreground hidden sm:table-cell">{network.driver}</td>
+                  <td className="p-3 font-mono text-muted-foreground hidden md:table-cell">{network.scope}</td>
+                  <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">{network.subnet || "—"}</td>
+                  <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">{network.gateway || "—"}</td>
+                  <td className="p-3 font-mono text-muted-foreground hidden md:table-cell">{network.containers}</td>
                   <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={async () => { try { await removeMutation.mutateAsync(network.id); toast.success(`Removed ${network.name}`); } catch (e) { toast.error("Error removing network"); } }} className="p-1.5 rounded hover:bg-destructive/10 text-destructive disabled:opacity-30" disabled={defaultNetworks.includes(network.name)}><Trash2 className="w-3.5 h-3.5" /></button>
