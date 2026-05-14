@@ -547,7 +547,7 @@ export default function DockerSettings() {
               Local sockets, SSH hosts, and TLS-secured Docker daemons managed by the backend.
             </p>
           </div>
-          <Badge variant="outline" className="font-mono text-[11px]">
+          <Badge variant="outline" className="shrink-0 whitespace-nowrap font-mono text-[11px]">
             {engineTargets.length} configured
           </Badge>
         </div>
