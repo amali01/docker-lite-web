@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Pencil, PlugZap, Plus, Server, ShieldCheck, Trash2 } from "lucide-react";
+import { Info, Pencil, PlugZap, Plus, Server, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -325,7 +325,7 @@ export default function DockerSettings() {
   }
 
   return (
-    <div className="max-w-5xl space-y-6 p-6">
+    <div className="max-w-5xl space-y-6 p-4 md:p-6">
       <div>
         <h1 className="text-xl font-bold tracking-tight">Settings</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">Configure DockLite backend and Docker Engine access</p>
@@ -379,7 +379,13 @@ export default function DockerSettings() {
             </p>
 
             <div className="flex justify-end">
-              <Button onClick={() => void handleUpdateCredentials()} disabled={authBusy || !adminUsername.trim() || !adminPassword.trim()}>
+              <Button
+                size="sm"
+                className="gap-1.5 font-mono text-xs"
+                onClick={() => void handleUpdateCredentials()}
+                disabled={authBusy || !adminUsername.trim() || !adminPassword.trim()}
+              >
+                <ShieldCheck className="h-3.5 w-3.5" />
                 Update Credentials
               </Button>
             </div>
@@ -890,8 +896,11 @@ export default function DockerSettings() {
       </div>
 
       <div className="rounded-md border border-border bg-card p-5">
-        <h2 className="text-sm font-mono font-semibold">About DockLite</h2>
-        <div className="mt-3 space-y-1 text-xs font-mono text-muted-foreground">
+        <div className="mb-4 flex items-center gap-2 text-sm font-mono font-semibold">
+          <Info className="h-4 w-4 text-primary" />
+          About DockLite
+        </div>
+        <div className="space-y-1 text-xs font-mono text-muted-foreground">
           <p>Version: 1.0.0-mvp</p>
           <p>Local-first Docker UI for Ubuntu.</p>
           <p>Runs in the browser and talks to a local backend instead of bundling a heavy desktop shell.</p>
