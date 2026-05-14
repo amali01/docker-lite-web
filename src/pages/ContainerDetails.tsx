@@ -27,7 +27,7 @@ export default function ContainerDetails() {
 
   if (isLoading) {
     return (
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         <ApiState title="Loading container details" description="DockLite is fetching container detail data." />
       </div>
     );
@@ -35,7 +35,7 @@ export default function ContainerDetails() {
 
   if (detailsQuery.error || inspectQuery.error || statsQuery.error) {
     return (
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         <ApiState
           title="Unable to load container details"
           description="DockLite could not fetch container detail data from the selected engine."
@@ -48,14 +48,14 @@ export default function ContainerDetails() {
 
   if (!details) {
     return (
-      <div className="p-6">
+      <div className="p-4 md:p-6">
         <ApiState title="Container not found" description="DockLite could not resolve that container on the selected engine." />
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 p-6">
+    <div className="space-y-4 p-4 md:p-6">
       <ContainerDetailsHeader container={details.summary} endpoint={engineQuery.data?.endpoint ?? "unknown"} />
 
       <Tabs defaultValue="overview" className="space-y-4">

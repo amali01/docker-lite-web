@@ -33,17 +33,17 @@ export const MonitoringRow = ({ container, isGroupItem = false, isLast = false }
     <tr className="bg-muted/10 border-b border-border/50 shadow-inner">
       <td colSpan={10} className="py-2.5 px-4 relative">
         {isGroupItem && !isLast && (
-          <div className="absolute left-[60px] top-0 -bottom-[1px] w-px bg-primary/50 z-0" />
+          <div className="absolute left-[28px] top-0 -bottom-[1px] w-px bg-primary/50 z-0 sm:left-[60px]" />
         )}
-        <div className={`flex flex-row items-center gap-5 text-sm ${isGroupItem ? "ml-[4.5rem]" : "ml-[3rem]"}`}>
+        <div className={`flex flex-col gap-3 text-sm lg:flex-row lg:items-center lg:gap-5 ${isGroupItem ? "ml-4 sm:ml-[4.5rem]" : "ml-4 sm:ml-[3rem]"}`}>
           <div className="flex items-center gap-1.5 text-primary select-none">
             <Activity className="w-4 h-4" />
             <span className="font-mono font-medium text-xs uppercase tracking-wider">Monitoring</span>
           </div>
-          
-          <div className="h-4 w-px bg-border/80"></div>
 
-          <div className="flex flex-row items-center gap-6 text-muted-foreground whitespace-nowrap">
+          <div className="hidden h-4 w-px bg-border/80 lg:block"></div>
+
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-muted-foreground lg:gap-6">
             <label className="flex items-center gap-2 cursor-pointer font-mono text-[13px] hover:text-foreground transition-colors">
               <Checkbox checked={settings.enabled} onCheckedChange={(c: boolean) => updateSetting("enabled", c)} />
               <span>Enable</span>
@@ -59,12 +59,12 @@ export const MonitoringRow = ({ container, isGroupItem = false, isLast = false }
               <span>Monitor Logs</span>
             </label>
 
-            <div className="flex items-center gap-2 ml-2">
-              <span className="font-mono text-[12px] opacity-70">Patterns:</span>
-              <Input 
+            <div className="flex w-full items-center gap-2 sm:w-auto lg:ml-2">
+              <span className="font-mono text-[12px] opacity-70 shrink-0">Patterns:</span>
+              <Input
                 value={settings.logPatterns}
                 onChange={(e) => updateSetting("logPatterns", e.target.value)}
-                className="h-7 px-2 py-1 text-[12px] font-mono w-56 bg-background/50 border-muted-foreground/30 focus-visible:ring-1 focus-visible:ring-primary/40 rounded-sm"
+                className="h-7 px-2 py-1 text-[12px] font-mono w-full sm:w-56 bg-background/50 border-muted-foreground/30 focus-visible:ring-1 focus-visible:ring-primary/40 rounded-sm"
                 placeholder="error, panic..."
               />
             </div>
