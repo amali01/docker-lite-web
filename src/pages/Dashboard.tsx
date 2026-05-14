@@ -303,7 +303,7 @@ export default function Dashboard() {
           )}
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-xs md:min-w-[52rem]">
+          <table className="w-full text-xs lg:min-w-[52rem]">
             <thead>
               <tr className="border-b border-border text-muted-foreground font-mono uppercase tracking-wider">
                 <th className="w-10 p-3">

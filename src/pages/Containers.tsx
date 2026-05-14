@@ -424,7 +424,7 @@ export default function Containers() {
 
       <div className="bg-card border border-border rounded-md overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs md:min-w-[56rem]">
+          <table className="w-full text-xs lg:min-w-[56rem]">
             <thead>
               <tr className="border-b border-border text-muted-foreground font-mono uppercase tracking-wider">
                 <th className="w-10 p-3">
@@ -612,7 +612,7 @@ export default function Containers() {
                             <td className="p-3 font-mono text-muted-foreground text-[11px] hidden lg:table-cell"><PortLinks ports={container.ports} /></td>
                             <td className="sticky right-0 z-10 bg-card p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
                               <div className="flex items-center justify-end gap-1">
-                              <button onClick={() => toggleMonitoring(container.id)} className={`p-1.5 rounded transition-colors hidden sm:inline-flex ${expandedMonitoring[container.id] ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground"}`} title="Monitoring Options">
+                              <button onClick={() => toggleMonitoring(container.id)} className={`p-1.5 rounded transition-colors hidden lg:inline-flex ${expandedMonitoring[container.id] ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground"}`} title="Monitoring Options">
                                 <Activity className="w-3.5 h-3.5" />
                               </button>
                               <ContainerActionButtons
@@ -708,7 +708,7 @@ export default function Containers() {
                     <td className="p-3 font-mono text-muted-foreground text-[11px] hidden lg:table-cell"><PortLinks ports={container.ports} /></td>
                     <td className="sticky right-0 z-10 bg-card p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
                       <div className="flex items-center justify-end gap-1">
-                              <button onClick={() => toggleMonitoring(container.id)} className={`p-1.5 rounded transition-colors hidden sm:inline-flex ${expandedMonitoring[container.id] ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground"}`} title="Monitoring Options">
+                              <button onClick={() => toggleMonitoring(container.id)} className={`p-1.5 rounded transition-colors hidden lg:inline-flex ${expandedMonitoring[container.id] ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground"}`} title="Monitoring Options">
                                 <Activity className="w-3.5 h-3.5" />
                               </button>
                               <ContainerActionButtons
