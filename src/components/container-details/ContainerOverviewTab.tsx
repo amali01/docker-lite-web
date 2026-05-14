@@ -21,15 +21,15 @@ export function ContainerOverviewTab({ details }: ContainerOverviewTabProps) {
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(18rem,0.9fr)]">
-        <section className="space-y-4 rounded-md border border-border bg-card p-5">
+        <section className="space-y-4 rounded-md border border-border bg-card p-4 sm:p-5">
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <p className="mb-1 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">Image</p>
-              <p className="font-mono text-sm text-foreground">{summary.image}</p>
+              <p className="font-mono text-sm text-foreground break-all">{summary.image}</p>
             </div>
             <div>
               <p className="mb-1 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">Compose</p>
-              <p className="font-mono text-sm text-foreground">
+              <p className="font-mono text-sm text-foreground break-all">
                 {summary.composeProject && summary.composeService
                   ? `${summary.composeProject} / ${summary.composeService}`
                   : "Standalone container"}
@@ -37,11 +37,11 @@ export function ContainerOverviewTab({ details }: ContainerOverviewTabProps) {
             </div>
             <div>
               <p className="mb-1 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">Ports</p>
-              <p className="font-mono text-sm text-foreground">{summary.ports || "No published ports"}</p>
+              <p className="font-mono text-sm text-foreground break-all">{summary.ports || "No published ports"}</p>
             </div>
             <div>
               <p className="mb-1 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">Created</p>
-              <p className="font-mono text-sm text-foreground">{summary.created}</p>
+              <p className="font-mono text-sm text-foreground break-all">{summary.created}</p>
             </div>
           </div>
 
@@ -54,7 +54,7 @@ export function ContainerOverviewTab({ details }: ContainerOverviewTabProps) {
               {details.mounts.length > 0 ? (
                 details.mounts.map((mount) => (
                   <div key={`${mount.source}-${mount.destination}`} className="rounded-md border border-border/70 bg-background/60 p-3">
-                    <div className="font-mono text-sm text-foreground">
+                    <div className="font-mono text-sm text-foreground break-all">
                       {mount.source} <span className="text-muted-foreground">→</span> {mount.destination}
                     </div>
                     <div className="mt-1 flex flex-wrap gap-2">
@@ -79,7 +79,7 @@ export function ContainerOverviewTab({ details }: ContainerOverviewTabProps) {
           </div>
         </section>
 
-        <section className="space-y-4 rounded-md border border-border bg-card p-5">
+        <section className="space-y-4 rounded-md border border-border bg-card p-4 sm:p-5">
           <div>
             <div className="mb-2 flex items-center gap-2 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
               <Network className="h-3.5 w-3.5" />

@@ -11,7 +11,7 @@ interface ContainerDetailsHeaderProps {
 
 export function ContainerDetailsHeader({ container, endpoint }: ContainerDetailsHeaderProps) {
   return (
-    <header className="space-y-4 rounded-md border border-border bg-card p-5">
+    <header className="space-y-4 rounded-md border border-border bg-card p-4 sm:p-5">
       <Link
         to="/containers"
         className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground"
@@ -23,7 +23,7 @@ export function ContainerDetailsHeader({ container, endpoint }: ContainerDetails
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight">{container.name}</h1>
+            <h1 className="text-xl font-bold tracking-tight break-all sm:text-2xl">{container.name}</h1>
             <StatusBadge status={container.status} />
           </div>
 
