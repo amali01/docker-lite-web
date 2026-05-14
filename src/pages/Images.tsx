@@ -189,17 +189,17 @@ export default function Images() {
 
       <div className="bg-card border border-border rounded-md overflow-hidden">
         <div className="overflow-x-auto">
-        <table className="min-w-[48rem] w-full text-xs">
+        <table className="w-full text-xs lg:min-w-[48rem]">
           <thead>
             <tr className="border-b border-border text-muted-foreground font-mono uppercase tracking-wider">
               <th className="w-10 p-3">
                 <Checkbox aria-label="Select all" checked={selection.allSelected ? true : selection.partiallySelected ? "indeterminate" : false} onCheckedChange={(checked) => selection.toggleAll(checked === true)} />
               </th>
               <th className="text-left p-3">Repository</th>
-              <th className="text-left p-3">Tag</th>
-              <th className="text-left p-3">Image ID</th>
-              <th className="text-left p-3">Size</th>
-              <th className="text-left p-3">Created</th>
+              <th className="text-left p-3 hidden sm:table-cell">Tag</th>
+              <th className="text-left p-3 hidden md:table-cell">Image ID</th>
+              <th className="text-left p-3 hidden lg:table-cell">Size</th>
+              <th className="text-left p-3 hidden lg:table-cell">Created</th>
               <th className="text-right p-3 sticky right-0 bg-card z-20 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l">Actions</th>
             </tr>
           </thead>
@@ -223,10 +223,10 @@ export default function Images() {
                           </div>
                         </button>
                       </td>
-                      <td className="p-3 text-muted-foreground">—</td>
-                      <td className="p-3 text-muted-foreground">—</td>
-                      <td className="p-3 text-muted-foreground">—</td>
-                      <td className="p-3 text-muted-foreground">—</td>
+                      <td className="p-3 text-muted-foreground hidden sm:table-cell">—</td>
+                      <td className="p-3 text-muted-foreground hidden md:table-cell">—</td>
+                      <td className="p-3 text-muted-foreground hidden lg:table-cell">—</td>
+                      <td className="p-3 text-muted-foreground hidden lg:table-cell">—</td>
                       <td className="p-3 sticky right-0 bg-muted z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted transition-colors">
                         <div className="flex items-center justify-end gap-1">
                           <button onClick={() => void handleGroupAction("remove", entry.project, entry.images)} className="rounded p-1.5 text-destructive transition-colors hover:bg-destructive/10" title="Delete stack images">
@@ -238,13 +238,16 @@ export default function Images() {
                     {expandedGroups[entry.project] && entry.images.map((image) => (
                       <tr key={image.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors">
                         <td className="p-3"><Checkbox checked={selection.selectedIds.includes(image.id)} onCheckedChange={(checked) => selection.toggleOne(image.id, checked === true)} /></td>
-                        <td className="p-3 font-mono text-foreground flex items-center gap-2 pl-8">
-                          <ImageIcon className="w-3.5 h-3.5 text-primary" /> <span style={{maxWidth:"20ch",display:"inline-block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={image.repository}>{image.repository}</span>
+                        <td className="p-3 font-mono text-foreground pl-8">
+                          <div className="flex items-center gap-2">
+                            <ImageIcon className="w-3.5 h-3.5 text-primary shrink-0" />
+                            <span style={{maxWidth:"20ch",display:"inline-block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={`${image.repository}:${image.tag}`}>{image.repository}<span className="sm:hidden text-muted-foreground">:{image.tag}</span></span>
+                          </div>
                         </td>
-                        <td className="p-3"><span className="font-mono px-1.5 py-0.5 bg-muted rounded text-muted-foreground">{(typeof image.tag === "string" && image.tag.length > 20) ? image.tag.substring(0, 20) + "…" : image.tag}</span></td>
-                        <td className="p-3 font-mono text-muted-foreground">{image.id.slice(0, 19)}</td>
-                        <td className="p-3 font-mono text-muted-foreground">{image.size}</td>
-                        <td className="p-3 font-mono text-muted-foreground">{image.created}</td>
+                        <td className="p-3 hidden sm:table-cell"><span className="font-mono px-1.5 py-0.5 bg-muted rounded text-muted-foreground">{(typeof image.tag === "string" && image.tag.length > 20) ? image.tag.substring(0, 20) + "…" : image.tag}</span></td>
+                        <td className="p-3 font-mono text-muted-foreground hidden md:table-cell">{image.id.slice(0, 19)}</td>
+                        <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">{image.size}</td>
+                        <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">{image.created}</td>
                         <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
                           <div className="flex items-center justify-end gap-1">
                             <button onClick={() => { navigator.clipboard.writeText(image.id); toast.success("Copied ID"); }} className="p-1.5 rounded hover:bg-muted text-muted-foreground" title="Copy ID"><Copy className="w-3.5 h-3.5" /></button>
@@ -260,13 +263,16 @@ export default function Images() {
               return (
                 <tr key={image.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors group">
                   <td className="p-3"><Checkbox checked={selection.selectedIds.includes(image.id)} onCheckedChange={(checked) => selection.toggleOne(image.id, checked === true)} /></td>
-                  <td className="p-3 font-mono font-medium text-foreground flex items-center gap-2">
-                    <ImageIcon className="w-3.5 h-3.5 text-primary" /> <span style={{maxWidth:"20ch",display:"inline-block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={image.repository}>{image.repository}</span>
+                  <td className="p-3 font-mono font-medium text-foreground">
+                    <div className="flex items-center gap-2">
+                      <ImageIcon className="w-3.5 h-3.5 text-primary shrink-0" />
+                      <span style={{maxWidth:"20ch",display:"inline-block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={`${image.repository}:${image.tag}`}>{image.repository}<span className="sm:hidden text-muted-foreground">:{image.tag}</span></span>
+                    </div>
                   </td>
-                  <td className="p-3"><span className="font-mono px-1.5 py-0.5 bg-muted rounded text-muted-foreground">{(typeof image.tag === "string" && image.tag.length > 20) ? image.tag.substring(0, 20) + "…" : image.tag}</span></td>
-                  <td className="p-3 font-mono text-muted-foreground">{image.id.slice(0, 19)}</td>
-                  <td className="p-3 font-mono text-muted-foreground">{image.size}</td>
-                  <td className="p-3 font-mono text-muted-foreground">{image.created}</td>
+                  <td className="p-3 hidden sm:table-cell"><span className="font-mono px-1.5 py-0.5 bg-muted rounded text-muted-foreground">{(typeof image.tag === "string" && image.tag.length > 20) ? image.tag.substring(0, 20) + "…" : image.tag}</span></td>
+                  <td className="p-3 font-mono text-muted-foreground hidden md:table-cell">{image.id.slice(0, 19)}</td>
+                  <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">{image.size}</td>
+                  <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">{image.created}</td>
                   <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => { navigator.clipboard.writeText(image.id); toast.success("Copied ID"); }} className="p-1.5 rounded hover:bg-muted text-muted-foreground" title="Copy ID"><Copy className="w-3.5 h-3.5" /></button>
