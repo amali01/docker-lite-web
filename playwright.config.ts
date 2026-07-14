@@ -11,13 +11,13 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "mkdir -p /home/user/.docklite-playwright && rm -rf /home/user/.docklite-playwright/auth-config.json && DOCKLITE_AUTH_CONFIG_PATH=/home/user/.docklite-playwright/auth-config.json DOCKLITE_HOST=127.0.0.1 DOCKLITE_PORT=9101 FORCE_COLOR=0 npm run server:start:mock",
+      command: "mkdir -p /home/user/.docklite-playwright && rm -rf /home/user/.docklite-playwright/auth-config.json && DOCKLITE_AUTH_CONFIG_PATH=/home/user/.docklite-playwright/auth-config.json DOCKLITE_HOST=127.0.0.1 DOCKLITE_PORT=9101 FORCE_COLOR=0 pnpm server:start:mock",
       url: "http://127.0.0.1:9101/api/health",
       reuseExistingServer: false,
       timeout: 120000,
     },
     {
-      command: "VITE_API_BASE_URL=http://127.0.0.1:9101 FORCE_COLOR=0 npm run dev -- --host 127.0.0.1 --port 8180",
+      command: "VITE_API_BASE_URL=http://127.0.0.1:9101 FORCE_COLOR=0 pnpm dev --host 127.0.0.1 --port 8180",
       url: "http://127.0.0.1:8180",
       reuseExistingServer: false,
       timeout: 120000,

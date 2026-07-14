@@ -2,7 +2,7 @@
 
 help:
 	@printf "DockLite commands:\n"
-	@printf "  make install           Install npm dependencies\n"
+	@printf "  make install           Install pnpm dependencies\n"
 	@printf "  make dev               Run frontend + real Docker backend\n"
 	@printf "  make dev-mock          Run frontend + mock backend\n"
 	@printf "  make frontend          Run the Vite frontend only\n"
@@ -22,37 +22,37 @@ help:
 	@printf "  make clean             Remove build output\n"
 
 install:
-	npm install
+	pnpm install
 
 dev:
-	npm run dev:full
+	pnpm dev:full
 
 dev-mock:
-	npm run dev:mock
+	pnpm dev:mock
 
 frontend:
-	npm run dev
+	pnpm dev
 
 backend:
-	npm run server:dev
+	pnpm server:dev
 
 backend-mock:
-	npm run server:dev:mock
+	pnpm server:dev:mock
 
 build:
-	npm run build
+	pnpm build
 
 test:
-	npm test
+	pnpm test
 
 test-server:
-	npm run server:test
+	pnpm server:test
 
 typecheck-server:
-	npm run server:typecheck
+	pnpm server:typecheck
 
 e2e:
-	npm run test:e2e
+	pnpm test:e2e
 
 docker-check:
 	./server/scripts/check-docker-access.sh

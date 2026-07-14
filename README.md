@@ -23,31 +23,31 @@ The app now has two parts:
 Install dependencies:
 
 ```bash
-npm install
+pnpm install
 ```
 
 Frontend + real local Docker backend:
 
 ```bash
-npm run dev:full
+pnpm dev:full
 ```
 
 Frontend + mock backend:
 
 ```bash
-npm run dev:mock
+pnpm dev:mock
 ```
 
 Frontend only:
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 Backend only:
 
 ```bash
-npm run server:dev
+pnpm server:dev
 ```
 
 Docker Compose (frontend + backend):
@@ -71,11 +71,11 @@ make compose-down
 ## Validation
 
 ```bash
-npm test
-npm run server:test
-npm run server:typecheck
-npm run build
-npm run test:e2e
+pnpm test
+pnpm server:test
+pnpm server:typecheck
+pnpm build
+pnpm test:e2e
 ```
 
 ## Ubuntu Local Docker Notes
