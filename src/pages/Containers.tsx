@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useState } from "react";
 import { Boxes, ChevronDown, ChevronRight, Play, Plus, RotateCcw, Search, Square, Trash2, Activity } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
@@ -27,28 +27,14 @@ import {
 } from "@/hooks/use-containers";
 import { useTableSelection } from "@/hooks/use-table-selection";
 import { ContainerSummary, RunContainerPayload } from "@/lib/api/types";
+import { inferComposeProjectFromName, useResourceGroups } from "@/lib/resource-groups";
 
-type ContainerRowEntry =
-  | { type: "group"; project: string; containers: ContainerSummary[] }
-  | { type: "container"; container: ContainerSummary };
-
-function inferComposeProject(container: ContainerSummary) {
+function projectOf(container: ContainerSummary) {
   if (container.composeProject) {
     return container.composeProject;
   }
 
-  const normalizedName = container.name.replace(/_/g, "-");
-  const parts = normalizedName.split("-").filter(Boolean);
-
-  if (parts.length >= 3 && /^\d+$/.test(parts.at(-1) ?? "")) {
-    return parts.slice(0, -2).join("-");
-  }
-
-  if (parts.length >= 2) {
-    return parts.slice(0, -1).join("-");
-  }
-
-  return null;
+  return inferComposeProjectFromName(container.name);
 }
 
 
@@ -125,61 +111,12 @@ export default function Containers() {
   const selection = useTableSelection(filtered.map((container) => container.id));
   const selectedContainers = containers.filter((container) => selection.selectedIds.includes(container.id));
   const hasSelection = selection.selectedCount > 0;
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
-  const rowEntries = useMemo(() => {
-    const composeGroups = new Map<string, ContainerSummary[]>();
-
-    for (const container of filtered) {
-      const project = inferComposeProject(container);
-
-      if (project) {
-        composeGroups.set(project, [...(composeGroups.get(project) ?? []), container]);
-      }
-    }
-
-    const seenGroups = new Set<string>();
-    const entries: ContainerRowEntry[] = [];
-
-    for (const container of filtered) {
-      const project = inferComposeProject(container);
-
-      if (project && (composeGroups.get(project)?.length ?? 0) > 1) {
-        if (!seenGroups.has(project)) {
-          entries.push({ type: "group", project, containers: composeGroups.get(project)! });
-          seenGroups.add(project);
-        }
-        continue;
-      }
-
-      entries.push({ type: "container", container });
-    }
-
-    return entries;
-  }, [filtered]);
-  const visibleGroupIds = useMemo(
-    () => rowEntries.filter((entry): entry is Extract<ContainerRowEntry, { type: "group" }> => entry.type === "group").map((entry) => entry.project),
-    [rowEntries],
-  );
-
-  useEffect(() => {
-    setExpandedGroups((current) => {
-      const next: Record<string, boolean> = {};
-      let changed = false;
-
-      for (const groupId of visibleGroupIds) {
-        next[groupId] = current[groupId] ?? true;
-        if (next[groupId] !== current[groupId]) {
-          changed = true;
-        }
-      }
-
-      if (Object.keys(current).length !== Object.keys(next).length) {
-        changed = true;
-      }
-
-      return changed ? next : current;
-    });
-  }, [visibleGroupIds]);
+  const { rowEntries, expandedGroups, toggleGroup, groupSelectionState } = useResourceGroups({
+    items: filtered,
+    getProject: projectOf,
+    getId: (container) => container.id,
+    selectedIds: selection.selectedIds,
+  });
 
   if (containersQuery.isLoading) {
     return (
@@ -329,18 +266,6 @@ export default function Containers() {
     }
   };
 
-  const toggleGroup = (project: string) => {
-    setExpandedGroups((current) => ({ ...current, [project]: !current[project] }));
-  };
-
-  const groupSelectionState = (containersInGroup: ContainerSummary[]) => {
-    const selected = containersInGroup.filter((container) => selection.selectedIds.includes(container.id)).length;
-    return {
-      allSelected: selected === containersInGroup.length && containersInGroup.length > 0,
-      partiallySelected: selected > 0 && selected < containersInGroup.length,
-    };
-  };
-
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
@@ -449,8 +374,8 @@ export default function Containers() {
             <tbody>
               {rowEntries.map((entry) => {
                 if (entry.type === "group") {
-                  const runningCount = entry.containers.filter((container) => container.status === "running").length;
-                  const groupState = groupSelectionState(entry.containers);
+                  const runningCount = entry.items.filter((container) => container.status === "running").length;
+                  const groupState = groupSelectionState(entry.items);
 
                   return (
                     <Fragment key={`group-${entry.project}`}>
@@ -460,7 +385,7 @@ export default function Containers() {
                             aria-label={`Select compose stack ${entry.project}`}
                             checked={groupState.allSelected ? true : groupState.partiallySelected ? "indeterminate" : false}
                             onCheckedChange={(checked) => {
-                              for (const container of entry.containers) {
+                              for (const container of entry.items) {
                                 selection.toggleOne(container.id, checked === true);
                               }
                             }}
@@ -481,7 +406,7 @@ export default function Containers() {
                             <div className="min-w-0">
                               <div className="font-mono font-medium text-foreground truncate max-w-[14rem] sm:max-w-[18rem] md:max-w-[14rem] lg:max-w-[18rem]" title={entry.project}>{entry.project}</div>
                               <div className="font-mono text-[10px] text-muted-foreground">
-                                {entry.containers.length} containers
+                                {entry.items.length} containers
                               </div>
                             </div>
                           </button>
@@ -489,7 +414,7 @@ export default function Containers() {
                         <td className="p-3 font-mono text-muted-foreground hidden md:table-cell">Compose Stack</td>
                         <td className="p-3 hidden sm:table-cell">
                           <span className="font-mono text-[11px] text-muted-foreground">
-                            {runningCount}/{entry.containers.length} running
+                            {runningCount}/{entry.items.length} running
                           </span>
                         </td>
                         <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">—</td>
@@ -500,7 +425,7 @@ export default function Containers() {
                           <div className="flex items-center justify-end gap-1">
                             <button
                               type="button"
-                              onClick={() => void handleGroupAction("start", entry.project, entry.containers)}
+                              onClick={() => void handleGroupAction("start", entry.project, entry.items)}
                               className="rounded p-1.5 text-success transition-colors hover:bg-success/10"
                               title="Start stack"
                             >
@@ -508,7 +433,7 @@ export default function Containers() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => void handleGroupAction("stop", entry.project, entry.containers)}
+                              onClick={() => void handleGroupAction("stop", entry.project, entry.items)}
                               className="rounded p-1.5 text-destructive transition-colors hover:bg-destructive/10"
                               title="Stop stack"
                             >
@@ -516,7 +441,7 @@ export default function Containers() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => void handleGroupAction("remove", entry.project, entry.containers)}
+                              onClick={() => void handleGroupAction("remove", entry.project, entry.items)}
                               className="rounded p-1.5 text-destructive transition-colors hover:bg-destructive/10"
                               title="Delete stack"
                             >
@@ -526,7 +451,7 @@ export default function Containers() {
                         </td>
                       </tr>
                       {expandedGroups[entry.project] &&
-                        entry.containers.map((container, index, arr) => (
+                        entry.items.map((container, index, arr) => (
                           <Fragment key={container.id}>
 <tr key={container.id} onClick={(e) => { if (!(e.target as HTMLElement).closest('button, a, input, [role="checkbox"], .cursor-default')) toggleMonitoring(container.id); }} className="cursor-pointer group border-b border-border/50 hover:bg-muted/30 transition-colors">
                             <td className="p-3">
@@ -631,7 +556,7 @@ export default function Containers() {
                   );
                 }
 
-                const container = entry.container;
+                const container = entry.item;
                 return (
                   <Fragment key={container.id}>
 <tr key={container.id} onClick={(e) => { if (!(e.target as HTMLElement).closest('button, a, input, [role="checkbox"], .cursor-default')) toggleMonitoring(container.id); }} className="cursor-pointer group border-b border-border/50 hover:bg-muted/30 transition-colors">

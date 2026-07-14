@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useState } from "react";
 import { Boxes, ChevronDown, ChevronRight, HardDrive, Plus, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { ApiState } from "@/components/ApiState";
@@ -9,30 +9,13 @@ import { Input } from "@/components/ui/input";
 import { useTableSelection } from "@/hooks/use-table-selection";
 import { useCreateVolume, useRemoveVolume, useVolumes } from "@/hooks/use-volumes";
 import { VolumeSummary } from "@/lib/api/types";
+import { inferComposeProjectFromName, useResourceGroups } from "@/lib/resource-groups";
 
-type VolumeRowEntry =
-  | { type: "group"; project: string; volumes: VolumeSummary[] }
-  | { type: "volume"; volume: VolumeSummary };
-
-function inferComposeProject(volume: VolumeSummary) {
-  const normalizedName = volume.name.replace(/_/g, "-");
-  const parts = normalizedName.split("-").filter(Boolean);
-
-  if (parts.length >= 3 && /^\d+$/.test(parts.at(-1) ?? "")) {
-    return parts.slice(0, -2).join("-");
-  }
-
-  if (parts.length >= 2) {
-    return parts.slice(0, -1).join("-");
-  }
-
-  return null;
-}
+const projectOf = (volume: VolumeSummary) => inferComposeProjectFromName(volume.name);
 
 export default function Volumes() {
   const [filter, setFilter] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
   const volumesQuery = useVolumes();
   const createMutation = useCreateVolume();
@@ -45,61 +28,12 @@ export default function Volumes() {
   const selectedVolumes = volumes.filter((volume) => selection.selectedIds.includes(volume.name));
   const hasSelection = selection.selectedCount > 0;
 
-  const rowEntries = useMemo(() => {
-    const composeGroups = new Map<string, VolumeSummary[]>();
-
-    for (const volume of filtered) {
-      const project = inferComposeProject(volume);
-
-      if (project) {
-        composeGroups.set(project, [...(composeGroups.get(project) ?? []), volume]);
-      }
-    }
-
-    const seenGroups = new Set<string>();
-    const entries: VolumeRowEntry[] = [];
-
-    for (const volume of filtered) {
-      const project = inferComposeProject(volume);
-
-      if (project && (composeGroups.get(project)?.length ?? 0) > 1) {
-        if (!seenGroups.has(project)) {
-          entries.push({ type: "group", project, volumes: composeGroups.get(project)! });
-          seenGroups.add(project);
-        }
-        continue;
-      }
-
-      entries.push({ type: "volume", volume });
-    }
-
-    return entries;
-  }, [filtered]);
-
-  const visibleGroupIds = useMemo(
-    () => rowEntries.filter((entry): entry is Extract<VolumeRowEntry, { type: "group" }> => entry.type === "group").map((entry) => entry.project),
-    [rowEntries],
-  );
-
-  useEffect(() => {
-    setExpandedGroups((current) => {
-      const next: Record<string, boolean> = {};
-      let changed = false;
-
-      for (const groupId of visibleGroupIds) {
-        next[groupId] = current[groupId] ?? true;
-        if (next[groupId] !== current[groupId]) {
-          changed = true;
-        }
-      }
-
-      if (Object.keys(current).length !== Object.keys(next).length) {
-        changed = true;
-      }
-
-      return changed ? next : current;
-    });
-  }, [visibleGroupIds]);
+  const { rowEntries, expandedGroups, toggleGroup, groupSelectionState } = useResourceGroups({
+    items: filtered,
+    getProject: projectOf,
+    getId: (volume) => volume.name,
+    selectedIds: selection.selectedIds,
+  });
 
   if (volumesQuery.isLoading) {
     return (
@@ -141,16 +75,6 @@ export default function Volumes() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Group action failed");
     }
-  };
-
-  const toggleGroup = (project: string) => setExpandedGroups((c) => ({ ...c, [project]: !c[project] }));
-
-  const groupSelectionState = (items: VolumeSummary[]) => {
-    const selected = items.filter((item) => selection.selectedIds.includes(item.name)).length;
-    return {
-      allSelected: selected === items.length && items.length > 0,
-      partiallySelected: selected > 0 && selected < items.length,
-    };
   };
 
   return (
@@ -199,12 +123,12 @@ export default function Volumes() {
           <tbody>
             {rowEntries.map((entry) => {
               if (entry.type === "group") {
-                const groupState = groupSelectionState(entry.volumes);
+                const groupState = groupSelectionState(entry.items);
                 return (
                   <Fragment key={`group-${entry.project}`}>
                     <tr onClick={(e) => { if (!(e.target as HTMLElement).closest('button, a, input, [role="checkbox"], .cursor-default')) toggleGroup(entry.project); }} className="cursor-pointer group border-b border-border/50 bg-muted/20 hover:bg-muted/30 transition-colors">
                       <td className="p-3">
-                        <Checkbox checked={groupState.allSelected ? true : groupState.partiallySelected ? "indeterminate" : false} onCheckedChange={(checked) => { entry.volumes.forEach((v) => selection.toggleOne(v.name, checked === true)); }} />
+                        <Checkbox checked={groupState.allSelected ? true : groupState.partiallySelected ? "indeterminate" : false} onCheckedChange={(checked) => { entry.items.forEach((v) => selection.toggleOne(v.name, checked === true)); }} />
                       </td>
                       <td className="p-3 relative">
                         {expandedGroups[entry.project] && (
@@ -215,7 +139,7 @@ export default function Volumes() {
                           <Boxes className="h-4 w-4 text-primary" />
                           <div>
                             <div className="font-mono font-medium text-foreground">{entry.project}</div>
-                            <div className="font-mono text-[10px] text-muted-foreground">Compose Stack • {entry.volumes.length} volumes</div>
+                            <div className="font-mono text-[10px] text-muted-foreground">Compose Stack • {entry.items.length} volumes</div>
                           </div>
                         </button>
                       </td>
@@ -225,13 +149,13 @@ export default function Volumes() {
                       <td className="p-3 text-muted-foreground">—</td>
                       <td className="p-3 sticky right-0 bg-muted z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted transition-colors">
                         <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => void handleGroupAction("remove", entry.project, entry.volumes)} className="rounded p-1.5 text-destructive transition-colors hover:bg-destructive/10" title="Delete unused stack volumes">
+                          <button onClick={() => void handleGroupAction("remove", entry.project, entry.items)} className="rounded p-1.5 text-destructive transition-colors hover:bg-destructive/10" title="Delete unused stack volumes">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       </td>
                     </tr>
-                    {expandedGroups[entry.project] && entry.volumes.map((volume, index, arr) => (
+                    {expandedGroups[entry.project] && entry.items.map((volume, index, arr) => (
                       <tr key={volume.name} className="group border-b border-border/50 hover:bg-muted/30 transition-colors">
                         <td className="p-3"><Checkbox checked={selection.selectedIds.includes(volume.name)} onCheckedChange={(checked) => selection.toggleOne(volume.name, checked === true)} /></td>
                         <td className="p-3 relative">
@@ -259,7 +183,7 @@ export default function Volumes() {
                   </Fragment>
                 );
               }
-              const volume = entry.volume;
+              const volume = entry.item;
               return (
                 <tr key={volume.name} className="border-b border-border/50 hover:bg-muted/30 transition-colors group">
                   <td className="p-3"><Checkbox checked={selection.selectedIds.includes(volume.name)} onCheckedChange={(checked) => selection.toggleOne(volume.name, checked === true)} /></td>

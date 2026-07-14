@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useState } from "react";
 import { Boxes, ChevronDown, ChevronRight, Network, Plus, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { ApiState } from "@/components/ApiState";
@@ -9,38 +9,21 @@ import { Input } from "@/components/ui/input";
 import { useTableSelection } from "@/hooks/use-table-selection";
 import { useCreateNetwork, useNetworks, useRemoveNetwork } from "@/hooks/use-networks";
 import { NetworkSummary } from "@/lib/api/types";
+import { inferComposeProjectFromName, useResourceGroups } from "@/lib/resource-groups";
 
-type NetworkRowEntry =
-  | { type: "group"; project: string; networks: NetworkSummary[] }
-  | { type: "network"; network: NetworkSummary };
+const DEFAULT_NETWORKS = ["bridge", "host", "none"];
 
-function inferComposeProject(network: NetworkSummary) {
-  const defaultNetworks = ["bridge", "host", "none"];
-  if (defaultNetworks.includes(network.name)) return null;
-
-  const normalizedName = network.name.replace(/_/g, "-");
-  const parts = normalizedName.split("-").filter(Boolean);
-
-  if (parts.length >= 3 && /^\d+$/.test(parts.at(-1) ?? "")) {
-    return parts.slice(0, -2).join("-");
-  }
-
-  if (parts.length >= 2) {
-    return parts.slice(0, -1).join("-");
-  }
-
-  return null;
-}
+const projectOf = (network: NetworkSummary) =>
+  DEFAULT_NETWORKS.includes(network.name) ? null : inferComposeProjectFromName(network.name);
 
 export default function Networks() {
   const [filter, setFilter] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
   const networksQuery = useNetworks();
   const createMutation = useCreateNetwork();
   const removeMutation = useRemoveNetwork();
-  const defaultNetworks = ["bridge", "host", "none"];
+  const defaultNetworks = DEFAULT_NETWORKS;
 
   const networks = networksQuery.data ?? [];
   const filtered = networks.filter((network) => network.name.toLowerCase().includes(filter.toLowerCase()));
@@ -49,61 +32,12 @@ export default function Networks() {
   const selectedNetworks = networks.filter((network) => selection.selectedIds.includes(network.id));
   const hasSelection = selection.selectedCount > 0;
 
-  const rowEntries = useMemo(() => {
-    const composeGroups = new Map<string, NetworkSummary[]>();
-
-    for (const network of filtered) {
-      const project = inferComposeProject(network);
-
-      if (project) {
-        composeGroups.set(project, [...(composeGroups.get(project) ?? []), network]);
-      }
-    }
-
-    const seenGroups = new Set<string>();
-    const entries: NetworkRowEntry[] = [];
-
-    for (const network of filtered) {
-      const project = inferComposeProject(network);
-
-      if (project && (composeGroups.get(project)?.length ?? 0) > 1) {
-        if (!seenGroups.has(project)) {
-          entries.push({ type: "group", project, networks: composeGroups.get(project)! });
-          seenGroups.add(project);
-        }
-        continue;
-      }
-
-      entries.push({ type: "network", network });
-    }
-
-    return entries;
-  }, [filtered]);
-
-  const visibleGroupIds = useMemo(
-    () => rowEntries.filter((entry): entry is Extract<NetworkRowEntry, { type: "group" }> => entry.type === "group").map((entry) => entry.project),
-    [rowEntries],
-  );
-
-  useEffect(() => {
-    setExpandedGroups((current) => {
-      const next: Record<string, boolean> = {};
-      let changed = false;
-
-      for (const groupId of visibleGroupIds) {
-        next[groupId] = current[groupId] ?? true;
-        if (next[groupId] !== current[groupId]) {
-          changed = true;
-        }
-      }
-
-      if (Object.keys(current).length !== Object.keys(next).length) {
-        changed = true;
-      }
-
-      return changed ? next : current;
-    });
-  }, [visibleGroupIds]);
+  const { rowEntries, expandedGroups, toggleGroup, groupSelectionState } = useResourceGroups({
+    items: filtered,
+    getProject: projectOf,
+    getId: (network) => network.id,
+    selectedIds: selection.selectedIds,
+  });
 
   if (networksQuery.isLoading) {
     return (
@@ -147,16 +81,6 @@ export default function Networks() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Group action failed");
     }
-  };
-
-  const toggleGroup = (project: string) => setExpandedGroups((c) => ({ ...c, [project]: !c[project] }));
-
-  const groupSelectionState = (items: NetworkSummary[]) => {
-    const selected = items.filter((item) => selection.selectedIds.includes(item.id)).length;
-    return {
-      allSelected: selected === items.length && items.length > 0,
-      partiallySelected: selected > 0 && selected < items.length,
-    };
   };
 
   return (
@@ -206,12 +130,12 @@ export default function Networks() {
           <tbody>
             {rowEntries.map((entry) => {
               if (entry.type === "group") {
-                const groupState = groupSelectionState(entry.networks);
+                const groupState = groupSelectionState(entry.items);
                 return (
                   <Fragment key={`group-${entry.project}`}>
                     <tr className="group border-b border-border/50 bg-muted/20 hover:bg-muted/30 transition-colors">
                       <td className="p-3">
-                        <Checkbox checked={groupState.allSelected ? true : groupState.partiallySelected ? "indeterminate" : false} onCheckedChange={(checked) => { entry.networks.forEach((n) => selection.toggleOne(n.id, checked === true)); }} />
+                        <Checkbox checked={groupState.allSelected ? true : groupState.partiallySelected ? "indeterminate" : false} onCheckedChange={(checked) => { entry.items.forEach((n) => selection.toggleOne(n.id, checked === true)); }} />
                       </td>
                       <td className="p-3">
                         <button onClick={() => toggleGroup(entry.project)} className="flex items-center gap-2 text-left">
@@ -219,7 +143,7 @@ export default function Networks() {
                           <Boxes className="h-4 w-4 text-primary" />
                           <div>
                             <div className="font-mono font-medium text-foreground">{entry.project}</div>
-                            <div className="font-mono text-[10px] text-muted-foreground">Compose Stack • {entry.networks.length} networks</div>
+                            <div className="font-mono text-[10px] text-muted-foreground">Compose Stack • {entry.items.length} networks</div>
                           </div>
                         </button>
                       </td>
@@ -230,13 +154,13 @@ export default function Networks() {
                       <td className="p-3 text-muted-foreground hidden md:table-cell">—</td>
                       <td className="p-3 sticky right-0 bg-muted z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted transition-colors">
                         <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => void handleGroupAction("remove", entry.project, entry.networks)} className="rounded p-1.5 text-destructive transition-colors hover:bg-destructive/10" title="Delete stack networks">
+                          <button onClick={() => void handleGroupAction("remove", entry.project, entry.items)} className="rounded p-1.5 text-destructive transition-colors hover:bg-destructive/10" title="Delete stack networks">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       </td>
                     </tr>
-                    {expandedGroups[entry.project] && entry.networks.map((network) => (
+                    {expandedGroups[entry.project] && entry.items.map((network) => (
                       <tr key={network.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors">
                         <td className="p-3"><Checkbox checked={selection.selectedIds.includes(network.id)} onCheckedChange={(checked) => selection.toggleOne(network.id, checked === true)} /></td>
                         <td className="p-3 font-mono text-foreground pl-8">
@@ -261,7 +185,7 @@ export default function Networks() {
                   </Fragment>
                 );
               }
-              const network = entry.network;
+              const network = entry.item;
               return (
                 <tr key={network.id} className="border-b border-border/50 hover:bg-muted/30 transition-colors group">
                   <td className="p-3"><Checkbox checked={selection.selectedIds.includes(network.id)} onCheckedChange={(checked) => selection.toggleOne(network.id, checked === true)} /></td>
