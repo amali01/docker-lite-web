@@ -10,7 +10,7 @@ import { createImagesRouter } from "./routes/images";
 import { createLogsRouter } from "./routes/logs";
 import { createNetworksRouter } from "./routes/networks";
 import { createVolumesRouter } from "./routes/volumes";
-import { BackendError, DockerBackend } from "./types";
+import { BackendError, DockerBackend, EngineSwitcher, EngineTargetManager } from "./types";
 import { createAuthRouter } from "./routes/auth";
 
 function isAllowedOrigin(origin?: string) {
@@ -27,7 +27,10 @@ export interface CreateAppOptions {
   staticDir?: string | null;
 }
 
-export function createApp(backend: DockerBackend, options: CreateAppOptions = {}) {
+export function createApp(
+  backend: DockerBackend & EngineSwitcher & EngineTargetManager,
+  options: CreateAppOptions = {},
+) {
   const app = express();
   const auth = options.auth ?? new DockLiteAuth();
   const sameOriginMode = options.sameOriginMode ?? false;

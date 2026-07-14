@@ -78,7 +78,7 @@ const updateTargetSchema = z.union([
     .strict(),
 ]);
 
-export function createEngineRouter(backend: DockerBackend & Partial<EngineSwitcher & EngineTargetManager>) {
+export function createEngineRouter(backend: DockerBackend & EngineSwitcher & EngineTargetManager) {
   const router = Router();
 
   router.get("/", async (_request, response, next) => {
@@ -91,10 +91,6 @@ export function createEngineRouter(backend: DockerBackend & Partial<EngineSwitch
 
   router.get("/targets", async (_request, response, next) => {
     try {
-      if (!backend.listTargets) {
-        response.status(404).send();
-        return;
-      }
       response.json(await backend.listTargets());
     } catch (error) {
       next(error);
@@ -103,11 +99,6 @@ export function createEngineRouter(backend: DockerBackend & Partial<EngineSwitch
 
   router.post("/targets", async (request, response, next) => {
     try {
-      if (!backend.createTarget) {
-        response.status(404).send();
-        return;
-      }
-
       const payload = createTargetSchema.parse(request.body);
       response.status(201).json(await backend.createTarget(payload));
     } catch (error) {
@@ -117,11 +108,6 @@ export function createEngineRouter(backend: DockerBackend & Partial<EngineSwitch
 
   router.patch("/targets/:id", async (request, response, next) => {
     try {
-      if (!backend.updateTarget) {
-        response.status(404).send();
-        return;
-      }
-
       const payload = updateTargetSchema.parse(request.body);
       response.json(await backend.updateTarget(request.params.id, payload));
     } catch (error) {
@@ -131,11 +117,6 @@ export function createEngineRouter(backend: DockerBackend & Partial<EngineSwitch
 
   router.delete("/targets/:id", async (request, response, next) => {
     try {
-      if (!backend.deleteTarget) {
-        response.status(404).send();
-        return;
-      }
-
       await backend.deleteTarget(request.params.id);
       response.status(204).send();
     } catch (error) {
@@ -145,11 +126,6 @@ export function createEngineRouter(backend: DockerBackend & Partial<EngineSwitch
 
   router.post("/targets/test", async (request, response, next) => {
     try {
-      if (!backend.testTarget) {
-        response.status(404).send();
-        return;
-      }
-
       const payload = createTargetSchema.parse(request.body);
       response.json(await backend.testTarget(payload));
     } catch (error) {
@@ -159,11 +135,6 @@ export function createEngineRouter(backend: DockerBackend & Partial<EngineSwitch
 
   router.post("/targets/:id/test", async (request, response, next) => {
     try {
-      if (!backend.retestTarget) {
-        response.status(404).send();
-        return;
-      }
-
       response.json(await backend.retestTarget(request.params.id));
     } catch (error) {
       next(error);
@@ -172,10 +143,6 @@ export function createEngineRouter(backend: DockerBackend & Partial<EngineSwitch
 
   router.post("/select", async (request, response, next) => {
     try {
-      if (!backend.selectTarget) {
-        response.status(404).send();
-        return;
-      }
       const payload = selectEngineSchema.parse(request.body);
       response.json(await backend.selectTarget(payload.targetId));
     } catch (error) {
