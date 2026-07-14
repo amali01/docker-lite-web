@@ -23,7 +23,7 @@ function renderContainersRoute() {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }} initialEntries={["/containers"]}>
+      <MemoryRouter initialEntries={["/containers"]}>
         <Routes>
           <Route path="/containers" element={<Containers />} />
           <Route path="/containers/:containerId" element={<div>Container detail route reached</div>} />

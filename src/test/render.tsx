@@ -3,11 +3,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 
-const routerFutureFlags = {
-  v7_relativeSplatPath: true,
-  v7_startTransition: true,
-} as const;
-
 function Providers({ children, route = "/" }: PropsWithChildren<{ route?: string }>) {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -22,7 +17,7 @@ function Providers({ children, route = "/" }: PropsWithChildren<{ route?: string
 
   return (
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter future={routerFutureFlags} initialEntries={[route]}>
+      <MemoryRouter initialEntries={[route]}>
         {children}
       </MemoryRouter>
     </QueryClientProvider>

@@ -8,11 +8,6 @@ const useContainerInspectMock = vi.fn();
 const useContainerStatsMock = vi.fn();
 const useEngineInfoMock = vi.fn();
 
-const routerFutureFlags = {
-  v7_relativeSplatPath: true,
-  v7_startTransition: true,
-} as const;
-
 vi.mock("@/hooks/use-containers", () => ({
   useContainerDetails: (...args: unknown[]) => useContainerDetailsMock(...args),
   useContainerInspect: (...args: unknown[]) => useContainerInspectMock(...args),
@@ -109,7 +104,7 @@ describe("ContainerDetails route", () => {
 
   function renderDetailsRoute() {
     render(
-      <MemoryRouter future={routerFutureFlags} initialEntries={["/containers/container-123"]}>
+      <MemoryRouter initialEntries={["/containers/container-123"]}>
         <Routes>
           <Route path="/containers/:containerId" element={<ContainerDetails />} />
         </Routes>

@@ -22,15 +22,10 @@ const runningContainer: ContainerSummary = {
   blockIO: "0 B / 0 B",
 };
 
-const routerFutureFlags = {
-  v7_relativeSplatPath: true,
-  v7_startTransition: true,
-} as const;
-
 describe("ContainerActionButtons", () => {
   it("exposes accessible names for icon-only controls", () => {
     render(
-      <MemoryRouter future={routerFutureFlags}>
+      <MemoryRouter>
         <ContainerActionButtons
           container={runningContainer}
           onAction={vi.fn()}
@@ -50,7 +45,7 @@ describe("ContainerActionButtons", () => {
   it("communicates when terminal is unavailable", () => {
     const onAction = vi.fn();
     render(
-      <MemoryRouter future={routerFutureFlags}>
+      <MemoryRouter>
         <ContainerActionButtons
           container={{ ...runningContainer, status: "stopped" }}
           onAction={onAction}

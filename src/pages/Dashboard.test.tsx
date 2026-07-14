@@ -17,7 +17,7 @@ function renderDashboardRoute() {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }} initialEntries={["/"]}>
+      <MemoryRouter initialEntries={["/"]}>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/containers/:containerId" element={<div>Dashboard detail route reached</div>} />

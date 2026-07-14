@@ -15,11 +15,6 @@ import DockerSettings from "@/pages/DockerSettings";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/NotFound";
 
-const routerFutureFlags = {
-  v7_relativeSplatPath: true,
-  v7_startTransition: true,
-} as const;
-
 function ProtectedRoutes() {
   const authSession = useAuthSession();
 
@@ -55,7 +50,7 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Sonner />
-        <BrowserRouter future={routerFutureFlags}>
+        <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route element={<ProtectedRoutes />}>
