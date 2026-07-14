@@ -164,6 +164,15 @@ export const engineTargetStoreStateSchema = z
   })
   .strict();
 
+/**
+ * Single source of truth for the "plain TCP is not supported" rejection. Both
+ * the schema path (ZodError) and the connection tester (BackendError) throw
+ * with this exact code/message so classification never depends on matching
+ * error text.
+ */
+export const INSECURE_TCP_CODE = "insecure_tcp_not_supported" as const;
+export const INSECURE_TCP_MESSAGE = "Plain TCP Docker targets are not supported. Use tcpTls instead.";
+
 export function parseEngineTargetProfileInput(input: unknown) {
   if (
     typeof input === "object" &&
@@ -175,7 +184,7 @@ export function parseEngineTargetProfileInput(input: unknown) {
       {
         code: z.ZodIssueCode.custom,
         path: ["kind"],
-        message: "Plain TCP Docker targets are not supported. Use tcpTls instead.",
+        message: INSECURE_TCP_MESSAGE,
       },
     ]);
   }

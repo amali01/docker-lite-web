@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import Docker from "dockerode";
 import { BackendError, EngineTargetHealth } from "../types";
+import { INSECURE_TCP_CODE, INSECURE_TCP_MESSAGE } from "./schemas";
 
 type DockerOptions = ConstructorParameters<typeof Docker>[0];
 
@@ -77,7 +78,7 @@ function readNullableString(value: unknown) {
 
 function normalizeTcpTlsTarget(input: unknown): TcpTlsTargetShape {
   if (isRecord(input) && input.kind === "tcp") {
-    throw new BackendError(400, "validation_error", "Plain TCP Docker targets are not supported. Use tcpTls instead.");
+    throw new BackendError(400, INSECURE_TCP_CODE, INSECURE_TCP_MESSAGE);
   }
 
   if (!isRecord(input) || input.kind !== "tcpTls" || !isRecord(input.connection) || !isRecord(input.tls)) {
@@ -117,9 +118,9 @@ function classifyTcpTlsFailure(error: unknown, checkedAt: string): ConnectionTes
   const errorCode = (error as { code?: unknown })?.code;
 
   if (error instanceof BackendError) {
-    if (message.includes("Plain TCP Docker targets are not supported")) {
+    if (error.code === INSECURE_TCP_CODE) {
       return {
-        code: "insecure_tcp_not_supported",
+        code: INSECURE_TCP_CODE,
         health: {
           status: "unhealthy",
           message,
