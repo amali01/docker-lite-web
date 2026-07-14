@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { testSshConnection, testTcpTlsConnection } from "./connection-test";
+import {
+  createSshDockerConnectionConfig,
+  createTcpTlsDockerConnectionConfig,
+  testSshConnection,
+  testTcpTlsConnection,
+} from "./connection-test";
 
 describe("testTcpTlsConnection", () => {
   it("reports a healthy TLS-backed target", async () => {
@@ -190,6 +195,48 @@ describe("testTcpTlsConnection", () => {
         }),
       }),
     );
+  });
+});
+
+describe("backend-construction credential-path redaction", () => {
+  it("redacts the ssh key path from an EACCES read during construction", async () => {
+    let caught: unknown;
+    try {
+      await createSshDockerConnectionConfig(
+        { kind: "ssh", connection: { host: "h", port: 22 }, ssh: { username: "u", authMode: "keyFile", keyPath: "/secure/id_ed25519" } },
+        {
+          readFile: vi.fn().mockRejectedValue(
+            Object.assign(new Error("EACCES: permission denied, open '/secure/id_ed25519'"), { code: "EACCES" }),
+          ),
+        },
+      );
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).not.toContain("/secure/id_ed25519");
+    expect((caught as Error).message).toContain("<path>");
+  });
+
+  it("redacts the tls cert path from an EACCES read during construction", async () => {
+    let caught: unknown;
+    try {
+      await createTcpTlsDockerConnectionConfig(
+        { kind: "tcpTls", connection: { host: "h", port: 2376 }, tls: { tlsMode: "serverOnly", caPath: "/secure/ca.pem", certPath: null, keyPath: null } },
+        {
+          readFile: vi.fn().mockRejectedValue(
+            Object.assign(new Error("EACCES: permission denied, open '/secure/ca.pem'"), { code: "EACCES" }),
+          ),
+        },
+      );
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).not.toContain("/secure/ca.pem");
+    expect((caught as Error).message).toContain("<path>");
   });
 });
 

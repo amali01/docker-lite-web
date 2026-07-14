@@ -331,11 +331,22 @@ export async function createTcpTlsDockerConnectionConfig(
       endpoint: `tcp://${target.connection.host}:${target.connection.port}`,
     };
   } catch (error) {
+    if (error instanceof BackendError) {
+      throw error;
+    }
+
     if ((error as { code?: unknown })?.code === "ENOENT") {
       throw new BackendError(400, "validation_error", "Referenced TLS material could not be found on disk");
     }
 
-    throw error;
+    // Other fs errors (e.g. EACCES) embed the path — redact it so backend
+    // construction failures cannot leak cert/key paths through the API.
+    const message = error instanceof Error ? error.message : "Referenced TLS material could not be read";
+    throw new BackendError(
+      400,
+      "validation_error",
+      sanitizeHealthMessage(message, [target.tls.caPath, target.tls.certPath, target.tls.keyPath]),
+    );
   }
 }
 
@@ -395,8 +406,18 @@ export async function createSshDockerConnectionConfig(
       throw new BackendError(400, "validation_error", "SSH key-file auth requires a private key path");
     }
 
+    let privateKey: Buffer;
+    try {
+      privateKey = await readFileImpl(target.ssh.keyPath);
+    } catch (error) {
+      // The fs error embeds the key path — redact it so backend construction
+      // failures cannot leak the private-key path through the API.
+      const message = error instanceof Error ? error.message : "SSH private key could not be read";
+      throw new BackendError(400, "validation_error", sanitizeHealthMessage(message, [target.ssh.keyPath]));
+    }
+
     dockerOptions.sshOptions = {
-      privateKey: await readFileImpl(target.ssh.keyPath),
+      privateKey,
     };
   }
 
