@@ -4,6 +4,7 @@ import {
   createStreamUrl,
   getApiBaseUrl,
   resetAuthRuntimeState,
+  resolveStreamEndpoint,
   setApiBaseUrl,
   setAuthRuntimeState,
 } from "@/lib/api/client";
@@ -55,5 +56,42 @@ describe("api client auth behavior", () => {
     expect(createStreamUrl("/api/containers/demo/logs/stream")).toBe(
       "http://127.0.0.1:9001/api/containers/demo/logs/stream?access_token=stream-token",
     );
+  });
+
+  it("never puts the auth token in an ordinary fetch url", async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ ok: true })));
+    setAuthRuntimeState({ token: "jwt-token" });
+
+    await apiRequest("/api/engine", { auth: true });
+
+    const [requestedUrl] = fetchMock.mock.calls[0];
+    expect(String(requestedUrl)).not.toContain("access_token");
+    expect(String(requestedUrl)).toBe("http://127.0.0.1:9001/api/engine");
+  });
+
+  it("builds a websocket stream endpoint with the token in the query", () => {
+    setAuthRuntimeState({ token: "ws-token" });
+
+    const url = resolveStreamEndpoint("/api/containers/demo/exec", "websocket");
+
+    expect(url.protocol).toBe("ws:");
+    expect(url.host).toBe("127.0.0.1:9001");
+    expect(url.pathname).toBe("/api/containers/demo/exec");
+    expect(url.searchParams.get("access_token")).toBe("ws-token");
+  });
+
+  it("uses wss when the backend base url is https", () => {
+    setApiBaseUrl("https://remote.example:9443");
+    setAuthRuntimeState({ token: "ws-token" });
+
+    const url = resolveStreamEndpoint("/api/containers/demo/exec", "websocket");
+
+    expect(url.protocol).toBe("wss:");
+    expect(url.host).toBe("remote.example:9443");
+  });
+
+  it("omits the token from stream urls when unauthenticated", () => {
+    const sse = resolveStreamEndpoint("/api/containers/demo/logs/stream", "sse");
+    expect(sse.searchParams.has("access_token")).toBe(false);
   });
 });

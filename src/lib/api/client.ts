@@ -113,12 +113,31 @@ export async function apiRequest<T>(path: string, init?: ApiRequestInit): Promis
   return (await response.json()) as T;
 }
 
-export function createStreamUrl(path: string) {
-  const url = new URL(`${getApiBaseUrl()}${path}`);
+/**
+ * Streaming transports (EventSource and WebSocket) cannot set an Authorization
+ * header, so the auth token rides in the `access_token` query param. This is
+ * the single seam that owns base-URL resolution, the http→ws protocol flip,
+ * and query-token attachment for both stream kinds. It has no `http` transport
+ * on purpose: ordinary fetch requests keep their Bearer header (see
+ * apiRequest) and must never carry the token in the URL.
+ */
+export function resolveStreamEndpoint(path: string, transport: "sse" | "websocket" = "sse"): URL {
+  const httpUrl = new URL(`${getApiBaseUrl()}${path}`);
+
+  const url =
+    transport === "websocket"
+      ? new URL(
+          `${httpUrl.protocol === "https:" ? "wss:" : "ws:"}//${httpUrl.host}${httpUrl.pathname}${httpUrl.search}`,
+        )
+      : httpUrl;
 
   if (authRuntimeState.token) {
     url.searchParams.set("access_token", authRuntimeState.token);
   }
 
-  return url.toString();
+  return url;
+}
+
+export function createStreamUrl(path: string) {
+  return resolveStreamEndpoint(path, "sse").toString();
 }
