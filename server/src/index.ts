@@ -3,7 +3,7 @@ import { createServer as createHttpServer } from "node:http";
 import { config as loadEnv } from "dotenv";
 import type { Duplex } from "node:stream";
 import { createApp } from "./app";
-import { EngineController } from "./engine-controller";
+import { EngineManager } from "./engine-manager";
 import { AuthConfigStore, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERNAME } from "./auth/config";
 import { DockLiteAuth } from "./auth/middleware";
 import { getRuntimeConfig } from "./runtime/config";
@@ -42,14 +42,14 @@ function rejectUpgrade(socket: Duplex, statusCode: number, message: string) {
 }
 
 async function main() {
-  const backend = new EngineController();
+  const engine = new EngineManager();
   const authConfigStore = new AuthConfigStore();
   const authConfig = await authConfigStore.read();
   const runtimeConfig = getRuntimeConfig();
   const auth = new DockLiteAuth({
     configStore: authConfigStore,
   });
-  const app = createApp(backend, {
+  const app = createApp(engine, {
     auth,
     sameOriginMode: runtimeConfig.sameOriginMode,
     staticDir: runtimeConfig.staticDir,
@@ -76,6 +76,7 @@ async function main() {
 
       wss.handleUpgrade(request, socket, head, async (ws) => {
         try {
+          const backend = await engine.getActiveBackend();
           const { stream, exec } = await backend.execContainer(containerId, cols, rows);
 
           ws.on("message", (msg: RawData) => {
@@ -124,8 +125,8 @@ async function main() {
   });
 
   server.listen(runtimeConfig.port, runtimeConfig.host, async () => {
-    const engine = await backend.getEngineInfo();
-    const connection = engine.connected ? "connected" : `disconnected (${engine.errorMessage ?? "unknown error"})`;
+    const engineInfo = await engine.getEngineInfo();
+    const connection = engineInfo.connected ? "connected" : `disconnected (${engineInfo.errorMessage ?? "unknown error"})`;
     console.log(`DockLite backend listening on http://${runtimeConfig.host}:${runtimeConfig.port} - Docker ${connection}`);
     if (authConfig.defaultCredentialsActive) {
       console.log(`Default admin credentials are active: ${DEFAULT_ADMIN_USERNAME} / ${DEFAULT_ADMIN_PASSWORD}`);

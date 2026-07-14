@@ -20,10 +20,10 @@ import {
 
 /**
  * The deep half of engine management: owns engine target profiles, backend
- * selection/health, and resolving the currently-active DockerBackend. This is
- * the module worth testing — it has real behaviour behind a small interface.
- * The thin DockerBackend-shaped adapter that resource routes talk to
- * (EngineController) composes this and forwards to getActiveBackend().
+ * selection/health, and resolving the currently-active DockerBackend. The
+ * /api/engine routes talk to it directly (target lifecycle + getEngineInfo);
+ * resource routes cross a per-request BackendResolver that calls
+ * getActiveBackend(), so a target switch takes effect on the next request.
  */
 
 type EngineTargetConfig = {

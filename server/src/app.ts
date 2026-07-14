@@ -10,7 +10,8 @@ import { createImagesRouter } from "./routes/images";
 import { createLogsRouter } from "./routes/logs";
 import { createNetworksRouter } from "./routes/networks";
 import { createVolumesRouter } from "./routes/volumes";
-import { BackendError, DockerBackend, EngineSwitcher, EngineTargetManager } from "./types";
+import { BackendError } from "./types";
+import { EngineManager } from "./engine-manager";
 import { createAuthRouter } from "./routes/auth";
 
 function isAllowedOrigin(origin?: string) {
@@ -27,13 +28,11 @@ export interface CreateAppOptions {
   staticDir?: string | null;
 }
 
-export function createApp(
-  backend: DockerBackend & EngineSwitcher & EngineTargetManager,
-  options: CreateAppOptions = {},
-) {
+export function createApp(engine: EngineManager, options: CreateAppOptions = {}) {
   const app = express();
   const auth = options.auth ?? new DockLiteAuth();
   const sameOriginMode = options.sameOriginMode ?? false;
+  const resolveBackend = () => engine.getActiveBackend();
 
   if (!sameOriginMode) {
     app.use(
@@ -57,12 +56,12 @@ export function createApp(
   });
 
   app.use("/api/auth", createAuthRouter(auth));
-  app.use("/api/engine", auth.requireAuth(), createEngineRouter(backend));
-  app.use("/api/containers", auth.requireAuth(), createContainersRouter(backend));
-  app.use("/api/images", auth.requireAuth(), createImagesRouter(backend));
-  app.use("/api/volumes", auth.requireAuth(), createVolumesRouter(backend));
-  app.use("/api/networks", auth.requireAuth(), createNetworksRouter(backend));
-  app.use("/api", createLogsRouter(backend, auth));
+  app.use("/api/engine", auth.requireAuth(), createEngineRouter(engine));
+  app.use("/api/containers", auth.requireAuth(), createContainersRouter(resolveBackend));
+  app.use("/api/images", auth.requireAuth(), createImagesRouter(resolveBackend));
+  app.use("/api/volumes", auth.requireAuth(), createVolumesRouter(resolveBackend));
+  app.use("/api/networks", auth.requireAuth(), createNetworksRouter(resolveBackend));
+  app.use("/api", createLogsRouter(resolveBackend, auth));
 
   const staticDir = options.staticDir ? resolve(options.staticDir) : null;
   const indexHtmlPath = staticDir ? resolve(staticDir, "index.html") : null;

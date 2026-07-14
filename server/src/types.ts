@@ -104,6 +104,12 @@ export interface DockerBackend {
   execContainer(id: string, cols: number, rows: number): Promise<ExecSession>;
 }
 
+/** Resolves the currently-active DockerBackend. Resource routes call this per request. */
+export type BackendResolver = () => Promise<DockerBackend>;
+
+/** The engine-management surface the /api/engine routes need. */
+export type EngineControlSurface = EngineSwitcher & EngineTargetManager & Pick<DockerBackend, "getEngineInfo">;
+
 export interface EngineSwitcher {
   listTargets(): Promise<EngineTarget[]>;
   selectTarget(targetId: string): Promise<EngineInfo>;

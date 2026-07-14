@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { DockerBackend, EngineSwitcher, EngineTargetManager } from "../types";
+import { EngineControlSurface } from "../types";
 
 const selectEngineSchema = z.object({
   targetId: z.string().min(1),
@@ -78,7 +78,7 @@ const updateTargetSchema = z.union([
     .strict(),
 ]);
 
-export function createEngineRouter(backend: DockerBackend & EngineSwitcher & EngineTargetManager) {
+export function createEngineRouter(backend: EngineControlSurface) {
   const router = Router();
 
   router.get("/", async (_request, response, next) => {

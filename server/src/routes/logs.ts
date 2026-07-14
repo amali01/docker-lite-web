@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { DockLiteAuth } from "../auth/middleware";
-import { DockerBackend } from "../types";
+import { BackendResolver } from "../types";
 
-export function createLogsRouter(backend: DockerBackend, auth: DockLiteAuth) {
+export function createLogsRouter(resolveBackend: BackendResolver, auth: DockLiteAuth) {
   const router = Router();
 
   router.get("/containers/:id/logs/stream", async (request, response, next) => {
@@ -10,6 +10,8 @@ export function createLogsRouter(backend: DockerBackend, auth: DockLiteAuth) {
       const resolved = await auth.resolveExpressRequest(request);
       auth.assertResolvedRequest(resolved);
       request.dockliteAuth = resolved;
+
+      const backend = await resolveBackend();
 
       response.setHeader("Content-Type", "text/event-stream");
       response.setHeader("Cache-Control", "no-cache");

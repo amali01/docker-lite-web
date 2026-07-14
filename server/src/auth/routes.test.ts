@@ -4,7 +4,7 @@ import { join } from "node:path";
 import request from "supertest";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "../app";
-import { EngineController, getDefaultEngineTargets } from "../engine-controller";
+import { EngineManager, getDefaultEngineTargets } from "../engine-manager";
 import { EngineTargetStore } from "../engine-targets/store";
 import type { EngineTargetProfileInput } from "../engine-targets/types";
 import { AuthConfigStore } from "./config";
@@ -31,7 +31,7 @@ function createBuiltInTargetInputs(): EngineTargetProfileInput[] {
 
 async function createAuthTestContext() {
   const dir = await mkdtemp(join(tmpdir(), "docklite-auth-test-"));
-  const backend = new EngineController(
+  const backend = new EngineManager(
     getDefaultEngineTargets(),
     undefined,
     new EngineTargetStore({

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { AuthConfigStore } from "./auth/config";
 import { DockLiteAuth } from "./auth/middleware";
-import { EngineController, getDefaultEngineTargets } from "./engine-controller";
+import { EngineManager, getDefaultEngineTargets } from "./engine-manager";
 import { EngineTargetStore } from "./engine-targets/store";
 import type { EngineTargetProfileInput } from "./engine-targets/types";
 
@@ -32,7 +32,7 @@ function createBuiltInTargetInputs(): EngineTargetProfileInput[] {
 async function createTestApp() {
   const dir = await mkdtemp(join(tmpdir(), "docklite-app-test-"));
   const targets = getDefaultEngineTargets();
-  const backend = new EngineController(
+  const backend = new EngineManager(
     targets,
     undefined,
     new EngineTargetStore({
