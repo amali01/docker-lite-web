@@ -14,7 +14,7 @@ import {
   stopComposeProject,
   stopContainer,
 } from "@/lib/api/resources";
-import { useEngineInfo } from "@/hooks/use-engine";
+import { engineQueryKey, useEngineInfo } from "@/hooks/use-engine";
 
 export const containersQueryKey = ["containers"] as const;
 
@@ -76,7 +76,7 @@ function createContainerMutation(mutationFn: (id: string) => Promise<unknown>) {
       mutationFn,
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: containersQueryKey });
-        await queryClient.invalidateQueries({ queryKey: ["engine"] });
+        await queryClient.invalidateQueries({ queryKey: engineQueryKey });
       },
     });
   };
@@ -89,7 +89,7 @@ function createComposeProjectMutation(mutationFn: (project: string) => Promise<v
       mutationFn,
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: containersQueryKey });
-        await queryClient.invalidateQueries({ queryKey: ["engine"] });
+        await queryClient.invalidateQueries({ queryKey: engineQueryKey });
       },
     });
   };
