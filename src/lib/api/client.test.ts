@@ -104,4 +104,17 @@ describe("api client auth behavior", () => {
     expect(ws.host).toBe("host.example");
     expect(ws.pathname).toBe("/proxy/api/containers/demo/exec");
   });
+
+  it("resolves a relative/same-origin base against the page origin", () => {
+    // e.g. VITE_API_BASE_URL="" or a "/docklite" prefix — must not throw.
+    setApiBaseUrl("/docklite");
+
+    const sse = resolveStreamEndpoint("/api/containers/demo/logs/stream", "sse");
+    expect(sse.origin).toBe(window.location.origin);
+    expect(sse.pathname).toBe("/docklite/api/containers/demo/logs/stream");
+
+    const ws = resolveStreamEndpoint("/api/containers/demo/exec", "websocket");
+    expect(ws.host).toBe(window.location.host);
+    expect(["ws:", "wss:"]).toContain(ws.protocol);
+  });
 });

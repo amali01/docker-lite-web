@@ -122,7 +122,11 @@ export async function apiRequest<T>(path: string, init?: ApiRequestInit): Promis
  * apiRequest) and must never carry the token in the URL.
  */
 export function resolveStreamEndpoint(path: string, transport: "sse" | "websocket" = "sse"): URL {
-  const httpUrl = new URL(`${getApiBaseUrl()}${path}`);
+  // Resolve against the page origin so a relative or empty base URL
+  // (same-origin deploy, or a "/prefix" configured in Settings) still yields a
+  // valid absolute URL instead of throwing. An absolute base ignores the origin.
+  const origin = typeof window !== "undefined" ? window.location.origin : undefined;
+  const httpUrl = new URL(`${getApiBaseUrl()}${path}`, origin);
 
   const url =
     transport === "websocket"
