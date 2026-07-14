@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildProfile, getEndpoint, isAvailable, toPublicTarget, type ProfileMeta } from "./profile";
+import { buildProfile, getEndpoint, isAvailable, sanitizeHealthMessage, toPublicTarget, type ProfileMeta } from "./profile";
 
 const meta: ProfileMeta = {
   id: "t1",
@@ -95,5 +95,57 @@ describe("toPublicTarget redaction (allowlist projection)", () => {
       "lastHealth",
       "source",
     ]);
+  });
+
+  it("redacts credential paths from a persisted health message", () => {
+    const profile = buildProfile(
+      { label: "S", kind: "ssh", connection: { host: "h", port: 22 }, ssh: { username: "u", authMode: "keyFile", keyPath: "/secure/id_ed25519" } },
+      {
+        ...meta,
+        lastHealth: {
+          status: "unhealthy",
+          message: "ENOENT: no such file or directory, open '/secure/id_ed25519'",
+          checkedAt: "2026-01-02T00:00:00.000Z",
+        },
+      },
+    );
+    const pub = toPublicTarget(profile, "t1");
+    expect(pub.lastHealth?.message).not.toContain("/secure/id_ed25519");
+    expect(pub.lastHealth?.message).toContain("<path>");
+  });
+});
+
+describe("sanitizeHealthMessage", () => {
+  it("redacts unix credential paths via the generic fallback", () => {
+    expect(sanitizeHealthMessage("ENOENT: no such file or directory, open '/secure/id_ed25519'")).toBe(
+      "ENOENT: no such file or directory, open '<path>'",
+    );
+  });
+
+  it("redacts windows paths", () => {
+    expect(sanitizeHealthMessage("cannot read C:\\secrets\\client-key.pem now")).toBe("cannot read <path> now");
+  });
+
+  it("value-based redaction handles relative paths the regex cannot", () => {
+    expect(sanitizeHealthMessage("open '../../secrets/id_ed25519'", ["../../secrets/id_ed25519"])).toBe(
+      "open '<path>'",
+    );
+  });
+
+  it("value-based redaction handles paths containing spaces", () => {
+    expect(sanitizeHealthMessage("failed to read /secure/private keys/id_ed25519", ["/secure/private keys/id_ed25519"])).toBe(
+      "failed to read <path>",
+    );
+  });
+
+  it("redacts overlapping paths without leaking a nested suffix", () => {
+    expect(
+      sanitizeHealthMessage("failed to read /secure/creds/client-cert.pem", ["/secure/creds", "/secure/creds/client-cert.pem"]),
+    ).toBe("failed to read <path>");
+  });
+
+  it("leaves path-free diagnostics untouched (including host/IP mentions)", () => {
+    const message = "Hostname/IP does not match certificate's altnames: Host: prod.example.internal";
+    expect(sanitizeHealthMessage(message)).toBe(message);
   });
 });

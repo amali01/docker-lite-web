@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import Docker from "dockerode";
 import { BackendError, EngineTargetHealth } from "../types";
 import { INSECURE_TCP_CODE, INSECURE_TCP_MESSAGE } from "./schemas";
+import { sanitizeHealthMessage } from "./profile";
 
 type DockerOptions = ConstructorParameters<typeof Docker>[0];
 
@@ -66,6 +67,41 @@ type SshTargetShape = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+/**
+ * Best-effort extraction of the credential path fields from raw connection-test
+ * input, so a failed file read cannot leak them through the returned health
+ * message. Value-based redaction is format-agnostic (see sanitizeHealthMessage).
+ */
+function collectSecretPathsFromInput(input: unknown): string[] {
+  if (!isRecord(input)) {
+    return [];
+  }
+
+  const paths: unknown[] = [];
+  if (isRecord(input.ssh)) {
+    paths.push(input.ssh.keyPath, input.ssh.knownHostsPath);
+  }
+  if (isRecord(input.tls)) {
+    paths.push(input.tls.caPath, input.tls.certPath, input.tls.keyPath);
+  }
+
+  return paths.filter((path): path is string => typeof path === "string" && path.trim().length > 0);
+}
+
+function withSanitizedHealth(result: ConnectionTestResult, secretPaths: string[]): ConnectionTestResult {
+  if (result.health.message === undefined) {
+    return result;
+  }
+
+  return {
+    ...result,
+    health: {
+      ...result.health,
+      message: sanitizeHealthMessage(result.health.message, secretPaths),
+    },
+  };
 }
 
 function readString(value: unknown) {
@@ -308,6 +344,7 @@ export async function testTcpTlsConnection(
   dependencies: ConnectionTestDependencies = {},
 ): Promise<ConnectionTestResult> {
   const checkedAt = new Date().toISOString();
+  const secretPaths = collectSecretPathsFromInput(input);
 
   try {
     const { dockerOptions } = await createTcpTlsDockerConnectionConfig(input, dependencies);
@@ -324,7 +361,8 @@ export async function testTcpTlsConnection(
       },
     };
   } catch (error) {
-    return classifyTcpTlsFailure(error, checkedAt);
+    // Classify on the raw error, then redact credential paths from the message.
+    return withSanitizedHealth(classifyTcpTlsFailure(error, checkedAt), secretPaths);
   }
 }
 
@@ -373,6 +411,7 @@ export async function testSshConnection(
   dependencies: ConnectionTestDependencies = {},
 ): Promise<ConnectionTestResult> {
   const checkedAt = new Date().toISOString();
+  const secretPaths = collectSecretPathsFromInput(input);
 
   try {
     const { dockerOptions } = await createSshDockerConnectionConfig(input, dependencies);
@@ -389,6 +428,7 @@ export async function testSshConnection(
       },
     };
   } catch (error) {
-    return classifySshFailure(error, checkedAt);
+    // Classify on the raw error, then redact credential paths from the message.
+    return withSanitizedHealth(classifySshFailure(error, checkedAt), secretPaths);
   }
 }

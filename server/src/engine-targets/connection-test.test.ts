@@ -114,6 +114,29 @@ describe("testTcpTlsConnection", () => {
     );
   });
 
+  it("preserves TLS classification while redacting the cert path from the message", async () => {
+    const result = await testTcpTlsConnection(
+      {
+        kind: "tcpTls",
+        label: "Prod TLS Docker",
+        connection: { host: "prod.example.internal", port: 2376 },
+        tls: { tlsMode: "serverOnly", serverName: "prod.example.internal", caPath: "/secure/ca.pem", certPath: null, keyPath: null },
+      },
+      {
+        readFile: vi.fn(async () => Buffer.from("contents")),
+        createDockerClient: vi.fn().mockReturnValue({
+          info: vi.fn().mockRejectedValue(new Error("certificate problem at /secure/ca.pem: unable to verify first certificate")),
+        }),
+      },
+    );
+
+    // classification still runs on the raw message (contains "certificate"/"unable to verify")
+    expect(result.code).toBe("tls_validation_failed");
+    // but the persisted/returned message no longer contains the cert path
+    expect(result.health.message).not.toContain("/secure/ca.pem");
+    expect(result.health.message).toContain("<path>");
+  });
+
   it("classifies daemon unreachable failures", async () => {
     const result = await testTcpTlsConnection(
       {
@@ -330,6 +353,36 @@ describe("testSshConnection", () => {
         }),
       }),
     );
+  });
+
+  it("redacts the key path (even a relative one) from a failed key-file read", async () => {
+    const keyPath = "../secrets/id_ed25519";
+    const result = await testSshConnection(
+      {
+        kind: "ssh",
+        label: "Prod SSH Docker",
+        connection: {
+          host: "prod.example.internal",
+          port: 22,
+        },
+        ssh: {
+          username: "dockerops",
+          authMode: "keyFile",
+          keyPath,
+          knownHostsPath: null,
+          dockerHostOverride: null,
+        },
+      },
+      {
+        readFile: vi.fn().mockRejectedValue(
+          Object.assign(new Error(`ENOENT: no such file or directory, open '${keyPath}'`), { code: "ENOENT" }),
+        ),
+      },
+    );
+
+    expect(result.health.status).toBe("unhealthy");
+    expect(result.health.message).not.toContain(keyPath);
+    expect(result.health.message).toContain("<path>");
   });
 
   it("rejects unsupported SSH configuration combinations", async () => {
