@@ -94,4 +94,14 @@ describe("api client auth behavior", () => {
     const sse = resolveStreamEndpoint("/api/containers/demo/logs/stream", "sse");
     expect(sse.searchParams.has("access_token")).toBe(false);
   });
+
+  it("preserves a configured base-url path prefix in a websocket endpoint", () => {
+    setApiBaseUrl("https://host.example/proxy");
+
+    const ws = resolveStreamEndpoint("/api/containers/demo/exec", "websocket");
+
+    expect(ws.protocol).toBe("wss:");
+    expect(ws.host).toBe("host.example");
+    expect(ws.pathname).toBe("/proxy/api/containers/demo/exec");
+  });
 });
