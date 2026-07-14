@@ -1,0 +1,11 @@
+# pnpm 10+ moved settings here from the package.json "pnpm" field.
+# Allow postinstall build scripts for the native deps this app relies on:
+# argon2 (password hashing), ssh2 + cpu-features (SSH engine connections),
+# @swc/core + esbuild (build tooling), protobufjs (transitive native build).
+allowBuilds:
+  '@swc/core': true
+  argon2: true
+  cpu-features: true
+  esbuild: true
+  protobufjs: true
+  ssh2: true
