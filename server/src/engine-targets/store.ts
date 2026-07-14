@@ -4,13 +4,12 @@ import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { BackendError } from "../types";
 import { engineTargetStoreStateSchema, parseEngineTargetProfileInput } from "./schemas";
+import { buildProfile, toPublicTarget } from "./profile";
 import type {
   EngineTarget,
   EngineTargetProfile,
   EngineTargetProfileInput,
   EngineTargetStoreState,
-  EngineTargetKind,
-  EngineTargetSource,
 } from "./types";
 
 export interface EngineTargetStoreOptions {
@@ -86,30 +85,6 @@ function getSeededSavedTargets(now: () => string): EngineTargetProfile[] {
   ];
 }
 
-function getEndpoint(profile: EngineTargetProfile): string {
-  if (profile.kind === "local") {
-    return `unix://${profile.connection.socketPath}`;
-  }
-
-  if (profile.kind === "ssh") {
-    return `ssh://${profile.ssh.username}@${profile.connection.host}`;
-  }
-
-  return `tcp://${profile.connection.host}:${profile.connection.port}`;
-}
-
-function isAvailable(profile: EngineTargetProfile): boolean {
-  if (!profile.enabled) {
-    return false;
-  }
-
-  if (profile.kind === "local") {
-    return profile.lastHealth?.status !== "unhealthy";
-  }
-
-  return profile.lastHealth?.status === "healthy";
-}
-
 function cloneTarget<T>(target: T): T {
   return JSON.parse(JSON.stringify(target)) as T;
 }
@@ -119,85 +94,15 @@ function normalizeBuiltinTarget(
   now: () => string,
 ): EngineTargetProfile {
   const timestamp = now();
-  const createdAt = "createdAt" in target ? target.createdAt : timestamp;
-  const updatedAt = "updatedAt" in target ? target.updatedAt : timestamp;
-  const enabled = target.enabled ?? true;
-  const lastHealth = "lastHealth" in target ? target.lastHealth ?? null : null;
 
-  if (target.kind === "local") {
-    return {
-      id: target.id ?? randomUUID(),
-      label: target.label,
-      kind: "local",
-      source: "builtin",
-      enabled,
-      lastHealth,
-      createdAt,
-      updatedAt,
-      connection: {
-        socketPath: target.connection.socketPath,
-      },
-    };
-  }
-
-  if (target.kind === "ssh") {
-    return {
-      id: target.id ?? randomUUID(),
-      label: target.label,
-      kind: "ssh",
-      source: "builtin",
-      enabled,
-      lastHealth,
-      createdAt,
-      updatedAt,
-      connection: {
-        host: target.connection.host,
-        port: target.connection.port,
-      },
-      ssh: {
-        username: target.ssh.username,
-        authMode: target.ssh.authMode,
-        keyPath: target.ssh.keyPath ?? null,
-        knownHostsPath: target.ssh.knownHostsPath ?? null,
-        dockerHostOverride: target.ssh.dockerHostOverride ?? null,
-      },
-    };
-  }
-
-  return {
+  return buildProfile(target, {
     id: target.id ?? randomUUID(),
-    label: target.label,
-    kind: "tcpTls",
     source: "builtin",
-    enabled,
-    lastHealth,
-    createdAt,
-    updatedAt,
-    connection: {
-      host: target.connection.host,
-      port: target.connection.port,
-    },
-    tls: {
-      serverName: target.tls.serverName ?? null,
-      tlsMode: target.tls.tlsMode,
-      caPath: target.tls.caPath ?? null,
-      certPath: target.tls.certPath ?? null,
-      keyPath: target.tls.keyPath ?? null,
-    },
-  };
-}
-
-function toPublicTarget(profile: EngineTargetProfile, activeTargetId: string | null): EngineTarget {
-  return {
-    id: profile.id,
-    label: profile.label,
-    endpoint: getEndpoint(profile),
-    active: profile.id === activeTargetId,
-    available: isAvailable(profile),
-    kind: profile.kind as EngineTargetKind,
-    source: profile.source as EngineTargetSource,
-    lastHealth: profile.lastHealth ? cloneTarget(profile.lastHealth) : null,
-  };
+    enabled: target.enabled ?? true,
+    lastHealth: "lastHealth" in target ? target.lastHealth ?? null : null,
+    createdAt: "createdAt" in target ? target.createdAt : timestamp,
+    updatedAt: "updatedAt" in target ? target.updatedAt : timestamp,
+  });
 }
 
 function normalizeSavedTarget(
@@ -207,70 +112,15 @@ function normalizeSavedTarget(
   idFactory: () => string,
 ): EngineTargetProfile {
   const timestamp = now();
-  const id = input.id ?? existing?.id ?? idFactory();
-  const createdAt = existing?.createdAt ?? timestamp;
 
-  if (input.kind === "local") {
-    return {
-      id,
-      label: input.label,
-      kind: "local",
-      source: "saved",
-      enabled: input.enabled ?? existing?.enabled ?? true,
-      lastHealth: input.lastHealth ?? existing?.lastHealth ?? null,
-      createdAt,
-      updatedAt: timestamp,
-      connection: {
-        socketPath: input.connection.socketPath,
-      },
-    };
-  }
-
-  if (input.kind === "ssh") {
-    return {
-      id,
-      label: input.label,
-      kind: "ssh",
-      source: "saved",
-      enabled: input.enabled ?? existing?.enabled ?? true,
-      lastHealth: input.lastHealth ?? existing?.lastHealth ?? null,
-      createdAt,
-      updatedAt: timestamp,
-      connection: {
-        host: input.connection.host,
-        port: input.connection.port,
-      },
-      ssh: {
-        username: input.ssh.username,
-        authMode: input.ssh.authMode,
-        keyPath: input.ssh.keyPath ?? null,
-        knownHostsPath: input.ssh.knownHostsPath ?? null,
-        dockerHostOverride: input.ssh.dockerHostOverride ?? null,
-      },
-    };
-  }
-
-  return {
-    id,
-    label: input.label,
-    kind: "tcpTls",
+  return buildProfile(input, {
+    id: input.id ?? existing?.id ?? idFactory(),
     source: "saved",
     enabled: input.enabled ?? existing?.enabled ?? true,
     lastHealth: input.lastHealth ?? existing?.lastHealth ?? null,
-    createdAt,
+    createdAt: existing?.createdAt ?? timestamp,
     updatedAt: timestamp,
-    connection: {
-      host: input.connection.host,
-      port: input.connection.port,
-    },
-    tls: {
-      serverName: input.tls.serverName ?? null,
-      tlsMode: input.tls.tlsMode,
-      caPath: input.tls.caPath ?? null,
-      certPath: input.tls.certPath ?? null,
-      keyPath: input.tls.keyPath ?? null,
-    },
-  };
+  });
 }
 
 export class EngineTargetStore {
