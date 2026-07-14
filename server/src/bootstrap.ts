@@ -1,7 +1,7 @@
 import { config as loadEnv } from "dotenv";
 import { AuthConfigStore, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERNAME } from "./auth/config";
 
-loadEnv({ path: "server/.env" });
+loadEnv({ path: "server/.env", quiet: true });
 
 export async function ensureDockLiteRuntimeBootstrap() {
   const authConfigStore = new AuthConfigStore();

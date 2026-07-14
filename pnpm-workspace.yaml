@@ -9,3 +9,8 @@ allowBuilds:
   esbuild: true
   protobufjs: true
   ssh2: true
+# Admits one freshly-published version past pnpm's default 24h release-age
+# gate (a types-only package needed for the @types/supertest 6->7 upgrade).
+# Exact-version scoped; remove once it clears the age window on the next bump.
+minimumReleaseAgeExclude:
+  - '@types/supertest@7.2.1'

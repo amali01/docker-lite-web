@@ -181,7 +181,7 @@ export class EngineTargetStore {
       return;
     }
 
-    let shouldPersist = false;
+    let shouldPersist: boolean;
 
     try {
       const raw = await readFile(this.filePath, "utf8");

@@ -9,7 +9,7 @@ import { DockLiteAuth } from "./auth/middleware";
 import { getRuntimeConfig } from "./runtime/config";
 import { BackendError } from "./types";
 
-loadEnv({ path: "server/.env" });
+loadEnv({ path: "server/.env", quiet: true });
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown error";
