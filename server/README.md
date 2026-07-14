@@ -10,11 +10,11 @@ The backend is a lightweight local bridge between the browser UI and Docker on U
 ## Run
 
 ```bash
-npm run server:dev
+pnpm server:dev
 ```
 
 Mock mode:
 
 ```bash
-npm run server:dev:mock
+pnpm server:dev:mock
 ```

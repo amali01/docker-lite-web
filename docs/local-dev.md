@@ -5,7 +5,7 @@
 - Ubuntu host
 - Docker Engine installed locally
 - Docker CLI installed
-- Node.js and npm installed
+- Node.js and pnpm installed
 
 ## Default Ports
 
@@ -38,8 +38,8 @@ Then log out and back in.
 ## Start DockLite Against Real Docker
 
 ```bash
-npm install
-npm run dev:full
+pnpm install
+pnpm dev:full
 ```
 
 DockLite seeds the admin login from env defaults on first boot. If you do not override them, the default login is `admin` / `admin`. Change both in Settings after signing in.
@@ -49,8 +49,8 @@ DockLite seeds the admin login from env defaults on first boot. If you do not ov
 Use this for UI work or smoke tests when you do not want to touch the real Docker daemon.
 
 ```bash
-npm install
-npm run dev:mock
+pnpm install
+pnpm dev:mock
 ```
 
 ## Backend Environment
@@ -71,29 +71,29 @@ Important variables:
 Frontend unit tests:
 
 ```bash
-npm test
+pnpm test
 ```
 
 Backend tests:
 
 ```bash
-npm run server:test
+pnpm server:test
 ```
 
 Backend type-check:
 
 ```bash
-npm run server:typecheck
+pnpm server:typecheck
 ```
 
 Frontend build:
 
 ```bash
-npm run build
+pnpm build
 ```
 
 Browser smoke test:
 
 ```bash
-npm run test:e2e
+pnpm test:e2e
 ```
