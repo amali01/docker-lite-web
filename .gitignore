@@ -50,6 +50,3 @@ coverage/
 
 # Runtime state (regenerated at startup; never commit)
 server/data/engine-targets.json
-
-# Local agent/project conventions — not for the public repo
-CLAUDE.md
