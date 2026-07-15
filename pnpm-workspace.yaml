@@ -9,6 +9,10 @@ allowBuilds:
   esbuild: true
   protobufjs: true
   ssh2: true
+# Make the release-age gate strict: a package younger than the age window is
+# rejected unless it is listed below, instead of pnpm silently auto-admitting
+# it. Keeps the exclusions an explicit, reviewed allowlist.
+minimumReleaseAgeStrict: true
 # Admit a few just-published packages past pnpm's default 24h release-age gate.
 # These are exact-version, upgrade targets adopted the day they shipped; the
 # whole block is transient - delete it once these versions clear the age window.
