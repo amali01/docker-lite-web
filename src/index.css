@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.ts";
 
 @layer base {
   :root {
@@ -57,6 +56,13 @@
 @layer base {
   * {
     @apply border-border;
+  }
+
+  /* Tailwind v4 Preflight no longer sets cursor: pointer on buttons; restore
+     the v3 behavior so clickable controls still feel clickable. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
   }
 
   body {

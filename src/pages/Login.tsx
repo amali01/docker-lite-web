@@ -52,7 +52,7 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-background px-4 py-10">
       <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-md items-center justify-center">
-        <div className="w-full rounded-2xl border border-border bg-card p-6 shadow-sm">
+        <div className="w-full rounded-2xl border border-border bg-card p-6 shadow-xs">
           <div className="mb-6 flex items-start gap-4">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <ShieldCheck className="h-5 w-5" />
