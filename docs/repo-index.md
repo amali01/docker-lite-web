@@ -28,17 +28,18 @@ Important constraint:
 
 ## Tech Stack
 
-- Vite 5
-- React 18
-- TypeScript
-- Tailwind CSS
+- Vite 8
+- React 19
+- TypeScript 7
+- Tailwind CSS v4
 - `shadcn/ui` and Radix UI
-- React Router
+- React Router 7
 - TanStack Query for resource queries and mutations
 - Express 5 + `ws` for the local backend
 - `dockerode` for Docker Engine access
 - Vitest + Testing Library
 - Playwright for smoke coverage
+- oxlint for linting
 
 ## File Map
 
