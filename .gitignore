@@ -25,3 +25,31 @@ server/data/tls/
 *.njsproj
 *.sln
 *.sw?
+skills/
+
+# graphify knowledge graph (local only)
+graphify-out/
+.playwright-mcp/
+*.local.mts
+
+# rebuild orchestrator transient state
+infra/.rebuild-state
+
+# Local acceptance/planning artifacts — never pushed
+jira/
+
+# Extracted blobs / local artifacts (not for commit)
+output/
+
+.next/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+coverage/
+
+# Runtime state (regenerated at startup; never commit)
+server/data/engine-targets.json
+
+# Local agent/project conventions — not for the public repo
+CLAUDE.md
