@@ -34,13 +34,11 @@ describe("AppSidebar", () => {
     fetchMock.mockResolvedValue(engineInfoResponse());
   });
 
-  it("renders the container logo mark", async () => {
+  it("renders the DockLite brand mark", async () => {
     renderWithProviders(<AppSidebar />);
 
-    const logoMark = await screen.findByLabelText("DockLite mark");
-    const logo = logoMark.querySelector("img");
-    expect(logo).not.toBeNull();
-    expect(logo).toHaveAttribute("src", "/container-logo.svg");
+    const logo = await screen.findByAltText("DockLite");
+    expect(logo).toHaveAttribute("src", "/docklite-icon.svg");
   });
 
   it("shuts the server down when Quit is confirmed", async () => {

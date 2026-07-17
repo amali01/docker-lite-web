@@ -50,9 +50,7 @@ export function AppSidebar({ variant = "desktop", onNavigate }: AppSidebarProps)
       {/* Logo */}
       <div className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded bg-primary flex items-center justify-center" aria-label="DockLite mark">
-            <img src="/container-logo.svg" alt="DockLite logo" className="w-5 h-5" />
-          </div>
+          <img src="/docklite-icon.svg" alt="DockLite" className="w-8 h-8" />
           <div>
             <h1 className="text-sm font-mono font-bold text-sidebar-accent-foreground tracking-tight">DockLite</h1>
             <p className="text-[10px] text-muted-foreground font-mono">Docker GUI</p>
