@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { DockLiteAuth } from "../auth/middleware";
 import { hashPassword, verifyPassword } from "../auth/password";
+import { BackendError } from "../types";
 
 const loginSchema = z.object({
   username: z.string().trim().min(1),
@@ -11,6 +12,10 @@ const loginSchema = z.object({
 const updateCredentialsSchema = z.object({
   username: z.string().trim().min(1),
   password: z.string().min(1),
+});
+
+const loginRequiredSchema = z.object({
+  required: z.boolean(),
 });
 
 export function createAuthRouter(auth: DockLiteAuth) {
@@ -74,6 +79,33 @@ export function createAuthRouter(auth: DockLiteAuth) {
       });
 
       response.json(auth.issueAuthResponse(nextConfig));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/login-required", auth.requireAuth(), async (request, response, next) => {
+    try {
+      const resolved = request.dockliteAuth ?? await auth.resolveExpressRequest(request);
+      const { required } = loginRequiredSchema.parse(request.body);
+
+      if (!required && !auth.allowAuthBypass) {
+        throw new BackendError(
+          400,
+          "login_required_locked",
+          "Login can't be disabled while DockLite is reachable over the network.",
+        );
+      }
+
+      const nextConfig = await auth.configStore.write({
+        ...resolved.config,
+        loginRequired: required,
+        // Re-enabling login revokes every existing token so a fresh sign-in is
+        // required; disabling leaves tokens alone (bypass is active anyway).
+        authVersion: required ? resolved.config.authVersion + 1 : resolved.config.authVersion,
+      });
+
+      response.json(auth.getConfigView(nextConfig));
     } catch (error) {
       next(error);
     }

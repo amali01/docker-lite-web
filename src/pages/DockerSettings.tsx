@@ -1,16 +1,28 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { Info, Pencil, PlugZap, Plus, Save, Server, ShieldCheck, Trash2 } from "lucide-react";
+import { Info, Pencil, PlugZap, Plus, Save, Server, ShieldAlert, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   useAuthConfig,
+  useSetLoginRequired,
   useUpdateCredentials,
 } from "@/hooks/use-auth";
 import {
@@ -24,7 +36,7 @@ import {
   useTestEngineTarget,
   useUpdateEngineTarget,
 } from "@/hooks/use-engine";
-import { getApiBaseUrl, setApiBaseUrl } from "@/lib/api/client";
+import { ApiClientError, getApiBaseUrl, setApiBaseUrl } from "@/lib/api/client";
 import type {
   CreateEngineTargetPayload,
   AuthConfigView,
@@ -217,6 +229,8 @@ export default function DockerSettings() {
   const testConnectionMutation = useTestEngineConnection();
   const authConfigQuery = useAuthConfig();
   const updateCredentialsMutation = useUpdateCredentials();
+  const setLoginRequiredMutation = useSetLoginRequired();
+  const [confirmDisableLoginOpen, setConfirmDisableLoginOpen] = useState(false);
   const [apiBaseUrl, setApiBaseUrlState] = useState(getApiBaseUrl());
   const [draft, setDraft] = useState<EngineTargetDraft>(defaultDraft);
   const [editingTargetId, setEditingTargetId] = useState<string | null>(null);
@@ -234,9 +248,10 @@ export default function DockerSettings() {
     deleteTargetMutation.isPending ||
     testTargetMutation.isPending ||
     retestTargetMutation.isPending;
-  const authBusy = updateCredentialsMutation.isPending;
+  const authBusy = updateCredentialsMutation.isPending || setLoginRequiredMutation.isPending;
 
   const backendBaseUrlId = "backend-base-url";
+  const loginRequiredId = "require-login";
   const engineGroupLabelId = "docker-engine-label";
   const dockerEndpointId = "docker-endpoint";
   const apiVersionId = "docker-api-version";
@@ -264,6 +279,15 @@ export default function DockerSettings() {
 
     setAdminUsername(authConfig.adminUsername);
   }, [authConfig]);
+
+  async function handleSetLoginRequired(required: boolean) {
+    try {
+      await setLoginRequiredMutation.mutateAsync(required);
+      toast.success(required ? "Login is now required." : "Login disabled on this device.");
+    } catch (error) {
+      toast.error(error instanceof ApiClientError ? error.message : "Couldn't change the login setting.");
+    }
+  }
 
   async function handleSaveTarget() {
     try {
@@ -389,6 +413,69 @@ export default function DockerSettings() {
                 Update Credentials
               </Button>
             </div>
+
+            <Separator />
+
+            <div className="space-y-3">
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-0.5">
+                  <Label htmlFor={loginRequiredId} className="text-sm font-mono">
+                    Require login
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Ask for the admin password before opening DockLite on this device.
+                  </p>
+                </div>
+                <Switch
+                  id={loginRequiredId}
+                  checked={authConfig.loginRequired}
+                  disabled={authBusy || (!authConfig.canDisableLogin && authConfig.loginRequired)}
+                  onCheckedChange={(next) => {
+                    if (next) {
+                      void handleSetLoginRequired(true);
+                    } else {
+                      setConfirmDisableLoginOpen(true);
+                    }
+                  }}
+                />
+              </div>
+
+              {!authConfig.canDisableLogin ? (
+                <p className="text-xs font-mono text-muted-foreground">
+                  Login stays on while DockLite is reachable over the network.
+                </p>
+              ) : !authConfig.loginRequired ? (
+                <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                  <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span>
+                    Login is off. Anyone who can reach this machine can control Docker and change
+                    these credentials without a password.
+                  </span>
+                </div>
+              ) : null}
+            </div>
+
+            <AlertDialog open={confirmDisableLoginOpen} onOpenChange={setConfirmDisableLoginOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Disable login?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    DockLite will open without a password on this device. Anyone who can reach this
+                    machine will be able to control Docker and change these credentials. Only do this
+                    on a computer you trust.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={() => void handleSetLoginRequired(false)}
+                  >
+                    Disable login
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         ) : (
           <div className="text-sm text-muted-foreground">

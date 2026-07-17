@@ -6,10 +6,20 @@ export interface DockLiteRuntimeConfig {
   remoteModeEnabled: boolean;
   sameOriginMode: boolean;
   staticDir: string | null;
+  // Auth bypass (disable-login) is honored only when the server is bound to a
+  // canonical loopback address — never when reachable off-box.
+  allowAuthBypass: boolean;
 }
 
 function parseBoolean(value: string | undefined) {
   return value === "1" || value === "true";
+}
+
+// Fail closed: only exact loopback literals count. A hostname (incl.
+// "localhost") or any other address is treated as network-exposed, because
+// the disable-login gate must never depend on name resolution.
+export function isLoopbackHost(host: string): boolean {
+  return host === "127.0.0.1" || host === "::1";
 }
 
 export function getRuntimeConfig(): DockLiteRuntimeConfig {
@@ -24,5 +34,6 @@ export function getRuntimeConfig(): DockLiteRuntimeConfig {
     remoteModeEnabled,
     sameOriginMode: remoteModeEnabled,
     staticDir,
+    allowAuthBypass: isLoopbackHost(host),
   };
 }

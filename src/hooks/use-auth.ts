@@ -4,6 +4,7 @@ import {
   getAuthSession,
   login,
   logout,
+  setLoginRequired,
   updateCredentials,
 } from "@/lib/api/resources";
 import { resetAuthRuntimeState, setAuthRuntimeState } from "@/lib/api/client";
@@ -65,6 +66,22 @@ export function useLogout() {
     mutationFn: logout,
     onSuccess: async () => {
       resetAuthRuntimeState();
+      await refreshAuth(queryClient);
+    },
+  });
+}
+
+export function useSetLoginRequired() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (required: boolean) => setLoginRequired(required),
+    onSuccess: async (config) => {
+      // Re-enabling login revokes the server-side token, so drop any local token
+      // too — the next session check then routes the user through the login page.
+      if (config.loginRequired) {
+        resetAuthRuntimeState();
+      }
       await refreshAuth(queryClient);
     },
   });

@@ -48,6 +48,8 @@ async function main() {
   const runtimeConfig = getRuntimeConfig();
   const auth = new DockLiteAuth({
     configStore: authConfigStore,
+    // Only a loopback-bound instance may honor a disabled-login setting.
+    allowAuthBypass: runtimeConfig.allowAuthBypass,
   });
   // Assigned once server/wss exist below; onShutdown defers to it so the app can
   // be created before them. Invoked only at request time, well after assignment.

@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import request from "supertest";
@@ -29,7 +29,12 @@ function createBuiltInTargetInputs(): EngineTargetProfileInput[] {
   }));
 }
 
-async function createTestApp(onShutdown?: () => void) {
+interface CreateTestAppOptions {
+  onShutdown?: () => void;
+  allowAuthBypass?: boolean;
+}
+
+async function createTestApp(options: CreateTestAppOptions = {}) {
   const dir = await mkdtemp(join(tmpdir(), "docklite-app-test-"));
   const targets = getDefaultEngineTargets();
   const backend = new EngineManager(
@@ -41,21 +46,25 @@ async function createTestApp(onShutdown?: () => void) {
     }),
   );
 
+  const authConfigStore = new AuthConfigStore({
+    filePath: join(dir, "auth-config.json"),
+    env: {
+      DOCKLITE_ADMIN_USERNAME: "admin",
+      DOCKLITE_ADMIN_PASSWORD: "admin",
+      DOCKLITE_AUTH_JWT_SECRET: "test-secret",
+    },
+  });
   const auth = new DockLiteAuth({
-    configStore: new AuthConfigStore({
-      filePath: join(dir, "auth-config.json"),
-      env: {
-        DOCKLITE_ADMIN_USERNAME: "admin",
-        DOCKLITE_ADMIN_PASSWORD: "admin",
-        DOCKLITE_AUTH_JWT_SECRET: "test-secret",
-      },
-    }),
+    configStore: authConfigStore,
+    allowAuthBypass: options.allowAuthBypass,
   });
 
   return {
     dir,
     backend,
-    app: createApp(backend, { auth, onShutdown }),
+    auth,
+    authConfigStore,
+    app: createApp(backend, { auth, onShutdown: options.onShutdown }),
   };
 }
 
@@ -102,8 +111,10 @@ describe("DockLite backend app", () => {
   it("accepts an authenticated shutdown and invokes onShutdown after responding", async () => {
     process.env.DOCKLITE_ADAPTER = "mock";
     let shutdownCalls = 0;
-    const { app, dir } = await createTestApp(() => {
-      shutdownCalls += 1;
+    const { app, dir } = await createTestApp({
+      onShutdown: () => {
+        shutdownCalls += 1;
+      },
     });
     tmpDirs.push(dir);
     const api = await createAuthenticatedApi(app);
@@ -115,6 +126,79 @@ describe("DockLite backend app", () => {
     // onShutdown runs on the response 'finish' event, just after the body flushes.
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(shutdownCalls).toBe(1);
+  });
+
+  it("bypasses auth on a loopback instance when login is disabled", async () => {
+    process.env.DOCKLITE_ADAPTER = "mock";
+    const { app, dir, authConfigStore } = await createTestApp({ allowAuthBypass: true });
+    tmpDirs.push(dir);
+    await authConfigStore.write({ ...(await authConfigStore.read()), loginRequired: false });
+
+    const engine = await request(app).get("/api/engine");
+    expect(engine.status).toBe(200);
+
+    const session = await request(app).get("/api/auth/session");
+    expect(session.body.authenticated).toBe(true);
+  });
+
+  it("still requires auth when login is disabled but bypass is not allowed (remote bind)", async () => {
+    process.env.DOCKLITE_ADAPTER = "mock";
+    const { app, dir, authConfigStore } = await createTestApp({ allowAuthBypass: false });
+    tmpDirs.push(dir);
+    await authConfigStore.write({ ...(await authConfigStore.read()), loginRequired: false });
+
+    expect((await request(app).get("/api/engine")).status).toBe(401);
+    // And the toggle refuses to (re-)disable while bypass is not allowed.
+    const api = await createAuthenticatedApi(app);
+    const rejected = await api.post("/api/auth/login-required").send({ required: false });
+    expect(rejected.status).toBe(400);
+  });
+
+  it("requires auth for a pre-feature config with no loginRequired key (fail-closed migration)", async () => {
+    process.env.DOCKLITE_ADAPTER = "mock";
+    const dir = await mkdtemp(join(tmpdir(), "docklite-app-test-"));
+    tmpDirs.push(dir);
+    // A config file written before this feature existed — no loginRequired field.
+    await writeFile(
+      join(dir, "auth-config.json"),
+      JSON.stringify({
+        adminUsername: "admin",
+        adminPasswordHash: "x",
+        authVersion: 1,
+        jwtSecret: "test-secret",
+        defaultCredentialsActive: true,
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      }),
+    );
+    const backend = new EngineManager(
+      getDefaultEngineTargets(),
+      undefined,
+      new EngineTargetStore({
+        filePath: join(dir, "engine-targets.json"),
+        builtInTargets: createBuiltInTargetInputs(),
+      }),
+    );
+    const auth = new DockLiteAuth({
+      configStore: new AuthConfigStore({ filePath: join(dir, "auth-config.json") }),
+      allowAuthBypass: true,
+    });
+    const app = createApp(backend, { auth });
+
+    expect((await request(app).get("/api/engine")).status).toBe(401);
+  });
+
+  it("revokes existing tokens when login is re-enabled", async () => {
+    process.env.DOCKLITE_ADAPTER = "mock";
+    const { app, dir } = await createTestApp({ allowAuthBypass: true });
+    tmpDirs.push(dir);
+    const api = await createAuthenticatedApi(app);
+
+    // Disable, then re-enable — the second call bumps authVersion.
+    expect((await api.post("/api/auth/login-required").send({ required: false })).status).toBe(200);
+    expect((await api.post("/api/auth/login-required").send({ required: true })).status).toBe(200);
+
+    // The token minted before re-enabling is now rejected.
+    expect((await api.get("/api/engine")).status).toBe(401);
   });
 
   it("returns engine info", async () => {

@@ -77,8 +77,11 @@ export class AuthConfigStore {
 
     try {
       const raw = JSON.parse(await readFile(this.filePath, "utf8")) as AuthConfig;
-      this.snapshot = raw;
-      return raw;
+      // Fail closed: a pre-feature config (or any missing/malformed value) means
+      // login is required. Only an explicit `false` disables it.
+      const normalized: AuthConfig = { ...raw, loginRequired: raw.loginRequired !== false };
+      this.snapshot = normalized;
+      return normalized;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
         throw error;
@@ -134,6 +137,7 @@ export class AuthConfigStore {
       authVersion: 1,
       jwtSecret,
       defaultCredentialsActive: true,
+      loginRequired: true,
       updatedAt: this.now(),
     };
   }

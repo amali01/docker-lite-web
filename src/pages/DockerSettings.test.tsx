@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import DockerSettings from "@/pages/DockerSettings";
 import { resetAuthRuntimeState, setAuthRuntimeState } from "@/lib/api/client";
 import { renderWithProviders } from "@/test/render";
@@ -66,6 +66,8 @@ const engineTargetsFixture = [
 const authConfigFixture = {
   adminUsername: "admin",
   defaultCredentialsActive: true,
+  loginRequired: true,
+  canDisableLogin: true,
 } as const;
 
 describe("DockerSettings", () => {
@@ -91,6 +93,12 @@ describe("DockerSettings", () => {
 
       if (url.endsWith("/api/auth/config") && method === "GET") {
         return Promise.resolve(new Response(JSON.stringify(authConfigFixture)));
+      }
+
+      if (url.endsWith("/api/auth/login-required") && method === "POST") {
+        return Promise.resolve(
+          new Response(JSON.stringify({ ...authConfigFixture, loginRequired: false })),
+        );
       }
 
       if (url.endsWith("/api/auth/credentials") && method === "POST") {
@@ -227,6 +235,28 @@ describe("DockerSettings", () => {
         expect.objectContaining({
           method: "POST",
           body: JSON.stringify(testTargetPayload),
+        }),
+      );
+    });
+  });
+
+  it("disables login after confirming the Require login toggle", async () => {
+    renderWithProviders(<DockerSettings />);
+
+    const toggle = await screen.findByRole("switch", { name: /require login/i });
+    expect(toggle).toBeChecked();
+
+    fireEvent.click(toggle);
+
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Disable login" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/auth/login-required"),
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({ required: false }),
         }),
       );
     });

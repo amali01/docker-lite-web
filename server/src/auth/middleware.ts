@@ -8,7 +8,15 @@ import type { AuthConfig } from "./types";
 
 export interface DockLiteAuthOptions {
   configStore?: AuthConfigStore;
+  // Whether a persisted `loginRequired: false` may actually disable auth. Only
+  // true on a loopback-bound server. Defaults false so auth is never bypassed
+  // unless a caller explicitly opts in for a verified-local instance.
+  allowAuthBypass?: boolean;
 }
+
+// Sentinel expiry for the synthetic identity used when login is disabled: there
+// is no token, so it never expires. Kept out of Date/now to stay deterministic.
+const NEVER_EXPIRES = "9999-12-31T23:59:59.000Z";
 
 export interface AuthIdentity {
   username: string;
@@ -63,9 +71,11 @@ function getTokenFromUrl(url: string | undefined, hostHeader: string | undefined
 
 export class DockLiteAuth {
   readonly configStore: AuthConfigStore;
+  readonly allowAuthBypass: boolean;
 
   constructor(options: DockLiteAuthOptions = {}) {
     this.configStore = options.configStore ?? new AuthConfigStore();
+    this.allowAuthBypass = options.allowAuthBypass ?? false;
   }
 
   async resolveExpressRequest(request: Request): Promise<ResolvedAuthRequest> {
@@ -92,7 +102,15 @@ export class DockLiteAuth {
     return {
       adminUsername: config.adminUsername,
       defaultCredentialsActive: config.defaultCredentialsActive,
+      loginRequired: config.loginRequired,
+      canDisableLogin: this.allowAuthBypass,
     };
+  }
+
+  // Login is bypassed only when the operator disabled it AND the instance is
+  // verified loopback-bound. A network-exposed server ignores the stored flag.
+  private isAuthBypassed(config: AuthConfig): boolean {
+    return !config.loginRequired && this.allowAuthBypass;
   }
 
   issueAuthResponse(config: AuthConfig) {
@@ -128,6 +146,18 @@ export class DockLiteAuth {
   private async resolveRequest(headers: IncomingHttpHeaders, url: string | undefined): Promise<ResolvedAuthRequest> {
     const config = await this.configStore.read();
     const token = getBearerToken(headers) ?? getTokenFromUrl(url, getHeader(headers, "host"));
+
+    // When login is disabled on a loopback instance, every request is the admin
+    // regardless of token. Centralized here so the express, WebSocket-upgrade,
+    // and SSE paths (all of which resolve through this method) share one gate.
+    if (this.isAuthBypassed(config)) {
+      return {
+        config,
+        token,
+        identity: { username: config.adminUsername, expiresAt: NEVER_EXPIRES },
+      };
+    }
+
     const identity = token ? verifyAuthToken(token, config) : null;
 
     return {

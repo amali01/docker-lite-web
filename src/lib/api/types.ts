@@ -258,6 +258,9 @@ export interface ApiErrorResponse {
 export interface AuthConfigView {
   adminUsername: string;
   defaultCredentialsActive: boolean;
+  loginRequired: boolean;
+  // Whether login may be disabled at all — true only on a loopback instance.
+  canDisableLogin: boolean;
 }
 
 export interface AuthSessionState {

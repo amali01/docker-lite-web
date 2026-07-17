@@ -48,6 +48,14 @@ export function shutdownServer() {
   });
 }
 
+export function setLoginRequired(required: boolean) {
+  return apiRequest<AuthConfigView>("/api/auth/login-required", {
+    auth: true,
+    method: "POST",
+    body: JSON.stringify({ required }),
+  });
+}
+
 export function getAuthConfig() {
   return apiRequest<AuthConfigView>("/api/auth/config", {
     auth: true,
