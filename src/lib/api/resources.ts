@@ -41,6 +41,13 @@ export function logout() {
   });
 }
 
+export function shutdownServer() {
+  return apiRequest<{ stopping: boolean }>("/api/shutdown", {
+    auth: true,
+    method: "POST",
+  });
+}
+
 export function getAuthConfig() {
   return apiRequest<AuthConfigView>("/api/auth/config", {
     auth: true,

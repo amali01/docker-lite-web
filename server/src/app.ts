@@ -26,6 +26,9 @@ export interface CreateAppOptions {
   auth?: DockLiteAuth;
   sameOriginMode?: boolean;
   staticDir?: string | null;
+  // Invoked after the /api/shutdown response has flushed, to stop the process.
+  // Optional so tests (and any embedding without a lifecycle owner) can omit it.
+  onShutdown?: () => void;
 }
 
 export function createApp(engine: EngineManager, options: CreateAppOptions = {}) {
@@ -62,6 +65,14 @@ export function createApp(engine: EngineManager, options: CreateAppOptions = {})
   app.use("/api/volumes", auth.requireAuth(), createVolumesRouter(resolveBackend));
   app.use("/api/networks", auth.requireAuth(), createNetworksRouter(resolveBackend));
   app.use("/api", createLogsRouter(resolveBackend, auth));
+
+  // Quit the app: stop the background server on the user's request. Auth-gated —
+  // any caller that can authenticate here already has full Docker control, so
+  // stopping the GUI grants no extra power. dockerd is separate and unaffected.
+  app.post("/api/shutdown", auth.requireAuth(), (_request, response) => {
+    response.on("finish", () => options.onShutdown?.());
+    response.status(202).json({ stopping: true });
+  });
 
   const staticDir = options.staticDir ? resolve(options.staticDir) : null;
   const indexHtmlPath = staticDir ? resolve(staticDir, "index.html") : null;

@@ -1,8 +1,20 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Box, HardDrive, LayoutDashboard, Network, Image, LogOut, Settings } from "lucide-react";
+import { Box, HardDrive, LayoutDashboard, Network, Image, LogOut, Power, Settings } from "lucide-react";
 import { useLogout, useAuthSession } from "@/hooks/use-auth";
 import { useEngineInfo } from "@/hooks/use-engine";
+import { useShutdown } from "@/components/ShutdownProvider";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -22,6 +34,7 @@ export function AppSidebar({ variant = "desktop", onNavigate }: AppSidebarProps)
   const location = useLocation();
   const authSession = useAuthSession();
   const logoutMutation = useLogout();
+  const { quit } = useShutdown();
   const engineQuery = useEngineInfo();
   const isConnected = engineQuery.data?.connected ?? false;
   const isMobile = variant === "mobile";
@@ -98,6 +111,40 @@ export function AppSidebar({ variant = "desktop", onNavigate }: AppSidebarProps)
             <LogOut className="h-4 w-4" />
             <span>Log Out</span>
           </Button>
+        ) : null}
+        {showLogout ? (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="ghost"
+                className="mt-0.5 w-full justify-start gap-2.5 px-3 text-muted-foreground hover:text-destructive"
+              >
+                <Power className="h-4 w-4" />
+                <span>Quit DockLite</span>
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Quit DockLite?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This stops the DockLite background server. Your containers keep running — they're
+                  managed by the Docker engine, not this app. Relaunch anytime from the DockLite icon.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={() => {
+                    onNavigate?.();
+                    quit();
+                  }}
+                >
+                  Quit DockLite
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         ) : null}
         <div className="mt-3 px-3">
           <div className="flex items-center gap-1.5">

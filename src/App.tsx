@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/AppLayout";
+import { ShutdownProvider } from "@/components/ShutdownProvider";
 import { useAuthSession } from "@/hooks/use-auth";
 import Dashboard from "@/pages/Dashboard";
 import Containers from "@/pages/Containers";
@@ -49,24 +50,26 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route element={<ProtectedRoutes />}>
-              <Route element={<AppLayout />}>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/containers" element={<Containers />} />
-                <Route path="/containers/:containerId" element={<ContainerDetails />} />
-                <Route path="/images" element={<Images />} />
-                <Route path="/volumes" element={<Volumes />} />
-                <Route path="/networks" element={<Networks />} />
-                <Route path="/settings" element={<DockerSettings />} />
+        <ShutdownProvider>
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route element={<ProtectedRoutes />}>
+                <Route element={<AppLayout />}>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/containers" element={<Containers />} />
+                  <Route path="/containers/:containerId" element={<ContainerDetails />} />
+                  <Route path="/images" element={<Images />} />
+                  <Route path="/volumes" element={<Volumes />} />
+                  <Route path="/networks" element={<Networks />} />
+                  <Route path="/settings" element={<DockerSettings />} />
+                </Route>
               </Route>
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </ShutdownProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );

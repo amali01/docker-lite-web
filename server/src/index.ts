@@ -49,13 +49,30 @@ async function main() {
   const auth = new DockLiteAuth({
     configStore: authConfigStore,
   });
+  // Assigned once server/wss exist below; onShutdown defers to it so the app can
+  // be created before them. Invoked only at request time, well after assignment.
+  let shutdown = () => {};
+
   const app = createApp(engine, {
     auth,
     sameOriginMode: runtimeConfig.sameOriginMode,
     staticDir: runtimeConfig.staticDir,
+    onShutdown: () => shutdown(),
   });
   const server = createHttpServer(app);
   const wss = new WebSocketServer({ noServer: true });
+
+  shutdown = () => {
+    console.log("Shutdown requested via API; stopping DockLite");
+    // Terminate live terminals so the HTTP server can close promptly; SSE log
+    // streams are held-open HTTP connections that the timed fallback reaps.
+    for (const client of wss.clients) {
+      client.terminate();
+    }
+    wss.close();
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 800).unref();
+  };
 
   server.on("upgrade", async (request, socket, head) => {
     const url = new URL(request.url || "", `http://${request.headers.host}`);

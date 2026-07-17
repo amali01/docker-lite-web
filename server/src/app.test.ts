@@ -29,7 +29,7 @@ function createBuiltInTargetInputs(): EngineTargetProfileInput[] {
   }));
 }
 
-async function createTestApp() {
+async function createTestApp(onShutdown?: () => void) {
   const dir = await mkdtemp(join(tmpdir(), "docklite-app-test-"));
   const targets = getDefaultEngineTargets();
   const backend = new EngineManager(
@@ -55,7 +55,7 @@ async function createTestApp() {
   return {
     dir,
     backend,
-    app: createApp(backend, { auth }),
+    app: createApp(backend, { auth, onShutdown }),
   };
 }
 
@@ -87,6 +87,34 @@ describe("DockLite backend app", () => {
   afterEach(async () => {
     await Promise.all(tmpDirs.map((dir) => rm(dir, { recursive: true, force: true })));
     tmpDirs.length = 0;
+  });
+
+  it("rejects an unauthenticated shutdown request", async () => {
+    process.env.DOCKLITE_ADAPTER = "mock";
+    const { app, dir } = await createTestApp();
+    tmpDirs.push(dir);
+
+    const response = await request(app).post("/api/shutdown");
+
+    expect(response.status).toBe(401);
+  });
+
+  it("accepts an authenticated shutdown and invokes onShutdown after responding", async () => {
+    process.env.DOCKLITE_ADAPTER = "mock";
+    let shutdownCalls = 0;
+    const { app, dir } = await createTestApp(() => {
+      shutdownCalls += 1;
+    });
+    tmpDirs.push(dir);
+    const api = await createAuthenticatedApi(app);
+
+    const response = await api.post("/api/shutdown");
+
+    expect(response.status).toBe(202);
+    expect(response.body).toEqual({ stopping: true });
+    // onShutdown runs on the response 'finish' event, just after the body flushes.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(shutdownCalls).toBe(1);
   });
 
   it("returns engine info", async () => {
