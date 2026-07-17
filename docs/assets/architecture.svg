@@ -21,7 +21,7 @@
   <rect x="28" y="56" width="452" height="400" rx="16" fill="#0A1A2A" stroke="#1B3B54"/>
   <circle cx="52" cy="87" r="5" fill="#45566A"/>
   <text class="h"   x="66"  y="93"  font-size="17" fill="#E8F4F8">Docker Desktop for Linux</text>
-  <text class="cap" x="66"  y="114" font-size="12.5" fill="#8AA4B4">runs the engine inside its own virtual machine</text>
+  <text class="cap" x="66"  y="114" font-size="12.5" fill="#FFFFFF">runs the engine inside its own virtual machine</text>
 
   <!-- chain -->
   <g>
@@ -32,12 +32,12 @@
     <!-- Linux VM (the removed layer) -->
     <rect x="56" y="214" width="232" height="56" rx="12" fill="#45566A" stroke="#2C3A49"/>
     <text class="lbl" x="172" y="239" font-size="15.5" fill="#FFFFFF" text-anchor="middle">Linux VM</text>
-    <text class="cap" x="172" y="258" font-size="12" fill="#D3DBE3" text-anchor="middle">guest kernel</text>
+    <text class="cap" x="172" y="258" font-size="12" fill="#FFFFFF" text-anchor="middle">guest kernel</text>
 
     <!-- dockerd inside VM -->
     <rect x="56" y="296" width="232" height="56" rx="12" fill="#45566A" stroke="#2C3A49"/>
     <text class="lbl" x="172" y="321" font-size="15.5" fill="#FFFFFF" text-anchor="middle">dockerd</text>
-    <text class="cap" x="172" y="340" font-size="12" fill="#D3DBE3" text-anchor="middle">inside the VM</text>
+    <text class="cap" x="172" y="340" font-size="12" fill="#FFFFFF" text-anchor="middle">inside the VM</text>
 
     <!-- containers -->
     <rect x="56" y="378" width="232" height="56" rx="12" fill="#0E2437" stroke="#1B3B54"/>
@@ -54,14 +54,14 @@
     <path d="M308,303 A75,9 0 0 1 458,303 L458,349 A75,9 0 0 1 308,349 Z" fill="#12283C" stroke="#1B3B54"/>
     <ellipse cx="383" cy="303" rx="75" ry="9" fill="#16324A" stroke="#1B3B54"/>
     <text class="mono" x="383" y="326" font-size="14" fill="#E8F4F8" text-anchor="middle" font-weight="700">64 GB VM disk</text>
-    <text class="cap"  x="383" y="343" font-size="11.5" fill="#8AA4B4" text-anchor="middle">separate storage</text>
+    <text class="cap"  x="383" y="343" font-size="11.5" fill="#FFFFFF" text-anchor="middle">separate storage</text>
   </g>
 
   <!-- ===================== Right panel: DockLite ===================== -->
   <rect x="520" y="56" width="452" height="400" rx="16" fill="#0A1A2A" stroke="#1B3B54"/>
-  <circle cx="544" cy="87" r="5" fill="#15B9D6"/>
+  <circle cx="544" cy="87" r="5" fill="#1478F2"/>
   <text class="h"   x="558" y="93"  font-size="17" fill="#E8F4F8">DockLite</text>
-  <text class="cap" x="558" y="114" font-size="12.5" fill="#8AA4B4">drives the engine already running on your host</text>
+  <text class="cap" x="558" y="114" font-size="12.5" fill="#FFFFFF">drives the engine already running on your host</text>
 
   <g>
     <!-- Browser UI -->
@@ -69,12 +69,12 @@
     <text class="lbl" x="664" y="166" font-size="15.5" fill="#E8F4F8" text-anchor="middle">Browser UI</text>
 
     <!-- DockLite bridge (lite) -->
-    <rect x="548" y="214" width="232" height="56" rx="12" fill="#15B9D6" stroke="#0C2236"/>
+    <rect x="548" y="214" width="232" height="56" rx="12" fill="#1478F2" stroke="#0C2236"/>
     <text class="lbl"  x="664" y="239" font-size="15.5" fill="#06222E" text-anchor="middle">DockLite bridge</text>
     <text class="mono" x="664" y="258" font-size="12" fill="#06343F" text-anchor="middle">Express &#183; ~26 MB</text>
 
     <!-- dockerd native (lite) -->
-    <rect x="548" y="296" width="232" height="56" rx="12" fill="#15B9D6" stroke="#0C2236"/>
+    <rect x="548" y="296" width="232" height="56" rx="12" fill="#1478F2" stroke="#0C2236"/>
     <text class="lbl" x="664" y="321" font-size="15.5" fill="#06222E" text-anchor="middle">dockerd</text>
     <text class="cap" x="664" y="340" font-size="12" fill="#06343F" text-anchor="middle">native on host</text>
 
@@ -92,7 +92,7 @@
   <g>
     <path d="M800,303 A75,9 0 0 1 950,303 L950,349 A75,9 0 0 1 800,349 Z" fill="#0E2A38" stroke="#1B3B54"/>
     <ellipse cx="875" cy="303" rx="75" ry="9" fill="#123A48" stroke="#1B3B54"/>
-    <text class="mono" x="875" y="326" font-size="13.5" fill="#7FE3F2" text-anchor="middle" font-weight="700">/var/lib/docker</text>
-    <text class="cap"  x="875" y="343" font-size="11.5" fill="#8AA4B4" text-anchor="middle">shared host storage</text>
+    <text class="mono" x="875" y="326" font-size="13.5" fill="#6FA8F5" text-anchor="middle" font-weight="700">/var/lib/docker</text>
+    <text class="cap"  x="875" y="343" font-size="11.5" fill="#FFFFFF" text-anchor="middle">shared host storage</text>
   </g>
 </svg>

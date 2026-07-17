@@ -10,7 +10,7 @@
   <!-- Window chrome -->
   <rect width="800" height="46" rx="14" fill="#0C1E30"/>
   <rect y="30" width="800" height="16" fill="#0C1E30"/>
-  <circle cx="28" cy="23" r="6" fill="#15B9D6"/>
+  <circle cx="28" cy="23" r="6" fill="#1478F2"/>
   <circle cx="50" cy="23" r="6" fill="#2C4256"/>
   <circle cx="72" cy="23" r="6" fill="#2C4256"/>
   <text class="mono" x="400" y="28" font-size="14" fill="#5E7A8C" text-anchor="middle">docklite &#183; terminal</text>
@@ -19,10 +19,10 @@
   <g opacity="1">
     <animate attributeName="opacity" values="0;1" dur="0.3s" begin="0.2s" fill="freeze"/>
     <text class="mono" x="32" y="104" font-size="18">
-      <tspan fill="#15B9D6" font-weight="700">$ </tspan><tspan fill="#E8F4F8">docklite</tspan>
+      <tspan fill="#1478F2" font-weight="700">$ </tspan><tspan fill="#E8F4F8">docklite</tspan>
     </text>
     <!-- blinking cursor -->
-    <rect x="150" y="90" width="10" height="20" fill="#7FE3F2">
+    <rect x="150" y="90" width="10" height="20" fill="#6FA8F5">
       <animate attributeName="opacity" values="1;1;0;0" dur="1.1s" repeatCount="indefinite"/>
     </rect>
   </g>
@@ -30,12 +30,12 @@
   <!-- Output lines -->
   <text class="mono" x="32" y="146" font-size="18" opacity="1">
     <animate attributeName="opacity" values="0;1" dur="0.3s" begin="1.0s" fill="freeze"/>
-    <tspan fill="#7FE3F2">▸ </tspan><tspan fill="#B9D3DE">starting DockLite…</tspan>
+    <tspan fill="#6FA8F5">▸ </tspan><tspan fill="#B9D3DE">starting DockLite…</tspan>
   </text>
 
   <text class="mono" x="32" y="188" font-size="18" opacity="1">
     <animate attributeName="opacity" values="0;1" dur="0.3s" begin="1.7s" fill="freeze"/>
-    <tspan fill="#5BE3B0">✓ </tspan><tspan fill="#B9D3DE">listening on </tspan><tspan fill="#7FE3F2">http://127.0.0.1:9010</tspan>
+    <tspan fill="#5BE3B0">✓ </tspan><tspan fill="#B9D3DE">listening on </tspan><tspan fill="#6FA8F5">http://127.0.0.1:9010</tspan>
   </text>
 
   <text class="mono" x="32" y="230" font-size="18" opacity="1">
@@ -46,10 +46,10 @@
   <!-- Running badge -->
   <g transform="translate(636,258)" opacity="1">
     <animate attributeName="opacity" values="0;1" dur="0.3s" begin="2.6s" fill="freeze"/>
-    <rect x="0" y="0" width="132" height="30" rx="15" fill="#15B9D6" fill-opacity="0.10" stroke="#15B9D6" stroke-opacity="0.5"/>
+    <rect x="0" y="0" width="132" height="30" rx="15" fill="#1478F2" fill-opacity="0.10" stroke="#1478F2" stroke-opacity="0.5"/>
     <circle cx="22" cy="15" r="5" fill="#5BE3B0">
       <animate attributeName="opacity" values="1;0.35;1" dur="1.6s" repeatCount="indefinite"/>
     </circle>
-    <text class="mono" x="40" y="20" font-size="14" fill="#CDE9F1" font-weight="600">running</text>
+    <text class="mono" x="40" y="20" font-size="14" fill="#CBDDFB" font-weight="600">running</text>
   </g>
 </svg>

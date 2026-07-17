@@ -36,20 +36,20 @@
   <!-- ============ edge labels ============ -->
   <g>
     <rect x="320" y="118" width="28" height="20" rx="5" fill="#071523"/>
-    <text class="edge" x="334" y="132" font-size="12" fill="#8AA4B4" text-anchor="middle">no</text>
+    <text class="edge" x="334" y="132" font-size="12" fill="#FFFFFF" text-anchor="middle">no</text>
   </g>
   <g>
     <rect x="438" y="166" width="30" height="20" rx="5" fill="#071523"/>
-    <text class="edge" x="453" y="180" font-size="12" fill="#8AA4B4" text-anchor="middle">yes</text>
+    <text class="edge" x="453" y="180" font-size="12" fill="#FFFFFF" text-anchor="middle">yes</text>
   </g>
   <g>
     <rect x="942" y="130" width="96" height="21" rx="6" fill="#071523"/>
-    <text class="edge" x="990" y="145" font-size="12" fill="#B9D3DE" text-anchor="middle">close the tab</text>
+    <text class="edge" x="990" y="145" font-size="12" fill="#FFFFFF" text-anchor="middle">close the tab</text>
   </g>
   <g>
     <rect x="930" y="205" width="118" height="32" rx="6" fill="#071523"/>
-    <text class="edge" x="989" y="219" font-size="12" fill="#B9D3DE" text-anchor="middle">Quit</text>
-    <text class="cap"  x="989" y="232" font-size="10.5" fill="#8AA4B4" text-anchor="middle">dock menu or in-app</text>
+    <text class="edge" x="989" y="219" font-size="12" fill="#FFFFFF" text-anchor="middle">Quit</text>
+    <text class="cap"  x="989" y="232" font-size="10.5" fill="#FFFFFF" text-anchor="middle">dock menu or in-app</text>
   </g>
 
   <!-- ============ nodes ============ -->
@@ -61,15 +61,15 @@
   <!-- B: decision -->
   <polygon points="240,116 314,176 240,236 166,176" fill="#0E2437" stroke="#1B3B54"/>
   <text class="cap" x="240" y="172" font-size="12" fill="#E8F4F8" text-anchor="middle">already running</text>
-  <text class="mono" x="240" y="189" font-size="12" fill="#7FE3F2" text-anchor="middle">on :9010?</text>
+  <text class="mono" x="240" y="189" font-size="12" fill="#6FA8F5" text-anchor="middle">on :9010?</text>
 
   <!-- C: start server (lite) -->
-  <rect x="372" y="94" width="176" height="54" rx="12" fill="#15B9D6" stroke="#0C2236"/>
+  <rect x="372" y="94" width="176" height="54" rx="12" fill="#1478F2" stroke="#0C2236"/>
   <text class="lbl"  x="460" y="117" font-size="13.5" fill="#06222E" text-anchor="middle">start server</text>
   <text class="mono" x="460" y="135" font-size="12.5" fill="#06343F" text-anchor="middle">127.0.0.1:9010</text>
 
   <!-- D: open tab (lite) -->
-  <rect x="590" y="149" width="158" height="54" rx="12" fill="#15B9D6" stroke="#0C2236"/>
+  <rect x="590" y="149" width="158" height="54" rx="12" fill="#1478F2" stroke="#0C2236"/>
   <text class="lbl" x="669" y="181" font-size="13.5" fill="#06222E" text-anchor="middle">open browser tab</text>
 
   <!-- E: use DockLite -->
@@ -78,9 +78,9 @@
 
   <!-- G: server keeps running (stadium) -->
   <rect x="1080" y="106" width="164" height="52" rx="26" fill="#0E2437" stroke="#1B3B54"/>
-  <text class="lbl" x="1162" y="137" font-size="12.5" fill="#7FE3F2" text-anchor="middle">server keeps running</text>
+  <text class="lbl" x="1162" y="137" font-size="12.5" fill="#6FA8F5" text-anchor="middle">server keeps running</text>
 
   <!-- I: server stops (stadium) -->
   <rect x="1080" y="230" width="164" height="52" rx="26" fill="#0E2437" stroke="#1B3B54"/>
-  <text class="lbl" x="1162" y="261" font-size="12.5" fill="#8AA4B4" text-anchor="middle">server stops</text>
+  <text class="lbl" x="1162" y="261" font-size="12.5" fill="#FFFFFF" text-anchor="middle">server stops</text>
 </svg>
