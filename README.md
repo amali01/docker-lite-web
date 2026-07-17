@@ -50,21 +50,28 @@ The layer DockLite removes is the point of the whole thing: no guest VM sits bet
 containers.
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {
+  "primaryColor": "#0E2437", "primaryTextColor": "#E8F4F8", "primaryBorderColor": "#1B3B54",
+  "lineColor": "#8AA4B4", "textColor": "#E8F4F8",
+  "clusterBkg": "#0C2236", "clusterBorder": "#1B3B54",
+  "edgeLabelBackground": "#071523"
+}}}%%
 flowchart LR
   subgraph DD["Docker Desktop for Linux"]
     direction TB
     G["Electron GUI"] --> VM["Linux VM<br/>(guest kernel)"]
     VM --> DDD["dockerd<br/>inside the VM"]
     DDD --> DC["containers"]
-    VM -. "64 GB disk image<br/>separate storage" .-> DISK[("VM disk")]
+    VM -.-> DISK[("64 GB VM disk<br/>separate storage")]
   end
   subgraph DL["DockLite"]
     direction TB
     B["Browser UI"] --> BR["DockLite bridge<br/>Express, ~26 MB"]
     BR --> HD["dockerd<br/>native on host"]
     HD --> HC["containers"]
-    HD -. "host storage<br/>nothing duplicated" .-> HDISK[("/var/lib/docker")]
+    HD -.-> HDISK[("/var/lib/docker<br/>shared host storage")]
   end
+  DD ~~~ DL
   classDef vm fill:#45566A,color:#ffffff,stroke:#2C3A49;
   classDef lite fill:#15B9D6,color:#06222E,stroke:#0C2236;
   class VM,DDD vm;
@@ -94,16 +101,19 @@ Clicking the **DockLite** icon in your app grid or dock (or running `docklite`) 
 server keeps running. The engine is never touched.
 
 ```mermaid
-flowchart TD
-  A["Click the DockLite icon"] --> B{"Already running<br/>on :9010?"}
-  B -- no --> C["Start server<br/>127.0.0.1:9010"]
-  B -- yes --> D["Open browser tab"]
+%%{init: {"theme": "base", "themeVariables": {
+  "primaryColor": "#0E2437", "primaryTextColor": "#E8F4F8", "primaryBorderColor": "#1B3B54",
+  "lineColor": "#8AA4B4", "textColor": "#E8F4F8",
+  "edgeLabelBackground": "#071523"
+}}}%%
+flowchart LR
+  A["Click the<br/>DockLite icon"] --> B{"already running<br/>on :9010?"}
+  B -- no --> C["start server<br/>127.0.0.1:9010"]
+  B -- yes --> D["open browser tab"]
   C --> D
-  D --> E["Use DockLite"]
-  E --> F["Close the tab"]
-  F --> G(["Server keeps running"])
-  E --> H["Quit: dock menu or in-app button"]
-  H --> I(["Server stops"])
+  D --> E["use DockLite"]
+  E -- "close the tab" --> G(["server keeps running"])
+  E -- "Quit (dock menu<br/>or in-app)" --> I(["server stops"])
   classDef lite fill:#15B9D6,color:#06222E,stroke:#0C2236;
   class C,D lite;
 ```

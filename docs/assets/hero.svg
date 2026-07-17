@@ -34,20 +34,21 @@
 
   <text class="tag" x="314" y="196" font-size="25" fill="#8AA4B4">A native Docker GUI for Linux, without the 64&#160;GB virtual machine.</text>
 
-  <!-- Feature chips -->
+  <!-- Feature chips. Pill width = 42 text offset + chars * ~9.1px (15px mono)
+       + 24px right padding, so the label never overflows the border. -->
   <g transform="translate(314,232)">
     <g>
-      <rect x="0" y="0" width="176" height="40" rx="20" fill="#15B9D6" fill-opacity="0.08" stroke="#15B9D6" stroke-opacity="0.55"/>
+      <rect x="0" y="0" width="188" height="40" rx="20" fill="#15B9D6" fill-opacity="0.08" stroke="#15B9D6" stroke-opacity="0.55"/>
       <circle cx="26" cy="20" r="4" fill="#7FE3F2"/>
       <text class="chip" x="42" y="26" font-size="15" fill="#CDE9F1">26 MB install</text>
     </g>
-    <g transform="translate(192,0)">
-      <rect x="0" y="0" width="252" height="40" rx="20" fill="#15B9D6" fill-opacity="0.08" stroke="#15B9D6" stroke-opacity="0.55"/>
+    <g transform="translate(204,0)">
+      <rect x="0" y="0" width="290" height="40" rx="20" fill="#15B9D6" fill-opacity="0.08" stroke="#15B9D6" stroke-opacity="0.55"/>
       <circle cx="26" cy="20" r="4" fill="#7FE3F2"/>
       <text class="chip" x="42" y="26" font-size="15" fill="#CDE9F1">drives the native engine</text>
     </g>
-    <g transform="translate(460,0)">
-      <rect x="0" y="0" width="236" height="40" rx="20" fill="#15B9D6" fill-opacity="0.08" stroke="#15B9D6" stroke-opacity="0.55"/>
+    <g transform="translate(510,0)">
+      <rect x="0" y="0" width="280" height="40" rx="20" fill="#15B9D6" fill-opacity="0.08" stroke="#15B9D6" stroke-opacity="0.55"/>
       <circle cx="26" cy="20" r="4" fill="#7FE3F2"/>
       <text class="chip" x="42" y="26" font-size="15" fill="#CDE9F1">launches from your dock</text>
     </g>
