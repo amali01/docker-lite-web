@@ -1,51 +1,53 @@
 <p align="center">
-  <img src="docs/assets/hero.svg" alt="DockLite — a fast, native Docker GUI for Linux with no virtual machine" width="900">
+  <img src="docs/assets/hero.svg" alt="DockLite, a native Docker GUI for Linux with no virtual machine" width="900">
 </p>
 
 <p align="center">
-  <strong>DockLite</strong> is a browser-based Docker GUI for Linux that drives the Docker Engine you already run —
-  no Electron shell, no virtual machine, no background bloat.
+  <strong>DockLite</strong> is a browser-based Docker GUI for Linux. It drives the Docker Engine you already
+  run, so there is no Electron shell and no virtual machine to boot.
 </p>
 
 ---
 
 ## Why DockLite?
 
-On Linux, **Docker Desktop doesn't run Docker directly — it runs it inside its own Linux virtual machine.**
+On Linux, Docker Desktop doesn't run Docker directly. It runs it inside its own Linux virtual machine.
 That VM is a multi-gigabyte disk image with a second kernel, a second copy of `dockerd`, and its own
-isolated image and volume storage. Everything you pull or build is stored *twice*: once in the VM, and
-nothing on the host you actually boot.
+isolated image and volume storage. Anything you pull or build is stored inside the VM, kept separate from
+the host you actually boot.
 
-Removing it made the cost concrete — a single machine gave back:
+Removing it made the cost concrete. A single machine gave back:
 
 ```text
 /opt/docker-desktop                    the Electron app
 /usr/lib/docker/cli-plugins            bundled compose/buildx plugins
 /usr/local/bin/com.docker.cli          the desktop CLI shim
-~/.docker/desktop                      the 64 GB Linux VM disk image  ◄── the big one
+~/.docker/desktop                      the 64 GB Linux VM disk image  <-- the big one
 ```
 
-DockLite takes a different path. It's a small local bridge plus a browser UI that talks to the **native
-Docker Engine** (`/var/run/docker.sock`) already on your host. No VM to boot, no storage to duplicate.
+DockLite takes a different route. It is a small local bridge plus a browser UI that talks to the **native
+Docker Engine** (`/var/run/docker.sock`) already on your host. There is no VM to boot and no storage to
+duplicate.
 
 <p align="center">
-  <img src="docs/assets/storage.svg" alt="Docker Desktop's 64 GB VM image versus DockLite's 26 MB install — about 2,500 times lighter" width="820">
+  <img src="docs/assets/storage.svg" alt="Docker Desktop's 64 GB VM image versus DockLite's 26 MB install, about 2,500 times lighter" width="820">
 </p>
 
 |  | Docker Desktop (Linux) | DockLite |
 |---|---|---|
-| Runs the engine in | a bundled Linux VM | the native host engine — **no VM** |
+| Runs the engine in | a bundled Linux VM | the native host engine (no VM) |
 | Disk footprint | **~64 GB** VM disk image | **~26 MB** installed app |
-| Image & volume storage | separate, inside the VM | shared host storage — **nothing duplicated** |
+| Image & volume storage | separate, inside the VM | shared host storage, nothing duplicated |
 | Always-on cost | the VM runs whenever Docker is up | just the `dockerd` you already run |
 | Interface | Electron desktop shell | your browser |
-| Launch model | always-on tray app | on demand — close the tab, the engine stays up |
+| Launch model | always-on tray app | on demand; close the tab and the engine stays up |
 
 ---
 
 ## Architecture
 
-The layer DockLite removes is the whole point: there is no guest VM between the UI and your containers.
+The layer DockLite removes is the point of the whole thing: no guest VM sits between the UI and your
+containers.
 
 ```mermaid
 flowchart LR
@@ -58,7 +60,7 @@ flowchart LR
   end
   subgraph DL["DockLite"]
     direction TB
-    B["Browser UI"] --> BR["DockLite bridge<br/>Express · ~26 MB"]
+    B["Browser UI"] --> BR["DockLite bridge<br/>Express, ~26 MB"]
     BR --> HD["dockerd<br/>native on host"]
     HD --> HC["containers"]
     HD -. "host storage<br/>nothing duplicated" .-> HDISK[("/var/lib/docker")]
@@ -87,9 +89,9 @@ pnpm app:install
   <img src="docs/assets/launch.svg" alt="Running docklite starts the server on 127.0.0.1:9010 and opens the browser" width="680">
 </p>
 
-Clicking the **DockLite** icon in your app grid/dock (or running `docklite`) starts the server on
-`http://127.0.0.1:9010` if it isn't already up, then opens it in your browser. **Close the tab and the
-server keeps running** — the engine is never touched.
+Clicking the **DockLite** icon in your app grid or dock (or running `docklite`) starts the server on
+`http://127.0.0.1:9010` if it isn't already up, then opens it in your browser. Close the tab and the
+server keeps running. The engine is never touched.
 
 ```mermaid
 flowchart TD
@@ -100,7 +102,7 @@ flowchart TD
   D --> E["Use DockLite"]
   E --> F["Close the tab"]
   F --> G(["Server keeps running"])
-  E --> H["Quit — dock menu or in-app button"]
+  E --> H["Quit: dock menu or in-app button"]
   H --> I(["Server stops"])
   classDef lite fill:#15B9D6,color:#06222E,stroke:#0C2236;
   class C,D lite;
@@ -118,19 +120,19 @@ docklite stop     # stop the background server
 
 | Path | Purpose |
 |---|---|
-| `~/.local/share/docklite/app` | the built frontend + bundled server (replaced on upgrade) |
-| `~/.local/share/docklite/data` | credentials & saved engine targets — **persists across upgrades** |
+| `~/.local/share/docklite/app` | the built frontend and bundled server (replaced on upgrade) |
+| `~/.local/share/docklite/data` | credentials and saved engine targets, kept across upgrades |
 | `~/.local/bin/docklite` | the launcher command |
-| `~/.local/share/applications/docklite.desktop` | app-grid / dock entry (with a **Quit** action) |
+| `~/.local/share/applications/docklite.desktop` | app-grid / dock entry, with a **Quit** action |
 
-**Upgrade** — re-run `pnpm app:install`. It stops the old version, swaps in the new build, and restarts
-it if it was running. Your data is left untouched.
+**Upgrade** by re-running `pnpm app:install`. It stops the old version, swaps in the new build, and
+restarts it if it was running. Your data is left in place.
 
 **Uninstall**
 
 ```bash
 docklite stop
-rm -rf ~/.local/share/docklite            # add nothing else to keep your data
+rm -rf ~/.local/share/docklite            # drop this line to keep your data
 rm -f  ~/.local/bin/docklite \
        ~/.local/share/applications/docklite.desktop \
        ~/.local/share/icons/hicolor/scalable/apps/docklite.svg
@@ -140,25 +142,25 @@ rm -f  ~/.local/bin/docklite \
 
 ## Local by default
 
-DockLite is built to run on your own machine, so a **fresh install skips the login wall** and opens
-straight to the dashboard. This convenience is gated, not blanket:
+DockLite is built to run on your own machine, so a fresh install skips the login wall and opens straight
+to the dashboard. That shortcut is gated, not blanket:
 
-- The login bypass is honored **only when the server is bound to a loopback address** (`127.0.0.1` /
-  `::1`) — exactly how the desktop launcher runs it. Bind it to anything reachable off-box and **login is
-  required again**, no matter what.
+- The login bypass applies only when the server is bound to a loopback address (`127.0.0.1` or `::1`),
+  which is how the desktop launcher runs it. Bind it to anything reachable off-box and login comes back,
+  no matter what the setting says.
 - You can turn the login wall back on any time in **Settings → Require login**. Re-enabling it revokes
   existing sessions.
-- Existing installs keep whatever they had — the change only sets the default for brand-new installs.
+- Existing installs keep whatever they had. The new default applies to brand-new installs only.
 
-**Exposing it beyond localhost?** Run with remote mode and a non-loopback bind, and DockLite enforces
-login automatically:
+To reach DockLite from another machine, run it in remote mode with a non-loopback bind. Login is then
+enforced automatically:
 
 ```bash
 DOCKLITE_REMOTE_ENABLED=1 DOCKLITE_HOST=0.0.0.0 pnpm server:dev
 ```
 
-The first boot seeds an admin from `DOCKLITE_ADMIN_USERNAME` / `DOCKLITE_ADMIN_PASSWORD`, falling back to
-`admin` / `admin`. Change both in Settings before exposing the server.
+The first boot seeds an admin from `DOCKLITE_ADMIN_USERNAME` and `DOCKLITE_ADMIN_PASSWORD`, falling back
+to `admin` / `admin`. Change both in Settings before exposing the server.
 
 ---
 
@@ -166,12 +168,12 @@ The first boot seeds an admin from `DOCKLITE_ADMIN_USERNAME` / `DOCKLITE_ADMIN_P
 
 - Engine and system information
 - Containers: list, run, start, stop, restart, remove, streaming logs, interactive shell
-- Compose projects: grouped view with start / stop / remove
+- Compose projects: grouped view with start, stop, and remove
 - Images: list, pull, remove
 - Volumes: list, create, remove
 - Networks: list, create, remove
-- Multiple engine targets (local socket + SSH), switchable from the UI
-- In-app **Quit** and a **mock backend** mode for smoke tests and UI development
+- Multiple engine targets (local socket and SSH), switchable from the UI
+- In-app **Quit**, and a **mock backend** mode for smoke tests and UI development
 
 ---
 
@@ -186,7 +188,7 @@ pnpm dev          # frontend only
 pnpm server:dev   # backend only
 ```
 
-`pnpm dev:mock` is the standard testing ground — an in-memory adapter, no daemon required. To run the
+`pnpm dev:mock` is the standard testing ground: an in-memory adapter, no daemon required. To run the
 frontend and backend together in containers, use `make compose-up` (and `make compose-down` to stop).
 
 Check Docker access before running the real backend:
@@ -215,14 +217,14 @@ pnpm test:e2e
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `DOCKLITE_PORT` | `9001` (dev) · `9010` (installed app) | server port |
-| `DOCKLITE_HOST` | `127.0.0.1` | bind address — non-loopback forces login |
+| `DOCKLITE_PORT` | `9001` dev, `9010` installed app | server port |
+| `DOCKLITE_HOST` | `127.0.0.1` | bind address; a non-loopback value forces login |
 | `DOCKLITE_REMOTE_ENABLED` | `0` | serve the built frontend same-origin |
-| `DOCKLITE_ADAPTER` | real | `mock` for the in-memory adapter |
+| `DOCKLITE_ADAPTER` | real | set to `mock` for the in-memory adapter |
 | `DOCKLITE_ADMIN_USERNAME` / `DOCKLITE_ADMIN_PASSWORD` | `admin` / `admin` | seeded admin credentials |
-| `DOCKLITE_AUTH_JWT_SECRET` | generated | JWT signing secret (never commit) |
+| `DOCKLITE_AUTH_JWT_SECRET` | generated | JWT signing secret (never commit it) |
 
-Runtime state — `server/data/auth-config.json`, `server/data/engine-targets.json`, TLS material — is
+Runtime state lives in `server/data/` (`auth-config.json`, `engine-targets.json`, TLS material). It is
 generated at startup and gitignored. Never commit it.
 
 ---

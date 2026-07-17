@@ -13,7 +13,7 @@
   <circle cx="28" cy="23" r="6" fill="#15B9D6"/>
   <circle cx="50" cy="23" r="6" fill="#2C4256"/>
   <circle cx="72" cy="23" r="6" fill="#2C4256"/>
-  <text class="mono" x="400" y="28" font-size="14" fill="#5E7A8C" text-anchor="middle">docklite — terminal</text>
+  <text class="mono" x="400" y="28" font-size="14" fill="#5E7A8C" text-anchor="middle">docklite &#183; terminal</text>
 
   <!-- Command -->
   <g opacity="1">
@@ -40,7 +40,7 @@
 
   <text class="mono" x="32" y="230" font-size="18" opacity="1">
     <animate attributeName="opacity" values="0;1" dur="0.3s" begin="2.4s" fill="freeze"/>
-    <tspan fill="#5BE3B0">✓ </tspan><tspan fill="#B9D3DE">opened your browser — close the tab, the engine keeps running</tspan>
+    <tspan fill="#5BE3B0">✓ </tspan><tspan fill="#B9D3DE">opened your browser &#183; close the tab, the engine keeps running</tspan>
   </text>
 
   <!-- Running badge -->

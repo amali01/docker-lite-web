@@ -20,7 +20,7 @@
   <rect width="1000" height="440" rx="20" fill="url(#s-bg)"/>
 
   <text class="h"   x="56" y="70"  font-size="30" fill="#E8F4F8">Reclaiming your disk</text>
-  <text class="sub" x="56" y="102" font-size="16" fill="#8AA4B4">Docker Desktop for Linux runs the engine inside its own virtual machine — a multi-gigabyte disk image.</text>
+  <text class="sub" x="56" y="102" font-size="16" fill="#8AA4B4">Docker Desktop for Linux runs the engine inside its own virtual machine, a multi-gigabyte disk image.</text>
   <text class="sub" x="56" y="124" font-size="16" fill="#8AA4B4">DockLite has none: it drives the Docker Engine already running on your host.</text>
 
   <!-- Hero stat tiles -->
@@ -53,5 +53,5 @@
 
   <!-- Leader to the DockLite sliver -->
   <line x1="944" y1="368" x2="944" y2="392" stroke="#45566A" stroke-width="1.5"/>
-  <text class="mono" x="944" y="410" font-size="13" fill="#8AA4B4" text-anchor="end">26 MB DockLite — a hairline at this scale (&#8776; 2,500&#215; lighter)</text>
+  <text class="mono" x="944" y="410" font-size="13" fill="#8AA4B4" text-anchor="end">26 MB DockLite: a hairline at this scale (&#8776; 2,500&#215; lighter)</text>
 </svg>

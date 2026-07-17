@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" width="1200" height="320" role="img" aria-label="DockLite — a fast, native Docker GUI for Linux with no virtual machine">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" width="1200" height="320" role="img" aria-label="DockLite, a native Docker GUI for Linux with no virtual machine">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#071523"/>
@@ -29,10 +29,10 @@
     </g>
   </g>
 
-  <!-- Wordmark: "Dock" solid, "Lite" cyan — the lean half carries the accent -->
+  <!-- Wordmark: "Dock" solid, "Lite" cyan (the lean half carries the accent) -->
   <text class="wm" x="312" y="150" font-size="76" fill="#E8F4F8">Dock<tspan fill="#15B9D6">Lite</tspan></text>
 
-  <text class="tag" x="314" y="196" font-size="25" fill="#8AA4B4">A fast, native Docker GUI for Linux — no 64&#160;GB virtual machine.</text>
+  <text class="tag" x="314" y="196" font-size="25" fill="#8AA4B4">A native Docker GUI for Linux, without the 64&#160;GB virtual machine.</text>
 
   <!-- Feature chips -->
   <g transform="translate(314,232)">

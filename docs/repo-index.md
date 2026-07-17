@@ -58,7 +58,9 @@ Important constraint:
 - [`src/pages/Images.tsx`](../src/pages/Images.tsx): image list, pull, remove, copy image IDs
 - [`src/pages/Volumes.tsx`](../src/pages/Volumes.tsx): volume list, create, remove
 - [`src/pages/Networks.tsx`](../src/pages/Networks.tsx): network list, create, remove
-- [`src/pages/DockerSettings.tsx`](../src/pages/DockerSettings.tsx): backend URL, engine target switching, connection test
+- [`src/pages/ContainerDetails.tsx`](../src/pages/ContainerDetails.tsx): per-container overview, inspect, stats, and shell tabs
+- [`src/pages/Login.tsx`](../src/pages/Login.tsx): admin sign-in when login is required
+- [`src/pages/DockerSettings.tsx`](../src/pages/DockerSettings.tsx): backend URL, engine target switching, connection test, admin credentials, require-login toggle
 
 ### Frontend Data Layer
 
@@ -70,13 +72,15 @@ Important constraint:
 - [`src/hooks/use-images.ts`](../src/hooks/use-images.ts): image queries and mutations
 - [`src/hooks/use-volumes.ts`](../src/hooks/use-volumes.ts): volume queries and mutations
 - [`src/hooks/use-networks.ts`](../src/hooks/use-networks.ts): network queries and mutations
+- [`src/hooks/use-auth.ts`](../src/hooks/use-auth.ts): session, login, credential, and require-login mutations
+- [`src/components/ShutdownProvider.tsx`](../src/components/ShutdownProvider.tsx): in-app Quit and the post-shutdown terminal screen
 - [`src/lib/mock-data.ts`](../src/lib/mock-data.ts): fixture data used by the mock adapter
 
 ### Backend
 
 - [`server/src/index.ts`](../server/src/index.ts): HTTP server bootstrap and terminal WebSocket upgrade handling
 - [`server/src/app.ts`](../server/src/app.ts): Express app, routing, CORS, error handling
-- [`server/src/engine-controller.ts`](../server/src/engine-controller.ts): selected-engine management and backend delegation
+- [`server/src/engine-manager.ts`](../server/src/engine-manager.ts): engine target registry and per-request backend resolution
 - [`server/src/docker/client.ts`](../server/src/docker/client.ts): real Docker adapter and mock adapter
 - [`server/src/routes/engine.ts`](../server/src/routes/engine.ts): engine info and target selection routes
 - [`server/src/routes/containers.ts`](../server/src/routes/containers.ts): container and compose routes
@@ -104,7 +108,7 @@ Important constraint:
 
 - The frontend polls engine info every 30 seconds
 - Settings can list and switch between discovered engine targets
-- Backend target discovery currently covers the system Docker socket and Docker Desktop for Linux if present
+- Auto-discovery covers the system Docker socket and Docker Desktop for Linux if present; users can also add and save SSH and TCP/TLS remote engine targets from Settings
 
 ### Containers
 
@@ -131,11 +135,10 @@ Important constraint:
 
 ### Product Gaps
 
-- No container inspect page
 - No build progress UI
-- No events stream
-- No Compose project inspect/details view
-- No confirmation dialogs for destructive actions
+- No Docker events stream
+- No Compose project inspect/details view (container inspect exists; compose is still group actions only)
+- No confirmation dialogs on destructive resource actions (container/image/volume/network remove); Quit and the require-login toggle are confirmed
 
 ### UX Gaps
 
@@ -145,7 +148,6 @@ Important constraint:
 
 ### Engineering Gaps
 
-- The repo still carries historical doc drift in a few places
 - Frontend tests pass with noisy `xterm`/canvas warnings under jsdom
 - The production frontend bundle is large enough to trigger Vite chunk warnings
 
@@ -153,18 +155,18 @@ Important constraint:
 
 Current automated coverage includes:
 
-- Frontend unit tests for Dashboard, Containers, Settings, logs, status badge, sidebar, and fixtures
-- Backend route and adapter tests in mock mode
-- One Playwright smoke test that boots the frontend plus mock backend and exercises a safe mutation path
+- Frontend unit tests (80 tests across 15 files): Dashboard, Containers, container details, Settings, auth, logs, status badge, sidebar, and fixtures
+- Backend unit tests (84 tests across 11 files): routes, adapters, auth config/middleware, and runtime config, all in mock mode
+- Five Playwright specs: auth, engine targets, settings and resources, container details, and a smoke path
 
 Important caveat:
 
-- The smoke test validates the mock-backed workflow, not a real Docker daemon on the machine
+- The Playwright specs run against the mock backend, not a real Docker daemon on the machine
 
 ## Suggested Near-Term Work
 
-1. Add inspect/details flows for containers and compose projects.
+1. Add an inspect/details flow for Compose projects (containers already have one).
 2. Improve destructive-action confirmations and mutation disabled states.
 3. Clean up test noise around `xterm` in jsdom.
 4. Reduce the large frontend bundle with route or feature-level code splitting.
-5. Expand Playwright coverage beyond the current single smoke path.
+5. Broaden Playwright coverage against a real Docker daemon, not just the mock backend.
