@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1260 380" width="1260" height="380" role="img" aria-label="Launch flow: clicking the DockLite icon starts the server on 127.0.0.1:9010 if it is not already running, then opens a browser tab. Closing the tab keeps the server running; Quit stops it.">
+  <defs>
+    <linearGradient id="lf-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#071523"/>
+      <stop offset="1" stop-color="#0C2236"/>
+    </linearGradient>
+    <marker id="lf-arw" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto">
+      <path d="M0,0 L6.5,3 L0,6 Z" fill="#8AA4B4"/>
+    </marker>
+    <style>
+      .lbl  { font-family: system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; font-weight: 600; }
+      .cap  { font-family: system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; font-weight: 400; }
+      .edge { font-family: system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; font-weight: 500; }
+      .mono { font-family: ui-monospace,"SF Mono",Menlo,Consolas,monospace; font-weight: 500; }
+    </style>
+  </defs>
+
+  <rect width="1260" height="380" rx="20" fill="url(#lf-bg)"/>
+
+  <!-- ============ edges (under nodes) ============ -->
+  <!-- A to B -->
+  <line x1="136" y1="176" x2="164" y2="176" stroke="#8AA4B4" stroke-width="1.6" marker-end="url(#lf-arw)"/>
+  <!-- B to C (no) -->
+  <line x1="300" y1="150" x2="370" y2="130" stroke="#8AA4B4" stroke-width="1.6" marker-end="url(#lf-arw)"/>
+  <!-- B to D (yes): straight along the spine, under C -->
+  <line x1="314" y1="176" x2="588" y2="176" stroke="#8AA4B4" stroke-width="1.6" marker-end="url(#lf-arw)"/>
+  <!-- C to D -->
+  <line x1="548" y1="136" x2="588" y2="164" stroke="#8AA4B4" stroke-width="1.6" marker-end="url(#lf-arw)"/>
+  <!-- D to E -->
+  <line x1="748" y1="176" x2="786" y2="176" stroke="#8AA4B4" stroke-width="1.6" marker-end="url(#lf-arw)"/>
+  <!-- E to G (close the tab) -->
+  <line x1="908" y1="162" x2="1078" y2="134" stroke="#8AA4B4" stroke-width="1.6" marker-end="url(#lf-arw)"/>
+  <!-- E to I (Quit) -->
+  <line x1="908" y1="190" x2="1078" y2="252" stroke="#8AA4B4" stroke-width="1.6" marker-end="url(#lf-arw)"/>
+
+  <!-- ============ edge labels ============ -->
+  <g>
+    <rect x="320" y="118" width="28" height="20" rx="5" fill="#071523"/>
+    <text class="edge" x="334" y="132" font-size="12" fill="#8AA4B4" text-anchor="middle">no</text>
+  </g>
+  <g>
+    <rect x="438" y="166" width="30" height="20" rx="5" fill="#071523"/>
+    <text class="edge" x="453" y="180" font-size="12" fill="#8AA4B4" text-anchor="middle">yes</text>
+  </g>
+  <g>
+    <rect x="942" y="130" width="96" height="21" rx="6" fill="#071523"/>
+    <text class="edge" x="990" y="145" font-size="12" fill="#B9D3DE" text-anchor="middle">close the tab</text>
+  </g>
+  <g>
+    <rect x="930" y="205" width="118" height="32" rx="6" fill="#071523"/>
+    <text class="edge" x="989" y="219" font-size="12" fill="#B9D3DE" text-anchor="middle">Quit</text>
+    <text class="cap"  x="989" y="232" font-size="10.5" fill="#8AA4B4" text-anchor="middle">dock menu or in-app</text>
+  </g>
+
+  <!-- ============ nodes ============ -->
+  <!-- A: click icon -->
+  <rect x="16" y="144" width="120" height="64" rx="12" fill="#0E2437" stroke="#1B3B54"/>
+  <text class="lbl" x="76" y="172" font-size="13.5" fill="#E8F4F8" text-anchor="middle">Click the</text>
+  <text class="lbl" x="76" y="190" font-size="13.5" fill="#E8F4F8" text-anchor="middle">DockLite icon</text>
+
+  <!-- B: decision -->
+  <polygon points="240,116 314,176 240,236 166,176" fill="#0E2437" stroke="#1B3B54"/>
+  <text class="cap" x="240" y="172" font-size="12" fill="#E8F4F8" text-anchor="middle">already running</text>
+  <text class="mono" x="240" y="189" font-size="12" fill="#7FE3F2" text-anchor="middle">on :9010?</text>
+
+  <!-- C: start server (lite) -->
+  <rect x="372" y="94" width="176" height="54" rx="12" fill="#15B9D6" stroke="#0C2236"/>
+  <text class="lbl"  x="460" y="117" font-size="13.5" fill="#06222E" text-anchor="middle">start server</text>
+  <text class="mono" x="460" y="135" font-size="12.5" fill="#06343F" text-anchor="middle">127.0.0.1:9010</text>
+
+  <!-- D: open tab (lite) -->
+  <rect x="590" y="149" width="158" height="54" rx="12" fill="#15B9D6" stroke="#0C2236"/>
+  <text class="lbl" x="669" y="181" font-size="13.5" fill="#06222E" text-anchor="middle">open browser tab</text>
+
+  <!-- E: use DockLite -->
+  <rect x="788" y="149" width="120" height="54" rx="12" fill="#0E2437" stroke="#1B3B54"/>
+  <text class="lbl" x="848" y="181" font-size="13.5" fill="#E8F4F8" text-anchor="middle">use DockLite</text>
+
+  <!-- G: server keeps running (stadium) -->
+  <rect x="1080" y="106" width="164" height="52" rx="26" fill="#0E2437" stroke="#1B3B54"/>
+  <text class="lbl" x="1162" y="137" font-size="12.5" fill="#7FE3F2" text-anchor="middle">server keeps running</text>
+
+  <!-- I: server stops (stadium) -->
+  <rect x="1080" y="230" width="164" height="52" rx="26" fill="#0E2437" stroke="#1B3B54"/>
+  <text class="lbl" x="1162" y="261" font-size="12.5" fill="#8AA4B4" text-anchor="middle">server stops</text>
+</svg>

@@ -49,34 +49,9 @@ duplicate.
 The layer DockLite removes is the point of the whole thing: no guest VM sits between the UI and your
 containers.
 
-```mermaid
-%%{init: {"theme": "base", "themeVariables": {
-  "primaryColor": "#0E2437", "primaryTextColor": "#E8F4F8", "primaryBorderColor": "#1B3B54",
-  "lineColor": "#8AA4B4", "textColor": "#E8F4F8",
-  "clusterBkg": "#0C2236", "clusterBorder": "#1B3B54",
-  "edgeLabelBackground": "#071523"
-}}}%%
-flowchart LR
-  subgraph DD["Docker Desktop for Linux"]
-    direction TB
-    G["Electron GUI"] --> VM["Linux VM<br/>(guest kernel)"]
-    VM --> DDD["dockerd<br/>inside the VM"]
-    DDD --> DC["containers"]
-    VM -.-> DISK[("64 GB VM disk<br/>separate storage")]
-  end
-  subgraph DL["DockLite"]
-    direction TB
-    B["Browser UI"] --> BR["DockLite bridge<br/>Express, ~26 MB"]
-    BR --> HD["dockerd<br/>native on host"]
-    HD --> HC["containers"]
-    HD -.-> HDISK[("/var/lib/docker<br/>shared host storage")]
-  end
-  DD ~~~ DL
-  classDef vm fill:#45566A,color:#ffffff,stroke:#2C3A49;
-  classDef lite fill:#15B9D6,color:#06222E,stroke:#0C2236;
-  class VM,DDD vm;
-  class BR,HD lite;
-```
+<p align="center">
+  <img src="docs/assets/architecture.svg" alt="Docker Desktop for Linux runs the engine inside a Linux VM with its own separate 64 GB disk; DockLite drives the native host dockerd through a 26 MB bridge and shares host storage" width="840">
+</p>
 
 A browser can't open `unix:///var/run/docker.sock` on its own, so DockLite ships a thin backend that
 exposes a constrained HTTP/WebSocket API to the frontend. That bridge is the only moving part it adds.
@@ -100,23 +75,9 @@ Clicking the **DockLite** icon in your app grid or dock (or running `docklite`) 
 `http://127.0.0.1:9010` if it isn't already up, then opens it in your browser. Close the tab and the
 server keeps running. The engine is never touched.
 
-```mermaid
-%%{init: {"theme": "base", "themeVariables": {
-  "primaryColor": "#0E2437", "primaryTextColor": "#E8F4F8", "primaryBorderColor": "#1B3B54",
-  "lineColor": "#8AA4B4", "textColor": "#E8F4F8",
-  "edgeLabelBackground": "#071523"
-}}}%%
-flowchart LR
-  A["Click the<br/>DockLite icon"] --> B{"already running<br/>on :9010?"}
-  B -- no --> C["start server<br/>127.0.0.1:9010"]
-  B -- yes --> D["open browser tab"]
-  C --> D
-  D --> E["use DockLite"]
-  E -- "close the tab" --> G(["server keeps running"])
-  E -- "Quit (dock menu<br/>or in-app)" --> I(["server stops"])
-  classDef lite fill:#15B9D6,color:#06222E,stroke:#0C2236;
-  class C,D lite;
-```
+<p align="center">
+  <img src="docs/assets/launch-flow.svg" alt="Clicking the DockLite icon starts the server on 127.0.0.1:9010 if it is not already running, then opens a browser tab; closing the tab keeps the server running, Quit stops it" width="900">
+</p>
 
 **Command line**
 
