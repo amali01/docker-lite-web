@@ -191,6 +191,13 @@ pnpm server:dev   # backend only
 `pnpm dev:mock` is the standard testing ground: an in-memory adapter, no daemon required. To run the
 frontend and backend together in containers, use `make compose-up` (and `make compose-down` to stop).
 
+**Dependency policy.** Installs are gated by supply-chain rules in `pnpm-workspace.yaml`: package
+versions younger than 7 days are refused (`minimumReleaseAge`), and a package whose trust signals weaken
+between updates fails the install (`trustPolicy: no-downgrade`). Most npm malware is published and pulled
+within days, so the delay means it never reaches this repo. If `pnpm add` rejects a fresh release you
+need today, add an exact-version entry to the exclusion list in `pnpm-workspace.yaml` and delete it once
+the version clears the window.
+
 Check Docker access before running the real backend:
 
 ```bash

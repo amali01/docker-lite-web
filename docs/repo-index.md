@@ -41,6 +41,7 @@ Important constraint:
 - Vitest + Testing Library
 - Playwright for smoke coverage
 - oxlint for linting
+- pnpm 11 with supply-chain gates (`minimumReleaseAge`, `trustPolicy: no-downgrade` in `pnpm-workspace.yaml`)
 
 ## File Map
 
