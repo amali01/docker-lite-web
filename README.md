@@ -60,12 +60,31 @@ exposes a constrained HTTP/WebSocket API to the frontend. That bridge is the onl
 
 ## Install as a desktop app (Linux)
 
+**Requires Docker** installed and running, with your user in the `docker` group.
+
+### Option A — prebuilt release (no clone, no build)
+
+Grab the portable bundle from [Releases](https://github.com/amali01/docker-lite-web/releases), extract, and
+install under `~/.local`. It ships its own Node runtime, so nothing else is needed:
+
+```bash
+tar -xzf docklite-portable-x86_64.tar.gz
+cd DockLite && ./install-portable.sh
+```
+
+Works on x86_64 Linux with glibc ≥ 2.34 (Ubuntu 22.04+, Fedora 35+, and newer).
+
+### Option B — build from this repo
+
 Build a standalone release and install it under `~/.local` with a launcher icon. The installed app runs
 independently of this repo:
 
 ```bash
 pnpm app:install
 ```
+
+To produce the portable bundle yourself (e.g. to carry to another machine), run `pnpm app:pack` — it emits
+`dist-portable/docklite-portable-<arch>.tar.gz`.
 
 <p align="center">
   <img src="docs/assets/launch.svg" alt="Running docklite starts the server on 127.0.0.1:9010 and opens the browser" width="680">

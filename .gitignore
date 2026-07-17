@@ -9,11 +9,13 @@ lerna-debug.log*
 
 node_modules
 dist
+dist-portable
 dist-ssr
 *.local
 test-results
 server/data/auth-config.json
 server/data/tls/
+server/data/*.tmp
 
 # Editor directories and files
 .vscode/*
@@ -46,6 +48,7 @@ output/
 .env
 .env.*
 !.env.example
+.envrc
 coverage/
 
 # Runtime state (regenerated at startup; never commit)
