@@ -5,6 +5,7 @@
   "type": "module",
   "packageManager": "pnpm@11.13.0",
   "scripts": {
+    "app:install": "bash scripts/install-local.sh",
     "bootstrap:runtime": "tsx server/src/bootstrap.ts",
     "dev": "vite",
     "dev:full": "concurrently -k \"pnpm server:dev\" \"pnpm dev\"",

@@ -54,6 +54,37 @@ describe("EngineTargetStore", () => {
     tmpDirs.length = 0;
   });
 
+  it("resolves the store path from DOCKLITE_ENGINE_TARGETS_PATH when no filePath is given", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "docklite-engine-targets-"));
+    tmpDirs.push(dir);
+    const envPath = join(dir, "custom-engine-targets.json");
+    vi.stubEnv("DOCKLITE_ENGINE_TARGETS_PATH", envPath);
+
+    const store = new EngineTargetStore({
+      builtInTargets: createBuiltinTargets(),
+      now: () => fixedNow,
+    });
+
+    await store.saveTarget({
+      id: "prod-ssh",
+      label: "Prod Server",
+      kind: "ssh",
+      connection: {
+        host: "prod.example.internal",
+        port: 22,
+      },
+      ssh: {
+        username: "ops",
+        authMode: "agent",
+      },
+    });
+
+    const raw = JSON.parse(await readFile(envPath, "utf8")) as {
+      savedTargets: Array<{ id: string }>;
+    };
+    expect(raw.savedTargets.map((target) => target.id)).toContain("prod-ssh");
+  });
+
   it("loads an empty store with system docker builtin and desktop seeded as saved", async () => {
     const { dir, store } = await createStore();
     tmpDirs.push(dir);

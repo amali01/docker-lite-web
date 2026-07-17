@@ -1,0 +1,9 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="64" height="64" rx="12" fill="#15B9D6"/>
+  <!-- Filled isometric cube (same motif as the brand logo, but solid so it
+       renders identically across rasterizers and reads at small sizes). -->
+  <path d="M32 13L50 23V41L32 51L14 41V23L32 13Z" fill="#07111F" fill-opacity="0.12"/>
+  <path d="M32 13L50 23L32 33L14 23L32 13Z" fill="#FFFFFF"/>
+  <path d="M14 23L32 33V51L14 41V23Z" fill="#FFFFFF" fill-opacity="0.75"/>
+  <path d="M50 23L32 33V51L50 41V23Z" fill="#FFFFFF" fill-opacity="0.55"/>
+</svg>

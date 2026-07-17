@@ -28,7 +28,7 @@ type EngineTargetStoreSnapshot = {
 const ENGINE_TARGET_STORE_VERSION = 2;
 
 function getDefaultFilePath() {
-  return join(process.cwd(), "server", "data", "engine-targets.json");
+  return process.env.DOCKLITE_ENGINE_TARGETS_PATH ?? join(process.cwd(), "server", "data", "engine-targets.json");
 }
 
 function getDefaultBuiltinTargets(now: () => string): EngineTargetProfile[] {

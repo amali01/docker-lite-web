@@ -68,6 +68,27 @@ Stop Docker Compose stack:
 make compose-down
 ```
 
+## Install as a Desktop App (Linux)
+
+Build a standalone release and install it under `~/.local` with a launcher
+icon — the installed app runs independently of this repo:
+
+```bash
+pnpm app:install
+```
+
+This installs the built frontend plus a bundled server to
+`~/.local/share/docklite/app`, a `docklite` command to `~/.local/bin`, and a
+DockLite entry in your app grid/dock. Clicking the icon starts the server on
+`http://127.0.0.1:9010` (if not already running) and opens it in your browser.
+Closing the tab leaves the server running in the background — stop it with
+`docklite stop`.
+
+User data (credentials, saved engine targets) lives in
+`~/.local/share/docklite/data` and survives upgrades. To upgrade, re-run
+`pnpm app:install`: it stops the old version, swaps in the new build, and
+restarts it if it was running.
+
 ## Validation
 
 ```bash
