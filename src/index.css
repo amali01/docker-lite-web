@@ -3,9 +3,9 @@
 
 @layer base {
   :root {
-    /* Neutrals are tuned to the brand navy (hue ~213, the ink the cyan logo
-       lives on: #07111F / #071523) rather than a generic cool gray, so the
-       shell reads as the same family as the #15B9D6 mark. */
+    /* Neutrals are tuned to the brand navy (hue ~213: #07111F / #071523)
+       rather than a generic cool gray, so the shell reads as the same family
+       as the #1478F2 feather mark (also hue 213). */
     --background: 213 38% 6%;
     --foreground: 200 22% 91%;
 
@@ -15,7 +15,7 @@
     --popover: 213 28% 11%;
     --popover-foreground: 200 22% 91%;
 
-    --primary: 187 94% 43%;
+    --primary: 213 90% 51%;
     --primary-foreground: 213 40% 6%;
 
     --secondary: 214 22% 15%;
@@ -24,7 +24,7 @@
     --muted: 214 22% 13%;
     --muted-foreground: 205 18% 62%;
 
-    --accent: 187 94% 43%;
+    --accent: 213 90% 51%;
     --accent-foreground: 213 40% 6%;
 
     --destructive: 0 72% 51%;
@@ -38,18 +38,18 @@
 
     --border: 214 20% 18%;
     --input: 214 20% 18%;
-    --ring: 187 94% 43%;
+    --ring: 213 90% 51%;
 
     --radius: 0.375rem;
 
     --sidebar-background: 213 40% 7%;
     --sidebar-foreground: 205 20% 82%;
-    --sidebar-primary: 187 94% 43%;
+    --sidebar-primary: 213 90% 51%;
     --sidebar-primary-foreground: 213 40% 6%;
     --sidebar-accent: 214 22% 13%;
     --sidebar-accent-foreground: 200 22% 91%;
     --sidebar-border: 214 20% 15%;
-    --sidebar-ring: 187 94% 43%;
+    --sidebar-ring: 213 90% 51%;
 
     --font-mono: 'JetBrains Mono', monospace;
     --font-sans: 'Inter', system-ui, sans-serif;

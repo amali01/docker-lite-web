@@ -1,9 +1,65 @@
-<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="64" height="64" rx="12" fill="#15B9D6"/>
-  <!-- Filled isometric cube (same motif as the brand logo, but solid so it
-       renders identically across rasterizers and reads at small sizes). -->
-  <path d="M32 13L50 23V41L32 51L14 41V23L32 13Z" fill="#07111F" fill-opacity="0.12"/>
-  <path d="M32 13L50 23L32 33L14 23L32 13Z" fill="#FFFFFF"/>
-  <path d="M14 23L32 33V51L14 41V23Z" fill="#FFFFFF" fill-opacity="0.75"/>
-  <path d="M50 23L32 33V51L50 41V23Z" fill="#FFFFFF" fill-opacity="0.55"/>
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="512"
+  height="512"
+  viewBox="0 0 512 512"
+  fill="none"
+  role="img"
+  aria-label="DockLite feather icon, mono blue"
+>
+  <defs>
+    <linearGradient id="tileG" x1="90" y1="40" x2="430" y2="470" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1478F2" />
+      <stop offset="1" stop-color="#0B55C8" />
+    </linearGradient>
+    <linearGradient id="blocks" x1="290" y1="199" x2="350" y2="295" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F3F4F6" />
+      <stop offset="1" stop-color="#E2E5EA" />
+    </linearGradient>
+    <linearGradient id="wave" x1="250" y1="391" x2="250" y2="431" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#C7CDD5" />
+      <stop offset="1" stop-color="#DBDFE4" />
+    </linearGradient>
+    <linearGradient id="waveShadow" x1="138" y1="0" x2="376" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5C6570" stop-opacity="0" />
+      <stop offset="0.32" stop-color="#5C6570" stop-opacity="0.25" />
+      <stop offset="0.55" stop-color="#5C6570" stop-opacity="0.28" />
+      <stop offset="0.78" stop-color="#5C6570" stop-opacity="0.12" />
+      <stop offset="1" stop-color="#5C6570" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="shaft" x1="176" y1="134" x2="152" y2="325" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#C9CED6" />
+      <stop offset="0.58" stop-color="#D7DBE1" />
+      <stop offset="0.7" stop-color="#C4CAD2" />
+      <stop offset="0.78" stop-color="#98A1AD" />
+      <stop offset="0.84" stop-color="#9EA7B2" />
+      <stop offset="0.92" stop-color="#B3BAC4" />
+      <stop offset="1" stop-color="#BEC5CE" />
+    </linearGradient>
+  </defs>
+
+  <!-- App tile -->
+  <rect x="24" y="24" width="464" height="464" rx="106" fill="url(#tileG)" />
+  <rect x="26" y="26" width="460" height="460" rx="104" stroke="#FFFFFF" stroke-opacity="0.18" stroke-width="4" />
+
+  <!-- Cargo blocks -->
+  <g fill="url(#blocks)">
+    <rect x="298.9" y="198.2" width="46.3" height="35.6" rx="7" />
+    <rect x="243.9" y="242.5" width="45.3" height="52.0" rx="7" />
+    <rect x="298.9" y="242.5" width="47.3" height="52.0" rx="7" />
+    <rect x="354.9" y="242.5" width="46.3" height="52.0" rx="7" />
+  </g>
+
+  <!-- Waves -->
+  <path d="M346.2 385.5 L352.0 386.4 L355.8 390.3 L372.2 391.3 L376.6 396.5 L376.6 400.4 L370.3 406.7 L292.2 406.7 L288.8 409.1 L287.8 412.9 L292.2 417.2 L321.1 417.2 L324.5 420.6 L325.5 425.4 L321.1 430.7 L318.2 431.7 L198.6 431.7 L193.8 429.8 L191.4 426.4 L191.4 421.6 L195.7 417.2 L230.4 417.2 L234.8 412.9 L233.8 409.1 L230.4 406.7 L143.6 406.7 L139.8 404.7 L137.3 401.4 L137.3 395.6 L139.8 392.2 L144.6 390.3 L160.0 390.3 L163.9 386.4 L345.2 386.4 L346.2 385.5 Z" fill="url(#wave)" />
+  <path d="M346.2 385.5 L352.0 386.4 L355.8 390.3 L372.2 391.3 L376.6 396.5 L376.6 400.4 L370.3 406.7 L292.2 406.7 L288.8 409.1 L287.8 412.9 L292.2 417.2 L321.1 417.2 L324.5 420.6 L325.5 425.4 L321.1 430.7 L318.2 431.7 L198.6 431.7 L193.8 429.8 L191.4 426.4 L191.4 421.6 L195.7 417.2 L230.4 417.2 L234.8 412.9 L233.8 409.1 L230.4 406.7 L143.6 406.7 L139.8 404.7 L137.3 401.4 L137.3 395.6 L139.8 392.2 L144.6 390.3 L160.0 390.3 L163.9 386.4 L345.2 386.4 L346.2 385.5 Z" fill="url(#waveShadow)" />
+
+  <!-- Hull -->
+  <path d="M93.5 296.0 L156.2 296.0 L157.6 297.4 L153.7 323.4 L157.1 326.8 L162.9 325.8 L165.3 322.4 L165.3 314.7 L168.7 296.0 L422.4 296.0 L423.9 297.4 L423.9 301.2 L410.3 331.1 L393.0 355.2 L374.2 373.0 L360.7 382.6 L346.2 390.3 L169.7 390.3 L155.2 382.6 L140.7 372.0 L128.7 360.9 L116.1 346.5 L104.5 329.2 L95.9 311.8 L92.0 302.2 L92.0 297.4 L93.5 296.0 Z" fill="#FFFFFF" />
+
+  <!-- Feather -->
+  <path d="M257.4 77.4 L266.1 77.4 L269.5 80.8 L273.4 96.2 L274.3 115.5 L272.4 130.9 L268.5 144.3 L234.8 171.3 L236.2 172.7 L261.8 168.4 L251.2 200.2 L246.4 208.8 L241.0 214.1 L211.6 231.9 L212.1 233.4 L224.6 233.4 L230.4 231.5 L232.8 232.9 L224.2 247.3 L210.2 262.3 L196.7 271.9 L188.0 275.7 L177.4 278.6 L171.1 278.1 L178.8 244.4 L191.4 205.0 L202.9 177.1 L214.5 154.0 L230.0 129.9 L229.5 128.4 L212.6 148.2 L190.4 186.7 L176.9 218.5 L167.3 248.3 L161.5 273.3 L160.0 273.8 L148.0 258.9 L141.2 239.6 L141.2 216.5 L143.1 205.0 L151.8 177.1 L154.2 173.7 L158.6 182.8 L165.8 191.0 L163.4 154.9 L172.1 137.6 L181.7 124.1 L193.8 111.1 L200.5 106.3 L204.9 125.1 L207.3 128.4 L208.7 127.0 L210.7 110.6 L214.5 96.2 L234.3 84.2 L257.4 77.4 Z" fill="#FFFFFF" />
+
+  <!-- Quill shaft -->
+  <path d="M224.6 133.3 L226.1 135.7 L214.5 154.0 L202.9 177.1 L191.4 205.0 L175.9 256.0 L168.2 294.5 L169.2 295.5 L167.3 301.2 L165.3 322.4 L162.9 325.8 L157.1 326.8 L153.7 323.4 L153.7 318.6 L157.6 297.4 L156.6 296.4 L158.6 292.6 L158.6 286.8 L161.5 276.2 L160.5 274.3 L176.9 218.5 L190.4 186.7 L201.0 166.5 L212.6 148.2 L224.6 133.3 Z" fill="url(#shaft)" />
 </svg>
