@@ -89,5 +89,5 @@ When implementing features under this skill:
 
 - preserve type contracts
 - add or update tests
-- verify with `npm test` and `npm run build`
+- verify with `pnpm test` and `pnpm build`
 - document any required Ubuntu or Docker setup changes
