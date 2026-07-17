@@ -310,8 +310,11 @@ export default function Dashboard() {
                         <td className="p-3 text-muted-foreground hidden lg:table-cell">—</td>
                         <td className="sticky right-0 z-10 bg-muted p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
                           <div className="flex items-center justify-end gap-1">
-                            <button onClick={() => void handleGroupAction("start", entry.project, entry.items)} className="rounded p-1.5 text-success transition-colors hover:bg-success/10" title="Start stack"><Play className="h-3.5 w-3.5" /></button>
-                            <button onClick={() => void handleGroupAction("stop", entry.project, entry.items)} className="rounded p-1.5 text-destructive transition-colors hover:bg-destructive/10" title="Stop stack"><Square className="h-3.5 w-3.5" /></button>
+                            {runningCount === 0 ? (
+                              <button onClick={() => void handleGroupAction("start", entry.project, entry.items)} className="rounded p-1.5 text-success transition-colors hover:bg-success/10" title="Start stack"><Play className="h-3.5 w-3.5" /></button>
+                            ) : (
+                              <button onClick={() => void handleGroupAction("stop", entry.project, entry.items)} className="rounded p-1.5 text-destructive transition-colors hover:bg-destructive/10" title="Stop stack"><Square className="h-3.5 w-3.5" /></button>
+                            )}
                             <button onClick={() => void handleGroupAction("remove", entry.project, entry.items)} className="rounded p-1.5 text-destructive transition-colors hover:bg-destructive/10" title="Delete stack"><Trash2 className="h-3.5 w-3.5" /></button>
                           </div>
                         </td>
