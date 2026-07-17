@@ -991,16 +991,18 @@ export default function DockerSettings() {
           About DockLite
         </div>
 
-        <div className="mb-3 flex items-center gap-2">
+        <div className="mb-4 flex items-center gap-2">
           <span className="rounded bg-primary/10 px-2 py-0.5 font-mono text-xs font-semibold text-primary">
-            v1.0.0
+            v0.1.0
           </span>
-          <span className="font-mono text-xs text-muted-foreground">First release</span>
+          <span className="font-mono text-xs text-muted-foreground">Early release</span>
         </div>
 
-        <div className="space-y-2 text-xs font-mono leading-relaxed text-muted-foreground">
-          <p className="text-foreground">A native Docker GUI for Linux — no Electron shell, no virtual machine.</p>
-          <p>
+        <div className="max-w-prose space-y-3">
+          <p className="text-sm font-medium leading-relaxed text-foreground">
+            A native Docker GUI for Linux: no Electron shell, no virtual machine.
+          </p>
+          <p className="text-sm leading-relaxed text-muted-foreground">
             Runs in your browser and drives the Docker Engine already on your host through a small
             local bridge. Manage containers, images, volumes and networks without a multi-gigabyte
             desktop app humming in the background.
