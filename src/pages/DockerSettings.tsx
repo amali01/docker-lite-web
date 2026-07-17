@@ -993,7 +993,7 @@ export default function DockerSettings() {
 
         <div className="mb-4 flex items-center gap-2">
           <span className="rounded bg-primary/10 px-2 py-0.5 font-mono text-xs font-semibold text-primary">
-            v0.1.0
+            v{__APP_VERSION__}
           </span>
           <span className="font-mono text-xs text-muted-foreground">Early release</span>
         </div>
