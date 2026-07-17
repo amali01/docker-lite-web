@@ -137,7 +137,12 @@ export class AuthConfigStore {
       authVersion: 1,
       jwtSecret,
       defaultCredentialsActive: true,
-      loginRequired: true,
+      // DockLite ships as a local desktop app: a fresh install skips the login
+      // wall for zero-friction access. This is honored only on a loopback bind
+      // (see runtime `allowAuthBypass`); a network-exposed instance still
+      // requires login regardless of this value. Existing configs keep their
+      // persisted setting — the `read()` migration stays fail-closed.
+      loginRequired: false,
       updatedAt: this.now(),
     };
   }

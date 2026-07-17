@@ -154,6 +154,18 @@ describe("DockLite backend app", () => {
     expect(rejected.status).toBe(400);
   });
 
+  it("still requires auth for a fresh login-off config when bypass is not allowed", async () => {
+    // The fresh install default is loginRequired:false. On a non-loopback bind
+    // (allowAuthBypass:false) that default must NOT open the instance — this
+    // exercises the real createInitialConfig path, not a hand-written flag.
+    process.env.DOCKLITE_ADAPTER = "mock";
+    const { app, dir, authConfigStore } = await createTestApp({ allowAuthBypass: false });
+    tmpDirs.push(dir);
+
+    expect((await authConfigStore.read()).loginRequired).toBe(false);
+    expect((await request(app).get("/api/engine")).status).toBe(401);
+  });
+
   it("requires auth for a pre-feature config with no loginRequired key (fail-closed migration)", async () => {
     process.env.DOCKLITE_ADAPTER = "mock";
     const dir = await mkdtemp(join(tmpdir(), "docklite-app-test-"));

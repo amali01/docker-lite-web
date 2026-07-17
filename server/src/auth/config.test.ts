@@ -44,6 +44,9 @@ describe("AuthConfigStore", () => {
 
     expect(initial.adminUsername).toBe("bootstrap-admin");
     expect(initial.defaultCredentialsActive).toBe(true);
+    // A fresh install defaults to login-off (local desktop convenience); the
+    // loopback bind gate is what actually keeps this safe.
+    expect(initial.loginRequired).toBe(false);
     expect(initial.authVersion).toBe(1);
     expect(initial.updatedAt).toBe(fixedNow);
     expect(initial.jwtSecret).toBe("bootstrap-secret");
