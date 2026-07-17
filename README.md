@@ -1,123 +1,231 @@
-# DockLite Web
+<p align="center">
+  <img src="docs/assets/hero.svg" alt="DockLite — a fast, native Docker GUI for Linux with no virtual machine" width="900">
+</p>
 
-DockLite Web is a lightweight browser-based Docker UI intended to cover the common Docker Desktop workflows on the same Ubuntu machine, without shipping a heavyweight desktop shell.
+<p align="center">
+  <strong>DockLite</strong> is a browser-based Docker GUI for Linux that drives the Docker Engine you already run —
+  no Electron shell, no virtual machine, no background bloat.
+</p>
 
-The app now has two parts:
+---
 
-- A React frontend served in the browser
-- A lightweight local backend that talks to Docker on Ubuntu
+## Why DockLite?
 
-## What Works
+On Linux, **Docker Desktop doesn't run Docker directly — it runs it inside its own Linux virtual machine.**
+That VM is a multi-gigabyte disk image with a second kernel, a second copy of `dockerd`, and its own
+isolated image and volume storage. Everything you pull or build is stored *twice*: once in the VM, and
+nothing on the host you actually boot.
 
-- Engine/system information
-- Containers list, start, stop, restart, remove, run
-- Streaming container logs
-- Images list, pull, remove
-- Volumes list, create, remove
-- Networks list, create, remove
-- Backend endpoint configuration from the UI
-- Mock backend mode for smoke tests and UI development
+Removing it made the cost concrete — a single machine gave back:
 
-## Run
-
-Install dependencies:
-
-```bash
-pnpm install
+```text
+/opt/docker-desktop                    the Electron app
+/usr/lib/docker/cli-plugins            bundled compose/buildx plugins
+/usr/local/bin/com.docker.cli          the desktop CLI shim
+~/.docker/desktop                      the 64 GB Linux VM disk image  ◄── the big one
 ```
 
-Frontend + real local Docker backend:
+DockLite takes a different path. It's a small local bridge plus a browser UI that talks to the **native
+Docker Engine** (`/var/run/docker.sock`) already on your host. No VM to boot, no storage to duplicate.
 
-```bash
-pnpm dev:full
+<p align="center">
+  <img src="docs/assets/storage.svg" alt="Docker Desktop's 64 GB VM image versus DockLite's 26 MB install — about 2,500 times lighter" width="820">
+</p>
+
+|  | Docker Desktop (Linux) | DockLite |
+|---|---|---|
+| Runs the engine in | a bundled Linux VM | the native host engine — **no VM** |
+| Disk footprint | **~64 GB** VM disk image | **~26 MB** installed app |
+| Image & volume storage | separate, inside the VM | shared host storage — **nothing duplicated** |
+| Always-on cost | the VM runs whenever Docker is up | just the `dockerd` you already run |
+| Interface | Electron desktop shell | your browser |
+| Launch model | always-on tray app | on demand — close the tab, the engine stays up |
+
+---
+
+## Architecture
+
+The layer DockLite removes is the whole point: there is no guest VM between the UI and your containers.
+
+```mermaid
+flowchart LR
+  subgraph DD["Docker Desktop for Linux"]
+    direction TB
+    G["Electron GUI"] --> VM["Linux VM<br/>(guest kernel)"]
+    VM --> DDD["dockerd<br/>inside the VM"]
+    DDD --> DC["containers"]
+    VM -. "64 GB disk image<br/>separate storage" .-> DISK[("VM disk")]
+  end
+  subgraph DL["DockLite"]
+    direction TB
+    B["Browser UI"] --> BR["DockLite bridge<br/>Express · ~26 MB"]
+    BR --> HD["dockerd<br/>native on host"]
+    HD --> HC["containers"]
+    HD -. "host storage<br/>nothing duplicated" .-> HDISK[("/var/lib/docker")]
+  end
+  classDef vm fill:#45566A,color:#ffffff,stroke:#2C3A49;
+  classDef lite fill:#15B9D6,color:#06222E,stroke:#0C2236;
+  class VM,DDD vm;
+  class BR,HD lite;
 ```
 
-Frontend + mock backend:
+A browser can't open `unix:///var/run/docker.sock` on its own, so DockLite ships a thin backend that
+exposes a constrained HTTP/WebSocket API to the frontend. That bridge is the only moving part it adds.
 
-```bash
-pnpm dev:mock
-```
+---
 
-Frontend only:
+## Install as a desktop app (Linux)
 
-```bash
-pnpm dev
-```
-
-Backend only:
-
-```bash
-pnpm server:dev
-```
-
-Docker Compose (frontend + backend):
-
-```bash
-make compose-up
-```
-
-If ports are already in use, override them when starting:
-
-```bash
-DOCKLITE_BACKEND_PORT=9002 DOCKLITE_FRONTEND_PORT=8081 make compose-up
-```
-
-Stop Docker Compose stack:
-
-```bash
-make compose-down
-```
-
-## Install as a Desktop App (Linux)
-
-Build a standalone release and install it under `~/.local` with a launcher
-icon — the installed app runs independently of this repo:
+Build a standalone release and install it under `~/.local` with a launcher icon. The installed app runs
+independently of this repo:
 
 ```bash
 pnpm app:install
 ```
 
-This installs the built frontend plus a bundled server to
-`~/.local/share/docklite/app`, a `docklite` command to `~/.local/bin`, and a
-DockLite entry in your app grid/dock. Clicking the icon starts the server on
-`http://127.0.0.1:9010` (if not already running) and opens it in your browser.
-Closing the tab leaves the server running in the background — stop it with
-`docklite stop`.
+<p align="center">
+  <img src="docs/assets/launch.svg" alt="Running docklite starts the server on 127.0.0.1:9010 and opens the browser" width="680">
+</p>
 
-User data (credentials, saved engine targets) lives in
-`~/.local/share/docklite/data` and survives upgrades. To upgrade, re-run
-`pnpm app:install`: it stops the old version, swaps in the new build, and
-restarts it if it was running.
+Clicking the **DockLite** icon in your app grid/dock (or running `docklite`) starts the server on
+`http://127.0.0.1:9010` if it isn't already up, then opens it in your browser. **Close the tab and the
+server keeps running** — the engine is never touched.
 
-## Validation
+```mermaid
+flowchart TD
+  A["Click the DockLite icon"] --> B{"Already running<br/>on :9010?"}
+  B -- no --> C["Start server<br/>127.0.0.1:9010"]
+  B -- yes --> D["Open browser tab"]
+  C --> D
+  D --> E["Use DockLite"]
+  E --> F["Close the tab"]
+  F --> G(["Server keeps running"])
+  E --> H["Quit — dock menu or in-app button"]
+  H --> I(["Server stops"])
+  classDef lite fill:#15B9D6,color:#06222E,stroke:#0C2236;
+  class C,D lite;
+```
+
+**Command line**
 
 ```bash
+docklite          # start if needed, then open the browser
+docklite start    # start in the background, don't open a tab
+docklite stop     # stop the background server
+```
+
+**What it installs**
+
+| Path | Purpose |
+|---|---|
+| `~/.local/share/docklite/app` | the built frontend + bundled server (replaced on upgrade) |
+| `~/.local/share/docklite/data` | credentials & saved engine targets — **persists across upgrades** |
+| `~/.local/bin/docklite` | the launcher command |
+| `~/.local/share/applications/docklite.desktop` | app-grid / dock entry (with a **Quit** action) |
+
+**Upgrade** — re-run `pnpm app:install`. It stops the old version, swaps in the new build, and restarts
+it if it was running. Your data is left untouched.
+
+**Uninstall**
+
+```bash
+docklite stop
+rm -rf ~/.local/share/docklite            # add nothing else to keep your data
+rm -f  ~/.local/bin/docklite \
+       ~/.local/share/applications/docklite.desktop \
+       ~/.local/share/icons/hicolor/scalable/apps/docklite.svg
+```
+
+---
+
+## Local by default
+
+DockLite is built to run on your own machine, so a **fresh install skips the login wall** and opens
+straight to the dashboard. This convenience is gated, not blanket:
+
+- The login bypass is honored **only when the server is bound to a loopback address** (`127.0.0.1` /
+  `::1`) — exactly how the desktop launcher runs it. Bind it to anything reachable off-box and **login is
+  required again**, no matter what.
+- You can turn the login wall back on any time in **Settings → Require login**. Re-enabling it revokes
+  existing sessions.
+- Existing installs keep whatever they had — the change only sets the default for brand-new installs.
+
+**Exposing it beyond localhost?** Run with remote mode and a non-loopback bind, and DockLite enforces
+login automatically:
+
+```bash
+DOCKLITE_REMOTE_ENABLED=1 DOCKLITE_HOST=0.0.0.0 pnpm server:dev
+```
+
+The first boot seeds an admin from `DOCKLITE_ADMIN_USERNAME` / `DOCKLITE_ADMIN_PASSWORD`, falling back to
+`admin` / `admin`. Change both in Settings before exposing the server.
+
+---
+
+## What works
+
+- Engine and system information
+- Containers: list, run, start, stop, restart, remove, streaming logs, interactive shell
+- Compose projects: grouped view with start / stop / remove
+- Images: list, pull, remove
+- Volumes: list, create, remove
+- Networks: list, create, remove
+- Multiple engine targets (local socket + SSH), switchable from the UI
+- In-app **Quit** and a **mock backend** mode for smoke tests and UI development
+
+---
+
+## Develop
+
+```bash
+pnpm install
+
+pnpm dev:mock     # frontend + in-memory backend (no Docker daemon needed)
+pnpm dev:full     # frontend + real Docker backend over /var/run/docker.sock
+pnpm dev          # frontend only
+pnpm server:dev   # backend only
+```
+
+`pnpm dev:mock` is the standard testing ground — an in-memory adapter, no daemon required. To run the
+frontend and backend together in containers, use `make compose-up` (and `make compose-down` to stop).
+
+Check Docker access before running the real backend:
+
+```bash
+./server/scripts/check-docker-access.sh
+# if your user can't reach Docker:
+sudo usermod -aG docker "$USER"   # then re-login
+```
+
+**Validation**
+
+```bash
+pnpm lint
+pnpm exec tsc -p tsconfig.app.json --noEmit
+pnpm server:typecheck
 pnpm test
 pnpm server:test
-pnpm server:typecheck
 pnpm build
 pnpm test:e2e
 ```
 
-## Ubuntu Local Docker Notes
+---
 
-- Default Docker socket: `/var/run/docker.sock`
-- Default backend URL: `http://127.0.0.1:9001`
-- Default frontend URL: `http://127.0.0.1:8080`
+## Configuration
 
-On first boot, DockLite seeds the admin login from env defaults. If nothing is configured, it uses `admin` / `admin`. Change both in Settings after signing in.
+| Variable | Default | Purpose |
+|---|---|---|
+| `DOCKLITE_PORT` | `9001` (dev) · `9010` (installed app) | server port |
+| `DOCKLITE_HOST` | `127.0.0.1` | bind address — non-loopback forces login |
+| `DOCKLITE_REMOTE_ENABLED` | `0` | serve the built frontend same-origin |
+| `DOCKLITE_ADAPTER` | real | `mock` for the in-memory adapter |
+| `DOCKLITE_ADMIN_USERNAME` / `DOCKLITE_ADMIN_PASSWORD` | `admin` / `admin` | seeded admin credentials |
+| `DOCKLITE_AUTH_JWT_SECRET` | generated | JWT signing secret (never commit) |
 
-Before starting the real backend, run:
+Runtime state — `server/data/auth-config.json`, `server/data/engine-targets.json`, TLS material — is
+generated at startup and gitignored. Never commit it.
 
-```bash
-./server/scripts/check-docker-access.sh
-```
-
-If your user cannot access Docker, add the user to the `docker` group and re-login:
-
-```bash
-sudo usermod -aG docker "$USER"
-```
+---
 
 ## Docs
 
@@ -125,8 +233,3 @@ sudo usermod -aG docker "$USER"
 - [Product Vision](./docs/product-vision.md)
 - [Local Dev](./docs/local-dev.md)
 - [Local Docker MVP Plan](./docs/superpowers/plans/2026-03-30-local-docker-mvp.md)
-
-## Project Skills
-
-- [`.agents/skills/docklite-repo-onboarding/SKILL.md`](./.agents/skills/docklite-repo-onboarding/SKILL.md)
-- [`.agents/skills/docklite-local-docker-mvp/SKILL.md`](./.agents/skills/docklite-local-docker-mvp/SKILL.md)

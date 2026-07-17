@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 440" width="1000" height="440" role="img" aria-label="Storage: Docker Desktop's 64 GB Linux VM image versus DockLite's 26 MB install, about 2,500 times lighter">
+  <defs>
+    <linearGradient id="s-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#071523"/>
+      <stop offset="1" stop-color="#0C2236"/>
+    </linearGradient>
+    <linearGradient id="s-fill" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#15B9D6"/>
+      <stop offset="1" stop-color="#7FE3F2"/>
+    </linearGradient>
+    <style>
+      .h    { font-family: system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; font-weight: 700; }
+      .sub  { font-family: system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; font-weight: 400; }
+      .lbl  { font-family: system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; font-weight: 500; }
+      .num  { font-family: ui-monospace,"SF Mono",Menlo,Consolas,monospace; font-weight: 700; }
+      .mono { font-family: ui-monospace,"SF Mono",Menlo,Consolas,monospace; font-weight: 600; }
+    </style>
+  </defs>
+
+  <rect width="1000" height="440" rx="20" fill="url(#s-bg)"/>
+
+  <text class="h"   x="56" y="70"  font-size="30" fill="#E8F4F8">Reclaiming your disk</text>
+  <text class="sub" x="56" y="102" font-size="16" fill="#8AA4B4">Docker Desktop for Linux runs the engine inside its own virtual machine — a multi-gigabyte disk image.</text>
+  <text class="sub" x="56" y="124" font-size="16" fill="#8AA4B4">DockLite has none: it drives the Docker Engine already running on your host.</text>
+
+  <!-- Hero stat tiles -->
+  <g transform="translate(56,168)">
+    <rect x="0" y="0" width="286" height="92" rx="14" fill="#0E2437" stroke="#1B3B54"/>
+    <text class="num" x="20" y="52" font-size="44" fill="#7FE3F2">64 GB</text>
+    <text class="lbl" x="22" y="76" font-size="14" fill="#8AA4B4">VM image removed</text>
+
+    <rect x="300" y="0" width="286" height="92" rx="14" fill="#0E2437" stroke="#1B3B54"/>
+    <text class="num" x="320" y="52" font-size="44" fill="#15B9D6">26 MB</text>
+    <text class="lbl" x="322" y="76" font-size="14" fill="#8AA4B4">DockLite install</text>
+
+    <rect x="600" y="0" width="286" height="92" rx="14" fill="#0E2437" stroke="#1B3B54"/>
+    <text class="num" x="620" y="52" font-size="44" fill="#E8F4F8">0</text>
+    <text class="lbl" x="622" y="76" font-size="14" fill="#8AA4B4">virtual machines to run</text>
+  </g>
+
+  <!-- Proportional bar: the old 64 GB footprint, at honest linear scale -->
+  <text class="lbl"  x="56"  y="312" font-size="14" fill="#8AA4B4">Docker Desktop disk image, at true scale</text>
+  <text class="mono" x="944" y="312" font-size="14" fill="#8AA4B4" text-anchor="end">64 GB</text>
+
+  <g transform="translate(56,324)">
+    <rect x="0" y="0" width="888" height="44" rx="8" fill="#12283C" stroke="#1B3B54"/>
+    <!-- 99.96% reclaimed -->
+    <rect x="0" y="0" width="882" height="44" rx="8" fill="url(#s-fill)"/>
+    <!-- DockLite 26 MB: true width is under 1px at this scale; drawn 6px so it is visible -->
+    <rect x="882" y="0" width="6" height="44" fill="#45566A"/>
+    <text class="mono" x="24"  y="29" font-size="16" fill="#06222E">64 GB reclaimed</text>
+  </g>
+
+  <!-- Leader to the DockLite sliver -->
+  <line x1="944" y1="368" x2="944" y2="392" stroke="#45566A" stroke-width="1.5"/>
+  <text class="mono" x="944" y="410" font-size="13" fill="#8AA4B4" text-anchor="end">26 MB DockLite — a hairline at this scale (&#8776; 2,500&#215; lighter)</text>
+</svg>

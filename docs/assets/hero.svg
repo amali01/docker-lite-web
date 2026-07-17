@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" width="1200" height="320" role="img" aria-label="DockLite — a fast, native Docker GUI for Linux with no virtual machine">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#071523"/>
+      <stop offset="1" stop-color="#0C2236"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.16" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#15B9D6" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#15B9D6" stop-opacity="0"/>
+    </radialGradient>
+    <style>
+      .wm   { font-family: system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; font-weight: 800; }
+      .tag  { font-family: system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; font-weight: 500; }
+      .chip { font-family: ui-monospace,"SF Mono",Menlo,Consolas,monospace; font-weight: 600; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="320" rx="20" fill="url(#bg)"/>
+  <rect width="1200" height="320" rx="20" fill="url(#glow)"/>
+
+  <!-- Brand mark: the app icon (cyan tile + filled isometric cube) at 168px -->
+  <g transform="translate(72,76)">
+    <g transform="scale(2.625)">
+      <rect width="64" height="64" rx="12" fill="#15B9D6"/>
+      <path d="M32 13L50 23V41L32 51L14 41V23L32 13Z" fill="#07111F" fill-opacity="0.12"/>
+      <path d="M32 13L50 23L32 33L14 23L32 13Z" fill="#FFFFFF"/>
+      <path d="M14 23L32 33V51L14 41V23Z" fill="#FFFFFF" fill-opacity="0.75"/>
+      <path d="M50 23L32 33V51L50 41V23Z" fill="#FFFFFF" fill-opacity="0.55"/>
+    </g>
+  </g>
+
+  <!-- Wordmark: "Dock" solid, "Lite" cyan — the lean half carries the accent -->
+  <text class="wm" x="312" y="150" font-size="76" fill="#E8F4F8">Dock<tspan fill="#15B9D6">Lite</tspan></text>
+
+  <text class="tag" x="314" y="196" font-size="25" fill="#8AA4B4">A fast, native Docker GUI for Linux — no 64&#160;GB virtual machine.</text>
+
+  <!-- Feature chips -->
+  <g transform="translate(314,232)">
+    <g>
+      <rect x="0" y="0" width="176" height="40" rx="20" fill="#15B9D6" fill-opacity="0.08" stroke="#15B9D6" stroke-opacity="0.55"/>
+      <circle cx="26" cy="20" r="4" fill="#7FE3F2"/>
+      <text class="chip" x="42" y="26" font-size="15" fill="#CDE9F1">26 MB install</text>
+    </g>
+    <g transform="translate(192,0)">
+      <rect x="0" y="0" width="252" height="40" rx="20" fill="#15B9D6" fill-opacity="0.08" stroke="#15B9D6" stroke-opacity="0.55"/>
+      <circle cx="26" cy="20" r="4" fill="#7FE3F2"/>
+      <text class="chip" x="42" y="26" font-size="15" fill="#CDE9F1">drives the native engine</text>
+    </g>
+    <g transform="translate(460,0)">
+      <rect x="0" y="0" width="236" height="40" rx="20" fill="#15B9D6" fill-opacity="0.08" stroke="#15B9D6" stroke-opacity="0.55"/>
+      <circle cx="26" cy="20" r="4" fill="#7FE3F2"/>
+      <text class="chip" x="42" y="26" font-size="15" fill="#CDE9F1">launches from your dock</text>
+    </g>
+  </g>
+</svg>

@@ -37,6 +37,7 @@ Important constraint:
 - TanStack Query for resource queries and mutations
 - Express 5 + `ws` for the local backend
 - `dockerode` for Docker Engine access
+- `argon2` + JWT (HS256) for local admin auth, with a loopback-gated login bypass
 - Vitest + Testing Library
 - Playwright for smoke coverage
 - oxlint for linting
@@ -83,8 +84,21 @@ Important constraint:
 - [`server/src/routes/images.ts`](../server/src/routes/images.ts): image routes
 - [`server/src/routes/volumes.ts`](../server/src/routes/volumes.ts): volume routes
 - [`server/src/routes/networks.ts`](../server/src/routes/networks.ts): network routes
+- [`server/src/routes/auth.ts`](../server/src/routes/auth.ts): login, credential, and require-login routes
+- [`server/src/auth/`](../server/src/auth): config store, argon2 password hashing, and JWT middleware
+- [`server/src/runtime/config.ts`](../server/src/runtime/config.ts): host/port/remote-mode + the `allowAuthBypass` loopback gate
+- [`server/src/engine-targets/store.ts`](../server/src/engine-targets/store.ts): persisted engine targets
+
+### Packaging
+
+- [`scripts/install-local.sh`](../scripts/install-local.sh): builds a standalone release and installs the Linux desktop app (`pnpm app:install`)
 
 ## Current Runtime Behavior
+
+### Desktop app & auth
+
+- `pnpm app:install` builds a self-contained release under `~/.local/share/docklite` with a dock launcher; the installed app binds `127.0.0.1:9010` and serves the frontend same-origin.
+- Fresh installs default to login-off for zero-friction local use; the bypass is honored only on a loopback bind (`allowAuthBypass`), so a network-exposed instance always requires login. The wall can be re-enabled in Settings.
 
 ### Engine
 
