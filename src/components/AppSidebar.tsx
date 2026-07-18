@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { Box, HardDrive, LayoutDashboard, Network, Image, LogOut, Power, Settings } from "lucide-react";
-import { useLogout, useAuthSession } from "@/hooks/use-auth";
+import { useLogout, useAuthSession, useAuthConfig } from "@/hooks/use-auth";
 import { useEngineInfo } from "@/hooks/use-engine";
 import { useShutdown } from "@/components/ShutdownProvider";
 import { Button } from "@/components/ui/button";
@@ -33,12 +33,16 @@ interface AppSidebarProps {
 export function AppSidebar({ variant = "desktop", onNavigate }: AppSidebarProps) {
   const location = useLocation();
   const authSession = useAuthSession();
+  const authConfig = useAuthConfig();
   const logoutMutation = useLogout();
   const { quit } = useShutdown();
   const engineQuery = useEngineInfo();
   const isConnected = engineQuery.data?.connected ?? false;
   const isMobile = variant === "mobile";
-  const showLogout = Boolean(authSession.data?.authenticated);
+  const isAuthenticated = Boolean(authSession.data?.authenticated);
+  // Log Out only makes sense when login is actually required — a login-disabled
+  // instance authenticates every request synthetically, so there's no session to end.
+  const showLogout = isAuthenticated && authConfig.data?.loginRequired === true;
 
   return (
     <aside
@@ -110,7 +114,7 @@ export function AppSidebar({ variant = "desktop", onNavigate }: AppSidebarProps)
             <span>Log Out</span>
           </Button>
         ) : null}
-        {showLogout ? (
+        {isAuthenticated ? (
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
