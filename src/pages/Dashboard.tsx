@@ -280,6 +280,13 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody>
+              {rowEntries.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="p-8 text-center font-mono text-muted-foreground">
+                    No containers yet — anything the engine runs will show up here.
+                  </td>
+                </tr>
+              )}
               {rowEntries.map((entry) => {
                 if (entry.type === "group") {
                   const runningCount = entry.items.filter((c) => c.status === "running").length;
@@ -298,7 +305,7 @@ export default function Dashboard() {
                             {expandedGroups[entry.project] ? <ChevronDown className="h-4 w-4 text-primary shrink-0" /> : <ChevronRight className="h-4 w-4 text-primary shrink-0" />}
                             <Boxes className="h-4 w-4 text-primary shrink-0" />
                             <div className="min-w-0">
-                              <div className="font-mono font-medium text-foreground truncate max-w-[14rem] sm:max-w-[18rem] md:max-w-[14rem] lg:max-w-[18rem]" title={entry.project}>{(typeof entry.project === "string" && entry.project.length > 20) ? entry.project.substring(0, 20) + "…" : entry.project}</div>
+                              <div className="font-mono font-medium text-foreground truncate max-w-[14rem] sm:max-w-[18rem] md:max-w-[14rem] lg:max-w-[18rem]" title={entry.project}>{entry.project}</div>
                               <div className="font-mono text-[10px] text-muted-foreground">Compose Stack • {entry.items.length} containers</div>
                             </div>
                           </button>
@@ -311,11 +318,11 @@ export default function Dashboard() {
                         <td className="sticky right-0 z-10 bg-muted p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
                           <div className="flex items-center justify-end gap-1">
                             {runningCount === 0 ? (
-                              <button onClick={() => void handleGroupAction("start", entry.project, entry.items)} className="rounded p-1.5 text-success transition-colors hover:bg-success/10" title="Start stack"><Play className="h-3.5 w-3.5" /></button>
+                              <button onClick={() => void handleGroupAction("start", entry.project, entry.items)} className="rounded p-2 text-success transition-colors hover:bg-success/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Start stack"><Play className="h-3.5 w-3.5" /></button>
                             ) : (
-                              <button onClick={() => void handleGroupAction("stop", entry.project, entry.items)} className="rounded p-1.5 text-destructive transition-colors hover:bg-destructive/10" title="Stop stack"><Square className="h-3.5 w-3.5" /></button>
+                              <button onClick={() => void handleGroupAction("stop", entry.project, entry.items)} className="rounded p-2 text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Stop stack"><Square className="h-3.5 w-3.5" /></button>
                             )}
-                            <button onClick={() => void handleGroupAction("remove", entry.project, entry.items)} className="rounded p-1.5 text-destructive transition-colors hover:bg-destructive/10" title="Delete stack"><Trash2 className="h-3.5 w-3.5" /></button>
+                            <button onClick={() => void handleGroupAction("remove", entry.project, entry.items)} className="rounded p-2 text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Delete stack"><Trash2 className="h-3.5 w-3.5" /></button>
                           </div>
                         </td>
                       </tr>
@@ -335,12 +342,12 @@ export default function Dashboard() {
                                 <ContainerNameLink
                                   containerId={container.id}
                                   containerName={container.name}
-                                  displayName={(() => { const n = (entry.project && container.name.startsWith(entry.project + "-")) ? container.name.replace(entry.project + "-", "") : container.name; return (typeof n === "string" && n.length > 20) ? n.substring(0, 20) + "…" : n; })()}
+                                  displayName={(entry.project && container.name.startsWith(entry.project + "-")) ? container.name.replace(entry.project + "-", "") : container.name}
                                 />
                               </div>
                             </div>
                           </td>
-                          <td className="p-3 font-mono text-muted-foreground hidden md:table-cell"><div className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]" title={container.image}>{(typeof container.image === "string" && container.image.length > 20) ? container.image.substring(0, 20) + "…" : container.image}</div></td>
+                          <td className="p-3 font-mono text-muted-foreground hidden md:table-cell"><div className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]" title={container.image}>{container.image}</div></td>
                           <td className="p-3 hidden sm:table-cell"><StatusBadge status={container.status} /></td>
                           <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">{formatMetric(container.cpuPercent)}</td>
                           <td className="p-3 text-center align-middle hidden lg:table-cell">
@@ -351,7 +358,7 @@ export default function Dashboard() {
                 <path
                   d="M 10 50 A 40 40 0 0 1 90 50"
                   fill="none"
-                  className={`transition-all duration-500 ease-in-out ${(container.memPercent || 0) > 80 ? 'stroke-destructive' : 'stroke-primary'}`}
+                  className={`transition-[stroke-dashoffset,stroke] duration-500 ease-in-out ${(container.memPercent || 0) > 80 ? 'stroke-destructive' : 'stroke-primary'}`}
                   strokeWidth="12"
                   strokeLinecap="round"
                   strokeDasharray="125.6"
@@ -388,11 +395,11 @@ export default function Dashboard() {
                         <ContainerNameLink
                           containerId={container.id}
                           containerName={container.name}
-                          displayName={(typeof container.name === "string" && container.name.length > 20) ? container.name.substring(0, 20) + "…" : container.name}
+                          displayName={container.name}
                         />
                       </div>
                     </td>
-                    <td className="p-3 font-mono text-muted-foreground hidden md:table-cell"><div className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]" title={container.image}>{(typeof container.image === "string" && container.image.length > 20) ? container.image.substring(0, 20) + "…" : container.image}</div></td>
+                    <td className="p-3 font-mono text-muted-foreground hidden md:table-cell"><div className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]" title={container.image}>{container.image}</div></td>
                     <td className="p-3 hidden sm:table-cell"><StatusBadge status={container.status} /></td>
                     <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">{formatMetric(container.cpuPercent)}</td>
                     <td className="p-3 text-center align-middle hidden lg:table-cell">
@@ -403,7 +410,7 @@ export default function Dashboard() {
                 <path 
                   d="M 10 50 A 40 40 0 0 1 90 50" 
                   fill="none" 
-                  className={`transition-all duration-500 ease-in-out ${(container.memPercent || 0) > 80 ? 'stroke-destructive' : 'stroke-primary'}`} 
+                  className={`transition-[stroke-dashoffset,stroke] duration-500 ease-in-out ${(container.memPercent || 0) > 80 ? 'stroke-destructive' : 'stroke-primary'}`} 
                   strokeWidth="12" 
                   strokeLinecap="round" 
                   strokeDasharray="125.6" 

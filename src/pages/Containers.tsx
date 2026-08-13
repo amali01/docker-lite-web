@@ -372,6 +372,13 @@ export default function Containers() {
               </tr>
             </thead>
             <tbody>
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="p-8 text-center font-mono text-muted-foreground">
+                    {filter ? `No containers match "${filter}".` : "No containers yet — anything the engine runs will show up here."}
+                  </td>
+                </tr>
+              )}
               {rowEntries.map((entry) => {
                 if (entry.type === "group") {
                   const runningCount = entry.items.filter((container) => container.status === "running").length;
@@ -427,7 +434,7 @@ export default function Containers() {
                               <button
                                 type="button"
                                 onClick={() => void handleGroupAction("start", entry.project, entry.items)}
-                                className="rounded p-1.5 text-success transition-colors hover:bg-success/10"
+                                className="rounded p-2 text-success transition-colors hover:bg-success/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                 title="Start stack"
                               >
                                 <Play className="h-3.5 w-3.5" />
@@ -436,7 +443,7 @@ export default function Containers() {
                               <button
                                 type="button"
                                 onClick={() => void handleGroupAction("stop", entry.project, entry.items)}
-                                className="rounded p-1.5 text-destructive transition-colors hover:bg-destructive/10"
+                                className="rounded p-2 text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                 title="Stop stack"
                               >
                                 <Square className="h-3.5 w-3.5" />
@@ -445,7 +452,7 @@ export default function Containers() {
                             <button
                               type="button"
                               onClick={() => void handleGroupAction("remove", entry.project, entry.items)}
-                              className="rounded p-1.5 text-destructive transition-colors hover:bg-destructive/10"
+                              className="rounded p-2 text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                               title="Delete stack"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -477,7 +484,7 @@ export default function Containers() {
                                     <ContainerNameLink
                                       containerId={container.id}
                                       containerName={container.name}
-                                      displayName={(() => { const n = (entry.project && container.name.startsWith(entry.project + "-")) ? container.name.replace(entry.project + "-", "") : container.name; return (typeof n === "string" && n.length > 20) ? n.substring(0, 20) + "…" : n; })()}
+                                      displayName={(entry.project && container.name.startsWith(entry.project + "-")) ? container.name.replace(entry.project + "-", "") : container.name}
                                     />
                                   </div>
                                   <div className="font-mono text-[10px] text-muted-foreground truncate max-w-[10rem]">{container.id}</div>
@@ -489,7 +496,7 @@ export default function Containers() {
                                 className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]"
                                 title={container.image}
                               >
-                                {(typeof container.image === "string" && container.image.length > 20) ? container.image.substring(0, 20) + "…" : container.image}
+                                {container.image}
                               </div>
                             </td>
                             <td className="p-3 hidden sm:table-cell">
@@ -505,7 +512,7 @@ export default function Containers() {
                 <path 
                   d="M 10 50 A 40 40 0 0 1 90 50" 
                   fill="none" 
-                  className={`transition-all duration-500 ease-in-out ${(container.memPercent || 0) > 80 ? 'stroke-destructive' : 'stroke-primary'}`} 
+                  className={`transition-[stroke-dashoffset,stroke] duration-500 ease-in-out ${(container.memPercent || 0) > 80 ? 'stroke-destructive' : 'stroke-primary'}`} 
                   strokeWidth="12" 
                   strokeLinecap="round" 
                   strokeDasharray="125.6" 
@@ -540,7 +547,7 @@ export default function Containers() {
                             <td className="p-3 font-mono text-muted-foreground text-[11px] hidden lg:table-cell"><PortLinks ports={container.ports} /></td>
                             <td className="sticky right-0 z-10 bg-card p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
                               <div className="flex items-center justify-end gap-1">
-                              <button onClick={() => toggleMonitoring(container.id)} className={`p-1.5 rounded transition-colors hidden lg:inline-flex ${expandedMonitoring[container.id] ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground"}`} title="Monitoring Options">
+                              <button onClick={() => toggleMonitoring(container.id)} className={`p-2 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring hidden lg:inline-flex ${expandedMonitoring[container.id] ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground"}`} title="Monitoring Options">
                                 <Activity className="w-3.5 h-3.5" />
                               </button>
                               <ContainerActionButtons
@@ -575,7 +582,7 @@ export default function Containers() {
                         <ContainerNameLink
                           containerId={container.id}
                           containerName={container.name}
-                          displayName={(typeof container.name === "string" && container.name.length > 20) ? container.name.substring(0, 20) + "…" : container.name}
+                          displayName={container.name}
                         />
                       </div>
                       <div className="font-mono text-[10px] text-muted-foreground truncate max-w-[12rem]">{container.id}</div>
@@ -585,7 +592,7 @@ export default function Containers() {
                         className="max-w-[8.5rem] truncate md:max-w-[12rem] lg:max-w-[16rem] xl:max-w-[22rem]"
                         title={container.image}
                       >
-                        {(typeof container.image === "string" && container.image.length > 20) ? container.image.substring(0, 20) + "…" : container.image}
+                        {container.image}
                       </div>
                     </td>
                     <td className="p-3 hidden sm:table-cell">
@@ -601,7 +608,7 @@ export default function Containers() {
                 <path 
                   d="M 10 50 A 40 40 0 0 1 90 50" 
                   fill="none" 
-                  className={`transition-all duration-500 ease-in-out ${(container.memPercent || 0) > 80 ? 'stroke-destructive' : 'stroke-primary'}`} 
+                  className={`transition-[stroke-dashoffset,stroke] duration-500 ease-in-out ${(container.memPercent || 0) > 80 ? 'stroke-destructive' : 'stroke-primary'}`} 
                   strokeWidth="12" 
                   strokeLinecap="round" 
                   strokeDasharray="125.6" 
@@ -636,7 +643,7 @@ export default function Containers() {
                     <td className="p-3 font-mono text-muted-foreground text-[11px] hidden lg:table-cell"><PortLinks ports={container.ports} /></td>
                     <td className="sticky right-0 z-10 bg-card p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
                       <div className="flex items-center justify-end gap-1">
-                              <button onClick={() => toggleMonitoring(container.id)} className={`p-1.5 rounded transition-colors hidden lg:inline-flex ${expandedMonitoring[container.id] ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground"}`} title="Monitoring Options">
+                              <button onClick={() => toggleMonitoring(container.id)} className={`p-2 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring hidden lg:inline-flex ${expandedMonitoring[container.id] ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground"}`} title="Monitoring Options">
                                 <Activity className="w-3.5 h-3.5" />
                               </button>
                               <ContainerActionButtons

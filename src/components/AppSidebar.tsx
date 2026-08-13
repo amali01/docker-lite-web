@@ -150,7 +150,7 @@ export function AppSidebar({ variant = "desktop", onNavigate }: AppSidebarProps)
         ) : null}
         <div className="mt-3 px-3">
           <div className="flex items-center gap-1.5">
-            <span className={cn("w-1.5 h-1.5 rounded-full", isConnected ? "bg-success animate-pulse-dot" : "bg-destructive")} />
+            <span className={cn("w-1.5 h-1.5 rounded-full", isConnected ? "bg-success animate-pulse-dot motion-reduce:animate-none" : "bg-destructive")} />
             <span className="text-[10px] font-mono text-muted-foreground">
               {engineQuery.isLoading ? "Checking engine..." : isConnected ? "Engine connected" : "Engine disconnected"}
             </span>

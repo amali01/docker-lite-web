@@ -14,8 +14,8 @@ interface ContainerActionButtonsProps {
 export function ContainerActionButtons({ container, compact = false, logsActive, terminalActive, onAction }: ContainerActionButtonsProps) {
   const containerName = container.name.replace(/^\//, "");
   const buttonClassName = cn(
-    "rounded transition-colors",
-    compact ? "p-1 md:p-1.5" : "p-1.5",
+    "rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+    compact ? "p-2.5 md:p-2" : "p-2",
   );
   const iconClassName = compact ? "w-3 h-3 md:w-3.5 md:h-3.5" : "w-3.5 h-3.5";
 

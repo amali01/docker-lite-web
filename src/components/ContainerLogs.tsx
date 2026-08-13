@@ -53,7 +53,7 @@ export function ContainerLogs({ containerId, containerName, onClose }: Container
     <div className="bg-card border border-border rounded-md overflow-hidden" data-testid="container-logs">
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-muted/30">
         <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-success animate-pulse-dot" />
+          <span className="w-2 h-2 rounded-full bg-success animate-pulse-dot motion-reduce:animate-none" />
           <span className="text-xs font-mono font-medium text-foreground">Logs — {containerName}</span>
           <span className="text-[10px] font-mono text-muted-foreground">({lines.length} lines)</span>
         </div>

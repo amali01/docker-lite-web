@@ -121,6 +121,13 @@ export default function Volumes() {
             </tr>
           </thead>
           <tbody>
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={7} className="p-8 text-center font-mono text-muted-foreground">
+                  {filter ? `No volumes match "${filter}".` : "No volumes yet — created volumes will show up here."}
+                </td>
+              </tr>
+            )}
             {rowEntries.map((entry) => {
               if (entry.type === "group") {
                 const groupState = groupSelectionState(entry.items);
@@ -149,7 +156,7 @@ export default function Volumes() {
                       <td className="p-3 text-muted-foreground">—</td>
                       <td className="p-3 sticky right-0 bg-muted z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted transition-colors">
                         <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => void handleGroupAction("remove", entry.project, entry.items)} className="rounded p-1.5 text-destructive transition-colors hover:bg-destructive/10" title="Delete unused stack volumes">
+                          <button onClick={() => void handleGroupAction("remove", entry.project, entry.items)} className="rounded p-2 text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Delete unused stack volumes">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
@@ -175,7 +182,7 @@ export default function Volumes() {
                         <td className="p-3"><span className={`font-mono text-[11px] px-1.5 py-0.5 rounded ${volume.inUse ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>{volume.inUse ? "Yes" : "No"}</span></td>
                         <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
                           <div className="flex items-center justify-end gap-1">
-                            <button onClick={async () => { try { await removeMutation.mutateAsync(volume.name); toast.success(`Removed ${volume.name}`); } catch (e) { toast.error("Error removing volume"); } }} className="p-1.5 rounded hover:bg-destructive/10 text-destructive disabled:opacity-30" disabled={volume.inUse}><Trash2 className="w-3.5 h-3.5" /></button>
+                            <button onClick={async () => { try { await removeMutation.mutateAsync(volume.name); toast.success(`Removed ${volume.name}`); } catch (e) { toast.error("Error removing volume"); } }} className="p-2 rounded hover:bg-destructive/10 text-destructive disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" disabled={volume.inUse}><Trash2 className="w-3.5 h-3.5" /></button>
                           </div>
                         </td>
                       </tr>
@@ -194,7 +201,7 @@ export default function Volumes() {
                   <td className="p-3"><span className={`font-mono text-[11px] px-1.5 py-0.5 rounded ${volume.inUse ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>{volume.inUse ? "Yes" : "No"}</span></td>
                   <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={async () => { try { await removeMutation.mutateAsync(volume.name); toast.success(`Removed ${volume.name}`); } catch (e) { toast.error("Error removing volume"); } }} className="p-1.5 rounded hover:bg-destructive/10 text-destructive disabled:opacity-30" disabled={volume.inUse}><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={async () => { try { await removeMutation.mutateAsync(volume.name); toast.success(`Removed ${volume.name}`); } catch (e) { toast.error("Error removing volume"); } }} className="p-2 rounded hover:bg-destructive/10 text-destructive disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" disabled={volume.inUse}><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
                 </tr>

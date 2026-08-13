@@ -130,6 +130,13 @@ export default function Images() {
             </tr>
           </thead>
           <tbody>
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={7} className="p-8 text-center font-mono text-muted-foreground">
+                  {filter ? `No images match "${filter}".` : "No images yet — pulled and built images will show up here."}
+                </td>
+              </tr>
+            )}
             {rowEntries.map((entry) => {
               if (entry.type === "group") {
                 const groupState = groupSelectionState(entry.items);
@@ -155,7 +162,7 @@ export default function Images() {
                       <td className="p-3 text-muted-foreground hidden lg:table-cell">—</td>
                       <td className="p-3 sticky right-0 bg-muted z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted transition-colors">
                         <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => void handleGroupAction("remove", entry.project, entry.items)} className="rounded p-1.5 text-destructive transition-colors hover:bg-destructive/10" title="Delete stack images">
+                          <button onClick={() => void handleGroupAction("remove", entry.project, entry.items)} className="rounded p-2 text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Delete stack images">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
@@ -170,14 +177,14 @@ export default function Images() {
                             <span style={{maxWidth:"20ch",display:"inline-block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={`${image.repository}:${image.tag}`}>{image.repository}<span className="sm:hidden text-muted-foreground">:{image.tag}</span></span>
                           </div>
                         </td>
-                        <td className="p-3 hidden sm:table-cell"><span className="font-mono px-1.5 py-0.5 bg-muted rounded text-muted-foreground">{(typeof image.tag === "string" && image.tag.length > 20) ? image.tag.substring(0, 20) + "…" : image.tag}</span></td>
+                        <td className="p-3 hidden sm:table-cell"><span className="font-mono px-1.5 py-0.5 bg-muted rounded text-muted-foreground inline-block max-w-[10rem] lg:max-w-[14rem] truncate align-bottom" title={image.tag}>{image.tag}</span></td>
                         <td className="p-3 font-mono text-muted-foreground hidden md:table-cell">{image.id.slice(0, 19)}</td>
                         <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">{image.size}</td>
                         <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">{image.created}</td>
                         <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
                           <div className="flex items-center justify-end gap-1">
-                            <button onClick={() => { navigator.clipboard.writeText(image.id); toast.success("Copied ID"); }} className="p-1.5 rounded hover:bg-muted text-muted-foreground" title="Copy ID"><Copy className="w-3.5 h-3.5" /></button>
-                            <button onClick={async () => { try { await removeMutation.mutateAsync(image.id); toast.success(`Removed ${image.repository}:${image.tag}`); } catch (e) { toast.error("Error removing image"); } }} className="p-1.5 rounded hover:bg-destructive/10 text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => { navigator.clipboard.writeText(image.id); toast.success("Copied ID"); }} className="p-2 rounded hover:bg-muted text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Copy ID"><Copy className="w-3.5 h-3.5" /></button>
+                            <button onClick={async () => { try { await removeMutation.mutateAsync(image.id); toast.success(`Removed ${image.repository}:${image.tag}`); } catch (e) { toast.error("Error removing image"); } }} className="p-2 rounded hover:bg-destructive/10 text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="w-3.5 h-3.5" /></button>
                           </div>
                         </td>
                       </tr>
@@ -195,14 +202,14 @@ export default function Images() {
                       <span style={{maxWidth:"20ch",display:"inline-block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={`${image.repository}:${image.tag}`}>{image.repository}<span className="sm:hidden text-muted-foreground">:{image.tag}</span></span>
                     </div>
                   </td>
-                  <td className="p-3 hidden sm:table-cell"><span className="font-mono px-1.5 py-0.5 bg-muted rounded text-muted-foreground">{(typeof image.tag === "string" && image.tag.length > 20) ? image.tag.substring(0, 20) + "…" : image.tag}</span></td>
+                  <td className="p-3 hidden sm:table-cell"><span className="font-mono px-1.5 py-0.5 bg-muted rounded text-muted-foreground inline-block max-w-[10rem] lg:max-w-[14rem] truncate align-bottom" title={image.tag}>{image.tag}</span></td>
                   <td className="p-3 font-mono text-muted-foreground hidden md:table-cell">{image.id.slice(0, 19)}</td>
                   <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">{image.size}</td>
                   <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">{image.created}</td>
                   <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => { navigator.clipboard.writeText(image.id); toast.success("Copied ID"); }} className="p-1.5 rounded hover:bg-muted text-muted-foreground" title="Copy ID"><Copy className="w-3.5 h-3.5" /></button>
-                      <button onClick={async () => { try { await removeMutation.mutateAsync(image.id); toast.success(`Removed ${image.repository}:${image.tag}`); } catch (e) { toast.error("Error removing image"); } }} className="p-1.5 rounded hover:bg-destructive/10 text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => { navigator.clipboard.writeText(image.id); toast.success("Copied ID"); }} className="p-2 rounded hover:bg-muted text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Copy ID"><Copy className="w-3.5 h-3.5" /></button>
+                      <button onClick={async () => { try { await removeMutation.mutateAsync(image.id); toast.success(`Removed ${image.repository}:${image.tag}`); } catch (e) { toast.error("Error removing image"); } }} className="p-2 rounded hover:bg-destructive/10 text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
                 </tr>

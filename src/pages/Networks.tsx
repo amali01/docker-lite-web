@@ -128,6 +128,13 @@ export default function Networks() {
             </tr>
           </thead>
           <tbody>
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={8} className="p-8 text-center font-mono text-muted-foreground">
+                  {filter ? `No networks match "${filter}".` : "No networks yet — created networks will show up here."}
+                </td>
+              </tr>
+            )}
             {rowEntries.map((entry) => {
               if (entry.type === "group") {
                 const groupState = groupSelectionState(entry.items);
@@ -154,7 +161,7 @@ export default function Networks() {
                       <td className="p-3 text-muted-foreground hidden md:table-cell">—</td>
                       <td className="p-3 sticky right-0 bg-muted z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted transition-colors">
                         <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => void handleGroupAction("remove", entry.project, entry.items)} className="rounded p-1.5 text-destructive transition-colors hover:bg-destructive/10" title="Delete stack networks">
+                          <button onClick={() => void handleGroupAction("remove", entry.project, entry.items)} className="rounded p-2 text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Delete stack networks">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
@@ -177,7 +184,7 @@ export default function Networks() {
                         <td className="p-3 font-mono text-muted-foreground hidden md:table-cell">{network.containers}</td>
                         <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
                           <div className="flex items-center justify-end gap-1">
-                            <button onClick={async () => { try { await removeMutation.mutateAsync(network.id); toast.success(`Removed ${network.name}`); } catch (e) { toast.error("Error removing network"); } }} className="p-1.5 rounded hover:bg-destructive/10 text-destructive disabled:opacity-30" disabled={defaultNetworks.includes(network.name)}><Trash2 className="w-3.5 h-3.5" /></button>
+                            <button onClick={async () => { try { await removeMutation.mutateAsync(network.id); toast.success(`Removed ${network.name}`); } catch (e) { toast.error("Error removing network"); } }} className="p-2 rounded hover:bg-destructive/10 text-destructive disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" disabled={defaultNetworks.includes(network.name)}><Trash2 className="w-3.5 h-3.5" /></button>
                           </div>
                         </td>
                       </tr>
@@ -203,7 +210,7 @@ export default function Networks() {
                   <td className="p-3 font-mono text-muted-foreground hidden md:table-cell">{network.containers}</td>
                   <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={async () => { try { await removeMutation.mutateAsync(network.id); toast.success(`Removed ${network.name}`); } catch (e) { toast.error("Error removing network"); } }} className="p-1.5 rounded hover:bg-destructive/10 text-destructive disabled:opacity-30" disabled={defaultNetworks.includes(network.name)}><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={async () => { try { await removeMutation.mutateAsync(network.id); toast.success(`Removed ${network.name}`); } catch (e) { toast.error("Error removing network"); } }} className="p-2 rounded hover:bg-destructive/10 text-destructive disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" disabled={defaultNetworks.includes(network.name)}><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
                 </tr>

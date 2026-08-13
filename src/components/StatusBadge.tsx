@@ -13,7 +13,7 @@ export function StatusBadge({ status }: { status: Status }) {
   const config = statusConfig[status];
   return (
     <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-sm text-xs font-mono border", config.color)}>
-      <span className={cn("w-1.5 h-1.5 rounded-full", config.dotColor, status === 'running' && "animate-pulse-dot")} />
+      <span className={cn("w-1.5 h-1.5 rounded-full", config.dotColor, status === 'running' && "animate-pulse-dot motion-reduce:animate-none")} />
       {config.label}
     </span>
   );
