@@ -37,6 +37,10 @@ esac
 
 command -v node > /dev/null || die "node not found on PATH (needed to compile native deps)"
 HOST_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
+
+# Read from the repo rather than hardcoded: a stale pin here ships a pnpm the
+# packaged app cannot run (pnpm refuses known-broken releases outright).
+PNPM_PIN="$(cd "$REPO_ROOT" && node -p 'require("./package.json").packageManager')"
 BUNDLE_MAJOR="${NODE_VERSION#v}"; BUNDLE_MAJOR="${BUNDLE_MAJOR%%.*}"
 [ "$HOST_MAJOR" = "$BUNDLE_MAJOR" ] || die \
   "node ABI mismatch: this machine runs node $HOST_MAJOR.x but the bundle pins $NODE_VERSION.
@@ -81,7 +85,7 @@ cat > "$APP/package.json" <<EOF
 {
   "name": "docklite-app",
   "private": true,
-  "packageManager": "pnpm@11.13.0",
+  "packageManager": "$PNPM_PIN",
   "dependencies": {
     "argon2": "$ARGON2_VERSION",
     "dockerode": "$DOCKERODE_VERSION",

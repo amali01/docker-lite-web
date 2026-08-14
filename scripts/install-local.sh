@@ -47,6 +47,12 @@ port_listening() {
   return 0
 }
 
+command -v node > /dev/null || die "node not found on PATH"
+
+# Read from the repo rather than hardcoded: a stale pin here ships a pnpm the
+# staged install cannot run (pnpm refuses known-broken releases outright).
+PNPM_PIN="$(cd "$REPO_ROOT" && node -p 'require("./package.json").packageManager')"
+
 log "Building frontend (same-origin mode)"
 cd "$REPO_ROOT"
 VITE_API_BASE_URL="" pnpm build
@@ -76,7 +82,7 @@ cat > "$STAGE_DIR/package.json" <<EOF
 {
   "name": "docklite-app",
   "private": true,
-  "packageManager": "pnpm@11.13.0",
+  "packageManager": "$PNPM_PIN",
   "dependencies": {
     "argon2": "$ARGON2_VERSION",
     "dockerode": "$DOCKERODE_VERSION",
