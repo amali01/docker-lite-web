@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { BackendError } from "../types";
 
 export interface DockLiteRuntimeConfig {
   host: string;
@@ -20,6 +21,25 @@ function parseBoolean(value: string | undefined) {
 // the disable-login gate must never depend on name resolution.
 export function isLoopbackHost(host: string): boolean {
   return host === "127.0.0.1" || host === "::1";
+}
+
+// A bind reachable off-box, plus the built-in admin/admin password, plus the
+// Docker socket, is remote root on the host. Refuse to serve at all rather than
+// degrade quietly: in a compose deployment nobody reads a warning, but everyone
+// notices a container that will not come up.
+export function assertBindIsServable(host: string, defaultCredentialsActive: boolean): void {
+  if (!defaultCredentialsActive || isLoopbackHost(host)) {
+    return;
+  }
+
+  throw new BackendError(
+    500,
+    "default_credentials_off_loopback",
+    `DockLite refuses to listen on ${host} while the built-in admin password is still active — ` +
+      `that would expose the Docker socket to anyone who can reach this port. ` +
+      `Set DOCKLITE_ADMIN_PASSWORD to a real password and delete server/data/auth-config.json so it re-seeds, ` +
+      `or set DOCKLITE_HOST=127.0.0.1 and change the password under Settings first.`,
+  );
 }
 
 export function getRuntimeConfig(): DockLiteRuntimeConfig {

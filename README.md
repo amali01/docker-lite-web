@@ -143,14 +143,22 @@ to the dashboard. That shortcut is gated, not blanket:
 - Existing installs keep whatever they had. The new default applies to brand-new installs only.
 
 To reach DockLite from another machine, run it in remote mode with a non-loopback bind. Login is then
-enforced automatically:
+enforced automatically, and so is a real password:
 
 ```bash
+DOCKLITE_ADMIN_PASSWORD=<a real password> \
 DOCKLITE_REMOTE_ENABLED=1 DOCKLITE_HOST=0.0.0.0 pnpm server:dev
 ```
 
 The first boot seeds an admin from `DOCKLITE_ADMIN_USERNAME` and `DOCKLITE_ADMIN_PASSWORD`, falling back
-to `admin` / `admin`. Change both in Settings before exposing the server.
+to `admin` / `admin`. **The server refuses to start on a non-loopback bind while that built-in password is
+still active** — it would hand the Docker socket, and therefore host root, to anyone who can reach the
+port. Set `DOCKLITE_ADMIN_PASSWORD` before the first boot, or change the password under Settings on a
+loopback bind first. `DOCKLITE_ADMIN_PASSWORD` is read only when the admin is seeded; delete
+`server/data/auth-config.json` to re-seed an existing install.
+
+`docker compose up` publishes both services on `127.0.0.1` only. Set `DOCKLITE_BIND_ADDRESS=0.0.0.0` to
+expose them deliberately; see the comments at the top of `docker-compose.yml`.
 
 ---
 
@@ -215,10 +223,11 @@ pnpm test:e2e
 | Variable | Default | Purpose |
 |---|---|---|
 | `DOCKLITE_PORT` | `9001` dev, `9010` installed app | server port |
-| `DOCKLITE_HOST` | `127.0.0.1` | bind address; a non-loopback value forces login |
+| `DOCKLITE_HOST` | `127.0.0.1` | bind address; a non-loopback value forces login, and refuses to start on the built-in password |
 | `DOCKLITE_REMOTE_ENABLED` | `0` | serve the built frontend same-origin |
 | `DOCKLITE_ADAPTER` | real | set to `mock` for the in-memory adapter |
-| `DOCKLITE_ADMIN_USERNAME` / `DOCKLITE_ADMIN_PASSWORD` | `admin` / `admin` | seeded admin credentials |
+| `DOCKLITE_ADMIN_USERNAME` / `DOCKLITE_ADMIN_PASSWORD` | `admin` / `admin` | seeded admin credentials; a real password is required for a non-loopback bind |
+| `DOCKLITE_BIND_ADDRESS` | `127.0.0.1` | compose only: host address the published ports bind to |
 | `DOCKLITE_AUTH_JWT_SECRET` | generated | JWT signing secret (never commit it) |
 
 Runtime state lives in `server/data/` (`auth-config.json`, `engine-targets.json`, TLS material). It is

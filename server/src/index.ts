@@ -6,7 +6,7 @@ import { createApp } from "./app";
 import { EngineManager } from "./engine-manager";
 import { AuthConfigStore, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERNAME } from "./auth/config";
 import { DockLiteAuth } from "./auth/middleware";
-import { getRuntimeConfig } from "./runtime/config";
+import { assertBindIsServable, getRuntimeConfig } from "./runtime/config";
 import { isTrustedOrigin } from "./http/origin";
 import { BackendError } from "./types";
 
@@ -47,6 +47,9 @@ async function main() {
   const authConfigStore = new AuthConfigStore();
   const authConfig = await authConfigStore.read();
   const runtimeConfig = getRuntimeConfig();
+  // Fail fast, before a socket is ever opened: never serve the Docker socket
+  // off-loopback on the built-in password.
+  assertBindIsServable(runtimeConfig.host, authConfig.defaultCredentialsActive);
   const auth = new DockLiteAuth({
     configStore: authConfigStore,
     // Only a loopback-bound instance may honor a disabled-login setting.
@@ -155,6 +158,9 @@ async function main() {
     const engineInfo = await engine.getEngineInfo();
     const connection = engineInfo.connected ? "connected" : `disconnected (${engineInfo.errorMessage ?? "unknown error"})`;
     console.log(`DockLite backend listening on http://${runtimeConfig.host}:${runtimeConfig.port} - Docker ${connection}`);
+    // Reachable on a loopback bind only — assertBindIsServable above refuses to
+    // start otherwise, so this never prints the built-in password into the logs
+    // of a network-exposed instance.
     if (authConfig.defaultCredentialsActive) {
       console.log(`Default admin credentials are active: ${DEFAULT_ADMIN_USERNAME} / ${DEFAULT_ADMIN_PASSWORD}`);
     }

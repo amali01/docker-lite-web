@@ -24,5 +24,6 @@ pnpm server:dev:mock
 - Binds `127.0.0.1:9001` in development. The installed desktop app uses port `9010`.
 - Seeds an admin from `DOCKLITE_ADMIN_USERNAME` / `DOCKLITE_ADMIN_PASSWORD`, falling back to `admin` / `admin`.
 - On a loopback bind, a fresh install skips the login wall (see `runtime/config.ts` `allowAuthBypass`). A non-loopback bind always requires login.
+- A non-loopback bind additionally refuses to start while the seeded password is still the built-in `admin` (see `runtime/config.ts` `assertBindIsServable`). Set `DOCKLITE_ADMIN_PASSWORD` before the first boot, or bind loopback and change the password under Settings.
 
 Auth, remote engine targets, and the desktop app install are covered in the [root README](../README.md).

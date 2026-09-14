@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getRuntimeConfig, isLoopbackHost } from "./config";
+import { assertBindIsServable, getRuntimeConfig, isLoopbackHost } from "./config";
 
 describe("runtime config", () => {
   afterEach(() => {
@@ -48,5 +48,31 @@ describe("runtime config", () => {
     expect(config.sameOriginMode).toBe(true);
     expect(config.host).toBe("0.0.0.0");
     expect(config.staticDir).toContain("/dist");
+  });
+});
+
+describe("assertBindIsServable", () => {
+  // The whole point of H9: admin/admin + a bind reachable off-box + a mounted
+  // Docker socket is remote root on the host. Refuse the bind, loudly.
+  it("refuses a non-loopback bind while the built-in password is active", () => {
+    expect(() => assertBindIsServable("0.0.0.0", true)).toThrow(/DOCKLITE_ADMIN_PASSWORD/);
+  });
+
+  it("names the host it refused and the loopback escape hatch", () => {
+    expect(() => assertBindIsServable("192.168.1.10", true)).toThrow(/192\.168\.1\.10/);
+    expect(() => assertBindIsServable("192.168.1.10", true)).toThrow(/DOCKLITE_HOST/);
+  });
+
+  it("allows a non-loopback bind once the operator has set a real password", () => {
+    expect(() => assertBindIsServable("0.0.0.0", false)).not.toThrow();
+  });
+
+  it.each([
+    ["127.0.0.1", true],
+    ["127.0.0.1", false],
+    ["::1", true],
+    ["::1", false],
+  ])("allows loopback bind %j with defaultCredentialsActive=%s", (host, defaultCredentialsActive) => {
+    expect(() => assertBindIsServable(host, defaultCredentialsActive)).not.toThrow();
   });
 });
