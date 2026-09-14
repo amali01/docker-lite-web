@@ -42,6 +42,41 @@ describe("ContainerActionButtons", () => {
     expect(screen.getByRole("button", { name: "Remove container nginx-proxy" })).toBeInTheDocument();
   });
 
+  /**
+   * Every single-container destructive click in the app funnels through here,
+   * and this component performs no mutation of its own — it hands the action to
+   * its caller. Confirmation therefore lives one level up, in
+   * `useContainerActions`, which owns the mutations; gating here instead would
+   * put a confirmation in front of callers that pass a no-op handler and tell
+   * the user something was destroyed when nothing was.
+   */
+  it("delegates destructive clicks to the caller rather than acting on its own", () => {
+    const onAction = vi.fn();
+    render(
+      <MemoryRouter>
+        <ContainerActionButtons container={runningContainer} onAction={onAction} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove container nginx-proxy" }));
+    expect(onAction).toHaveBeenCalledExactlyOnceWith("remove", runningContainer);
+
+    onAction.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh container nginx-proxy" }));
+    expect(onAction).toHaveBeenCalledExactlyOnceWith("rebuild", runningContainer);
+  });
+
+  it("shows no confirmation of its own, so a no-op caller destroys nothing and claims nothing", () => {
+    render(
+      <MemoryRouter>
+        <ContainerActionButtons container={runningContainer} onAction={() => {}} />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove container nginx-proxy" }));
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
   it("communicates when terminal is unavailable", () => {
     const onAction = vi.fn();
     render(

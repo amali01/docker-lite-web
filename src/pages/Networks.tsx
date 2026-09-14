@@ -2,10 +2,12 @@ import { Fragment, useState } from "react";
 import { Boxes, ChevronDown, ChevronRight, Network, Plus, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { ApiState } from "@/components/ApiState";
+import { destructiveActionLabel } from "@/components/ConfirmDestructiveDialog";
 import { PromptDialog } from "@/components/PromptDialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { useConfirmDestructive } from "@/hooks/use-confirm-destructive";
 import { useTableSelection } from "@/hooks/use-table-selection";
 import { useCreateNetwork, useNetworks, useRemoveNetwork } from "@/hooks/use-networks";
 import { runBulkAction } from "@/lib/bulk-action";
@@ -24,6 +26,7 @@ export default function Networks() {
   const networksQuery = useNetworks();
   const createMutation = useCreateNetwork();
   const removeMutation = useRemoveNetwork();
+  const { confirm, confirmationDialog } = useConfirmDestructive();
   const defaultNetworks = DEFAULT_NETWORKS;
 
   const networks = networksQuery.data ?? [];
@@ -56,7 +59,28 @@ export default function Networks() {
     );
   }
 
+  const confirmNetworkRemoval = (targets: NetworkSummary[], { title, description }: { title: string; description: string }) =>
+    confirm({
+      title,
+      description,
+      items: targets.map((network) => network.name),
+      // The subnet, gateway and driver options only exist on the engine, so a
+      // removed network cannot be put back the way it was from DockLite.
+      consequence:
+        targets.length === 1
+          ? "Containers attached to it lose the network, and its subnet and driver options are not stored anywhere — recreating it means configuring it again."
+          : "Containers attached to them lose the network, and their subnets and driver options are not stored anywhere — recreating them means configuring them again.",
+      confirmLabel: destructiveActionLabel("Delete", targets.length, "network"),
+    });
+
   const handleRemove = async (network: NetworkSummary) => {
+    const confirmed = await confirmNetworkRemoval([network], {
+      title: "Delete network?",
+      description: "DockLite will delete this network from the engine.",
+    });
+
+    if (!confirmed) return;
+
     try {
       await removeMutation.mutateAsync(network.id);
       toast.success(`Removed ${network.name}`);
@@ -65,26 +89,47 @@ export default function Networks() {
     }
   };
 
-  // Docker's built-in networks cannot be removed, so they never enter a batch.
+  // Docker's built-in networks cannot be removed, so they never enter a batch —
+  // and the confirmation must count what will actually go, not what was ticked.
+  const removable = (items: NetworkSummary[]) => items.filter((network) => !defaultNetworks.includes(network.name));
+
   const removeNetworks = (items: NetworkSummary[], project?: string) =>
-    runBulkAction(
-      items.filter((network) => !defaultNetworks.includes(network.name)),
-      (network) => removeMutation.mutateAsync(network.id),
-      {
-        verb: "Removed",
-        noun: "network",
-        ...(project ? { context: project } : {}),
-      },
-    );
+    runBulkAction(removable(items), (network) => removeMutation.mutateAsync(network.id), {
+      verb: "Removed",
+      noun: "network",
+      ...(project ? { context: project } : {}),
+    });
 
   const handleBulkAction = async () => {
-    if (selectedNetworks.length === 0) return;
+    const targets = removable(selectedNetworks);
 
-    await removeNetworks(selectedNetworks);
+    if (targets.length === 0) return;
+
+    const confirmed = await confirmNetworkRemoval(targets, {
+      title: `${destructiveActionLabel("Delete", targets.length, "network")}?`,
+      description: `DockLite will delete ${targets.length === 1 ? "this network" : "these networks"} from the engine. Docker's built-in networks are left alone.`,
+    });
+
+    if (!confirmed) return;
+
+    await removeNetworks(targets);
     selection.toggleAll(false);
   };
 
-  const handleGroupAction = (project: string, items: NetworkSummary[]) => removeNetworks(items, project);
+  const handleGroupAction = async (project: string, items: NetworkSummary[]) => {
+    const targets = removable(items);
+
+    if (targets.length === 0) return;
+
+    const confirmed = await confirmNetworkRemoval(targets, {
+      title: `${destructiveActionLabel("Delete", targets.length, "network")}?`,
+      description: `DockLite will delete every network created for ${project}.`,
+    });
+
+    if (!confirmed) return;
+
+    await removeNetworks(targets, project);
+  };
 
   return (
     <div className="p-6 space-y-4">
@@ -223,6 +268,8 @@ export default function Networks() {
         </table>
         </div>
       </div>
+
+      {confirmationDialog}
 
       <PromptDialog open={createDialogOpen} title="Create Network" label="Network name" placeholder="e.g. app-network" confirmLabel="Create Network" pending={createMutation.isPending} onOpenChange={setCreateDialogOpen} onSubmit={async (value) => { try { const network = await createMutation.mutateAsync({ name: value }); toast.success(`Created ${network.name}`); } catch (e) { toast.error("Unable to create network"); throw e; } }} />
     </div>

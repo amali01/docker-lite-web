@@ -2,10 +2,12 @@ import { Fragment, useState } from "react";
 import { Boxes, ChevronDown, ChevronRight, HardDrive, Plus, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { ApiState } from "@/components/ApiState";
+import { destructiveActionLabel } from "@/components/ConfirmDestructiveDialog";
 import { PromptDialog } from "@/components/PromptDialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { useConfirmDestructive } from "@/hooks/use-confirm-destructive";
 import { useTableSelection } from "@/hooks/use-table-selection";
 import { useCreateVolume, useRemoveVolume, useVolumes } from "@/hooks/use-volumes";
 import { runBulkAction } from "@/lib/bulk-action";
@@ -21,6 +23,7 @@ export default function Volumes() {
   const volumesQuery = useVolumes();
   const createMutation = useCreateVolume();
   const removeMutation = useRemoveVolume();
+  const { confirm, confirmationDialog } = useConfirmDestructive();
 
   const volumes = volumesQuery.data ?? [];
   const filtered = volumes.filter((volume) => volume.name.toLowerCase().includes(filter.toLowerCase()));
@@ -52,7 +55,28 @@ export default function Volumes() {
     );
   }
 
+  // Deleting a volume deletes what is inside it, which is the one thing in
+  // DockLite that no amount of re-pulling or recreating brings back.
+  const confirmVolumeRemoval = (targets: VolumeSummary[], { title, description }: { title: string; description: string }) =>
+    confirm({
+      title,
+      description,
+      items: targets.map((volume) => volume.name),
+      consequence:
+        targets.length === 1
+          ? "The data in this volume is destroyed. DockLite keeps no backup and there is no undo."
+          : "The data in these volumes is destroyed. DockLite keeps no backup and there is no undo.",
+      confirmLabel: destructiveActionLabel("Delete", targets.length, "volume"),
+    });
+
   const handleRemove = async (volume: VolumeSummary) => {
+    const confirmed = await confirmVolumeRemoval([volume], {
+      title: "Delete volume?",
+      description: "DockLite will delete this volume from the engine.",
+    });
+
+    if (!confirmed) return;
+
     try {
       await removeMutation.mutateAsync(volume.name);
       toast.success(`Removed ${volume.name}`);
@@ -71,13 +95,32 @@ export default function Volumes() {
   const handleBulkAction = async () => {
     if (selectedVolumes.length === 0) return;
 
+    const confirmed = await confirmVolumeRemoval(selectedVolumes, {
+      title: `${destructiveActionLabel("Delete", selectedVolumes.length, "volume")}?`,
+      description: `DockLite will delete ${selectedVolumes.length === 1 ? "this volume" : "these volumes"} from the engine.`,
+    });
+
+    if (!confirmed) return;
+
     await removeVolumes(selectedVolumes);
     selection.toggleAll(false);
   };
 
   // Stack cleanup only touches volumes nothing is attached to.
-  const handleGroupAction = (project: string, items: VolumeSummary[]) =>
-    removeVolumes(items.filter((volume) => !volume.inUse), project);
+  const handleGroupAction = async (project: string, items: VolumeSummary[]) => {
+    const targets = items.filter((volume) => !volume.inUse);
+
+    if (targets.length === 0) return;
+
+    const confirmed = await confirmVolumeRemoval(targets, {
+      title: `${destructiveActionLabel("Delete", targets.length, "volume")}?`,
+      description: `DockLite will delete the unused ${targets.length === 1 ? "volume" : "volumes"} in ${project}. Volumes a container is still using are left alone.`,
+    });
+
+    if (!confirmed) return;
+
+    await removeVolumes(targets, project);
+  };
 
   return (
     <div className="p-6 space-y-4">
@@ -213,6 +256,8 @@ export default function Volumes() {
         </table>
         </div>
       </div>
+
+      {confirmationDialog}
 
       <PromptDialog open={createDialogOpen} title="Create Volume" label="Volume name" placeholder="e.g. postgres-data" confirmLabel="Create Volume" pending={createMutation.isPending} onOpenChange={setCreateDialogOpen} onSubmit={async (value) => { try { const volume = await createMutation.mutateAsync({ name: value }); toast.success(`Created ${volume.name}`); } catch (e) { toast.error("Unable to create volume"); throw e; } }} />
     </div>

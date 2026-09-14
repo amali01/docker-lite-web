@@ -24,6 +24,12 @@ function removeButtonForRow(volumeName: string) {
   return within(row as HTMLTableRowElement).getByRole("button");
 }
 
+/** Every destructive action now goes through the shared confirmation. */
+async function acceptConfirmation(confirmLabel: string) {
+  const dialog = await screen.findByRole("alertdialog");
+  fireEvent.click(within(dialog).getByRole("button", { name: confirmLabel }));
+}
+
 describe("Volumes page", () => {
   beforeEach(() => {
     fetchMock.mockReset();
@@ -57,16 +63,59 @@ describe("Volumes page", () => {
     });
   });
 
+  it("does not delete a volume until the confirmation is accepted", async () => {
+    renderWithProviders(<Volumes />);
+    await screen.findByText("postgres-data");
+    fireEvent.click(removeButtonForRow("postgres-data"));
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("postgres-data")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: "DELETE" }));
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete volume" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/volumes/postgres-data"),
+        expect.objectContaining({ method: "DELETE" }),
+      );
+    });
+  });
+
   it("surfaces the server's reason when a volume cannot be removed", async () => {
     failingVolumes.set("postgres-data", "volume is in use by container nginx-proxy");
 
     renderWithProviders(<Volumes />);
     await screen.findByText("postgres-data");
     fireEvent.click(removeButtonForRow("postgres-data"));
+    await acceptConfirmation("Delete volume");
 
     await waitFor(() => {
       expect(vi.mocked(toast.error)).toHaveBeenCalledWith("volume is in use by container nginx-proxy");
     });
+  });
+
+  it("deletes nothing when the confirmation is cancelled", async () => {
+    renderWithProviders(<Volumes />);
+    await screen.findByText("postgres-data");
+    fireEvent.click(removeButtonForRow("postgres-data"));
+
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: "DELETE" }));
+  });
+
+  it("warns that the volume data is destroyed", async () => {
+    renderWithProviders(<Volumes />);
+    await screen.findByText("postgres-data");
+    fireEvent.click(removeButtonForRow("postgres-data"));
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText(/data in this volume is destroyed/i)).toBeInTheDocument();
   });
 
   it("attempts every selected volume when one fails and reports the partial outcome", async () => {
@@ -76,6 +125,10 @@ describe("Volumes page", () => {
     await screen.findByText("postgres-data");
     fireEvent.click(screen.getByLabelText("Select all"));
     fireEvent.click(screen.getByTitle("Delete selected"));
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("Delete 2 volumes?")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete 2 volumes" }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/volumes/cache-data"), expect.objectContaining({ method: "DELETE" }));

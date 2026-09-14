@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { toast } from "sonner";
@@ -99,6 +99,14 @@ describe("Containers Page", () => {
       }
 
       if (url.includes("/api/containers/compose/sportseventhub/stop") && method === "POST") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+
+      if (url.includes("/api/containers/ctr-1/rebuild") && method === "POST") {
+        return Promise.resolve(new Response(JSON.stringify(containers[0])));
+      }
+
+      if (method === "DELETE" && url.includes("/api/containers/")) {
         return Promise.resolve(new Response(null, { status: 204 }));
       }
 
@@ -207,6 +215,109 @@ describe("Containers Page", () => {
     expect(vi.mocked(toast.error)).toHaveBeenCalledWith(expect.stringContaining("1 failed"));
     expect(vi.mocked(toast.error)).toHaveBeenCalledWith(expect.stringContaining("container ctr-1 is unresponsive"));
     expect(vi.mocked(toast.success)).not.toHaveBeenCalledWith(expect.stringContaining("Stopped 2 containers"));
+  });
+
+  it("does not remove a container until the confirmation is accepted", async () => {
+    renderWithProviders(<Containers />);
+    const row = (await screen.findByText("nginx-proxy")).closest("tr");
+    expect(row).not.toBeNull();
+    fireEvent.click(within(row!).getByTitle("Remove"));
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveAccessibleName("Delete container?");
+    expect(within(dialog).getByText("nginx-proxy")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: "DELETE" }));
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete container" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/containers/ctr-1"),
+        expect.objectContaining({ method: "DELETE" }),
+      );
+    });
+  });
+
+  it("removes nothing when the confirmation is cancelled", async () => {
+    renderWithProviders(<Containers />);
+    const row = (await screen.findByText("nginx-proxy")).closest("tr");
+    fireEvent.click(within(row!).getByTitle("Remove"));
+
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: "DELETE" }));
+  });
+
+  it("names every stack member before deleting a compose stack", async () => {
+    renderWithProviders(<Containers />);
+    await screen.findByText("sportseventhub");
+    fireEvent.click(screen.getByTitle("Delete stack"));
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveAccessibleDescription(expect.stringContaining("all 2 containers labelled for sportseventhub"));
+    expect(within(dialog).getByText("sports-postgres")).toBeInTheDocument();
+    expect(within(dialog).getByText("sportseventhub-redis")).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete stack" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/containers/compose/sportseventhub"),
+        expect.objectContaining({ method: "DELETE" }),
+      );
+    });
+  });
+
+  it("states the count before a bulk delete and removes each container once confirmed", async () => {
+    renderWithProviders(<Containers />);
+    await screen.findByText("nginx-proxy");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select container nginx-proxy" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select container sportseventhub-redis" }));
+    fireEvent.click(screen.getByTitle("Delete selected containers"));
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("Delete 2 containers?")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete 2 containers" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/containers/ctr-1"), expect.objectContaining({ method: "DELETE" }));
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/containers/ctr-3"), expect.objectContaining({ method: "DELETE" }));
+    });
+  });
+
+  it("confirms a rebuild, which destroys and recreates the container", async () => {
+    renderWithProviders(<Containers />);
+    const row = (await screen.findByText("nginx-proxy")).closest("tr");
+    fireEvent.click(within(row!).getByTitle("Refresh container"));
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveAccessibleName("Rebuild container?");
+    expect(within(dialog).getByText("nginx-proxy")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining("/rebuild"), expect.anything());
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Rebuild container" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/containers/ctr-1/rebuild"),
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+  });
+
+  it("does not confirm reversible actions", async () => {
+    renderWithProviders(<Containers />);
+    const row = (await screen.findByText("nginx-proxy")).closest("tr");
+    fireEvent.click(within(row!).getByTitle("Stop"));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/containers/ctr-1/stop"), expect.objectContaining({ method: "POST" }));
+    });
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   });
 
   it("stops a compose stack from the group row", async () => {

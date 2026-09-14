@@ -34,7 +34,7 @@ export default function Dashboard() {
 
   const engineQuery = useEngineInfo();
   const containersQuery = useContainers();
-  const { runAction, runBulk } = useContainerActions();
+  const { runAction, runBulk, confirmationDialog } = useContainerActions();
   const imagesQuery = useImages();
   const volumesQuery = useVolumes();
   const networksQuery = useNetworks();
@@ -106,9 +106,12 @@ export default function Dashboard() {
 
     if (currentSelection.length === 0) return;
 
-    const { succeeded } = await runBulk(action, currentSelection);
+    const outcome = await runBulk(action, currentSelection);
 
-    if (action === "remove" && logsContainer && succeeded.some((container) => container.id === logsContainer.id)) {
+    // A declined confirmation leaves the selection exactly as it was.
+    if (!outcome) return;
+
+    if (action === "remove" && logsContainer && outcome.succeeded.some((container) => container.id === logsContainer.id)) {
       setLogsContainer(null);
     }
 
@@ -377,6 +380,7 @@ export default function Dashboard() {
           </table>
         </div>
       </div>
+      {confirmationDialog}
       {logsContainer && <ContainerLogs containerId={logsContainer.id} containerName={logsContainer.name} onClose={() => setLogsContainer(null)} />}
       {terminalContainer && (
         <div className="fixed right-0 top-0 bottom-0 w-[600px] border-l shadow-2xl bg-card z-50 flex flex-col max-w-[90vw]">

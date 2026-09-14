@@ -2,10 +2,12 @@ import { Fragment, useState } from "react";
 import { Boxes, ChevronDown, ChevronRight, Copy, Download, Image as ImageIcon, Plus, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { ApiState } from "@/components/ApiState";
+import { destructiveActionLabel } from "@/components/ConfirmDestructiveDialog";
 import { PromptDialog } from "@/components/PromptDialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { useConfirmDestructive } from "@/hooks/use-confirm-destructive";
 import { useTableSelection } from "@/hooks/use-table-selection";
 import { useImages, usePullImage, useRemoveImage } from "@/hooks/use-images";
 import { runBulkAction } from "@/lib/bulk-action";
@@ -40,6 +42,7 @@ export default function Images() {
   const imagesQuery = useImages();
   const pullMutation = usePullImage();
   const removeMutation = useRemoveImage();
+  const { confirm, confirmationDialog } = useConfirmDestructive();
 
   const images = imagesQuery.data ?? [];
   const filtered = images.filter(
@@ -75,7 +78,28 @@ export default function Images() {
     );
   }
 
+  // The server removes images with force, so a stopped container still holding
+  // a reference is not the safety net people assume it is.
+  const confirmImageRemoval = (targets: ImageSummary[], { title, description }: { title: string; description: string }) =>
+    confirm({
+      title,
+      description,
+      items: targets.map((image) => `${image.repository}:${image.tag}`),
+      consequence:
+        targets.length === 1
+          ? "The removal is forced, so it goes even if a stopped container still references it. Getting it back means pulling or building it again."
+          : "Removals are forced, so they go even if stopped containers still reference them. Getting them back means pulling or building them again.",
+      confirmLabel: destructiveActionLabel("Remove", targets.length, "image"),
+    });
+
   const handleRemove = async (image: ImageSummary) => {
+    const confirmed = await confirmImageRemoval([image], {
+      title: "Remove image?",
+      description: "DockLite will remove this image from the local cache.",
+    });
+
+    if (!confirmed) return;
+
     try {
       await removeMutation.mutateAsync(image.id);
       toast.success(`Removed ${image.repository}:${image.tag}`);
@@ -94,11 +118,29 @@ export default function Images() {
   const handleBulkAction = async () => {
     if (selectedImages.length === 0) return;
 
+    const confirmed = await confirmImageRemoval(selectedImages, {
+      title: `${destructiveActionLabel("Remove", selectedImages.length, "image")}?`,
+      description: `DockLite will remove ${selectedImages.length === 1 ? "this image" : "these images"} from the local cache.`,
+    });
+
+    if (!confirmed) return;
+
     await removeImages(selectedImages);
     selection.toggleAll(false);
   };
 
-  const handleGroupAction = (project: string, items: ImageSummary[]) => removeImages(items, project);
+  const handleGroupAction = async (project: string, items: ImageSummary[]) => {
+    if (items.length === 0) return;
+
+    const confirmed = await confirmImageRemoval(items, {
+      title: `${destructiveActionLabel("Remove", items.length, "image")}?`,
+      description: `DockLite will remove every image built for ${project} from the local cache.`,
+    });
+
+    if (!confirmed) return;
+
+    await removeImages(items, project);
+  };
 
   return (
     <div className="p-6 space-y-4">
@@ -233,6 +275,8 @@ export default function Images() {
         </table>
         </div>
       </div>
+
+      {confirmationDialog}
 
       <PromptDialog open={pullDialogOpen} title="Pull Image" label="Image" placeholder="e.g. postgres:16" confirmLabel="Pull Image" pending={pullMutation.isPending} onOpenChange={setPullDialogOpen} onSubmit={async (value) => { try { const image = await pullMutation.mutateAsync({ image: value }); toast.success(`Pulled ${image.repository}:${image.tag}`); } catch (e) { toast.error("Unable to pull image"); throw e; } }} />
     </div>

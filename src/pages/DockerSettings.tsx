@@ -25,6 +25,7 @@ import {
   useSetLoginRequired,
   useUpdateCredentials,
 } from "@/hooks/use-auth";
+import { useConfirmDestructive } from "@/hooks/use-confirm-destructive";
 import {
   useCreateEngineTarget,
   useDeleteEngineTarget,
@@ -295,6 +296,7 @@ export default function DockerSettings() {
   const authConfigQuery = useAuthConfig();
   const updateCredentialsMutation = useUpdateCredentials();
   const setLoginRequiredMutation = useSetLoginRequired();
+  const { confirm, confirmationDialog } = useConfirmDestructive();
   const [confirmDisableLoginOpen, setConfirmDisableLoginOpen] = useState(false);
   const [apiBaseUrl, setApiBaseUrlState] = useState(getApiBaseUrl());
   const [draft, setDraft] = useState<EngineTargetDraft>(defaultDraft);
@@ -798,6 +800,17 @@ export default function DockerSettings() {
                       className="gap-1.5 font-mono text-xs"
                       disabled={busy}
                       onClick={async () => {
+                        const confirmed = await confirm({
+                          title: "Delete engine target?",
+                          description: "DockLite will forget this saved target and stop offering it as an engine.",
+                          items: [`${target.label} — ${target.endpoint}`],
+                          consequence:
+                            "The endpoint, auth mode and stored credential paths are not kept anywhere else. Adding the target back means entering them again.",
+                          confirmLabel: "Delete target",
+                        });
+
+                        if (!confirmed) return;
+
                         try {
                           await deleteTargetMutation.mutateAsync(target.id);
                           if (editingTargetId === target.id) {
@@ -1101,6 +1114,8 @@ export default function DockerSettings() {
           </a>
         </div>
       </div>
+
+      {confirmationDialog}
     </div>
   );
 }

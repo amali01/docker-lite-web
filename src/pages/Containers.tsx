@@ -20,7 +20,7 @@ import {
   useStartComposeProject,
   useStopComposeProject,
 } from "@/hooks/use-containers";
-import { useContainerActions } from "@/hooks/use-container-actions";
+import { describeContainerRemoval, useContainerActions } from "@/hooks/use-container-actions";
 import { useTableSelection } from "@/hooks/use-table-selection";
 import { ContainerSummary, RunContainerPayload } from "@/lib/api/types";
 import { composeProjectOfContainer } from "@/lib/compose-project";
@@ -35,7 +35,7 @@ export default function Containers() {
   const [runDialogOpen, setRunDialogOpen] = useState(false);
   const containersQuery = useContainers();
   const runMutation = useRunContainer();
-  const { runAction, runBulk } = useContainerActions();
+  const { runAction, runBulk, confirm, confirmationDialog } = useContainerActions();
   const startComposeProjectMutation = useStartComposeProject();
   const stopComposeProjectMutation = useStopComposeProject();
   const removeComposeProjectMutation = useRemoveComposeProject();
@@ -110,6 +110,12 @@ export default function Containers() {
   };
 
   const handleGroupAction = async (action: "start" | "stop" | "remove", project: string, projectContainers: ContainerSummary[]) => {
+    // Removing a stack takes every labelled member in one call, so the
+    // confirmation lists them rather than just naming the project.
+    if (action === "remove" && !(await confirm(describeContainerRemoval(projectContainers, project)))) {
+      return;
+    }
+
     try {
       if (action === "start") {
         await startComposeProjectMutation.mutateAsync(project);
@@ -143,9 +149,14 @@ export default function Containers() {
       return;
     }
 
-    const { succeeded } = await runBulk(action, currentSelection);
+    const outcome = await runBulk(action, currentSelection);
 
-    if (action === "remove" && logsContainer && succeeded.some((container) => container.id === logsContainer.id)) {
+    // A declined confirmation leaves the selection exactly as it was.
+    if (!outcome) {
+      return;
+    }
+
+    if (action === "remove" && logsContainer && outcome.succeeded.some((container) => container.id === logsContainer.id)) {
       setLogsContainer(null);
     }
 
@@ -562,6 +573,8 @@ export default function Containers() {
           </div>
         </div>
       )}
+
+      {confirmationDialog}
 
       <RunContainerDialog
         open={runDialogOpen}

@@ -5,7 +5,8 @@ export interface BulkActionOutcome<T> {
   failed: T[];
 }
 
-function pluralize(count: number, noun: string) {
+/** "1 volume" / "3 volumes" — shared with the destructive confirmations. */
+export function pluralize(count: number, noun: string) {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 

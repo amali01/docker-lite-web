@@ -181,6 +181,10 @@ describe("DockerSettings", () => {
         return Promise.resolve(new Response(JSON.stringify(createTargetResponse)));
       }
 
+      if (/\/api\/engine\/targets\/[^/]+$/.test(url) && method === "DELETE") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+
       if (url.endsWith("/api/engine/targets/test") && method === "POST") {
         expect(JSON.parse(String(init?.body))).toEqual(testTargetPayload);
         return Promise.resolve(
@@ -338,6 +342,42 @@ describe("DockerSettings", () => {
     expect(body).not.toHaveProperty("authMode");
     expect(body).not.toHaveProperty("port");
     expect(body).not.toHaveProperty("keyPath");
+  });
+
+  it("does not delete an engine target until the confirmation is accepted", async () => {
+    renderWithProviders(<DockerSettings />);
+
+    const targetCard = await screen.findByRole("group", { name: "Engine target Prod Server" });
+    fireEvent.click(within(targetCard).getByRole("button", { name: "Delete" }));
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveAccessibleName("Delete engine target?");
+    expect(within(dialog).getByText("Prod Server — ssh://ops@prod.example.internal")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: "DELETE" }));
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete target" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/engine/targets/prod-ssh"),
+        expect.objectContaining({ method: "DELETE" }),
+      );
+    });
+  });
+
+  it("keeps the engine target when the confirmation is cancelled", async () => {
+    renderWithProviders(<DockerSettings />);
+
+    const targetCard = await screen.findByRole("group", { name: "Engine target Prod Server" });
+    fireEvent.click(within(targetCard).getByRole("button", { name: "Delete" }));
+
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: "DELETE" }));
   });
 
   it("disables login after confirming the Require login toggle", async () => {

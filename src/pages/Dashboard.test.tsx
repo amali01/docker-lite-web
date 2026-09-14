@@ -87,6 +87,10 @@ describe("Dashboard", () => {
         );
       }
 
+      if (url.includes("/api/containers/") && method === "DELETE") {
+        return Promise.resolve(new Response(null, { status: 204 }));
+      }
+
       if (url.endsWith("/api/images")) {
         return Promise.resolve(new Response(JSON.stringify([{ id: "img-1", repository: "nginx", tag: "alpine", size: "40 MB", created: "2026-03-30" }])));
       }
@@ -168,6 +172,81 @@ describe("Dashboard", () => {
         expect.objectContaining({ method: "POST" }),
       );
     });
+  });
+
+  it("does not remove a dashboard container until the confirmation is accepted", async () => {
+    renderWithProviders(<Dashboard />);
+    const row = (await screen.findByText("postgres-db")).closest("tr");
+    expect(row).not.toBeNull();
+    fireEvent.click(within(row!).getByTitle("Remove"));
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("postgres-db")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: "DELETE" }));
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete container" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/containers/2"),
+        expect.objectContaining({ method: "DELETE" }),
+      );
+    });
+  });
+
+  it("removes nothing when the dashboard confirmation is cancelled", async () => {
+    renderWithProviders(<Dashboard />);
+    const row = (await screen.findByText("postgres-db")).closest("tr");
+    fireEvent.click(within(row!).getByTitle("Remove"));
+
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: "DELETE" }));
+  });
+
+  it("states how many containers a bulk delete will remove", async () => {
+    renderWithProviders(<Dashboard />);
+    await screen.findByText("nginx-proxy");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select all dashboard containers" }));
+    fireEvent.click(screen.getByTitle("Delete selected containers"));
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText("Delete 2 containers?")).toBeInTheDocument();
+    expect(within(dialog).getByText("nginx-proxy")).toBeInTheDocument();
+    expect(within(dialog).getByText("postgres-db")).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete 2 containers" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/containers/1"),
+        expect.objectContaining({ method: "DELETE" }),
+      );
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining("/api/containers/2"),
+        expect.objectContaining({ method: "DELETE" }),
+      );
+    });
+  });
+
+  it("keeps the selection when a bulk delete is cancelled", async () => {
+    renderWithProviders(<Dashboard />);
+    await screen.findByText("nginx-proxy");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select all dashboard containers" }));
+    fireEvent.click(screen.getByTitle("Delete selected containers"));
+
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+    expect(fetchMock).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: "DELETE" }));
+    expect(screen.getByText("2 selected")).toBeInTheDocument();
   });
 
   it("points a published port link at the local host for a local engine", async () => {

@@ -8,6 +8,17 @@ const useContainerInspectMock = vi.fn();
 const useContainerStatsMock = vi.fn();
 const useEngineInfoMock = vi.fn();
 
+/**
+ * Every container mutation the page could reach, stubbed so a destructive click
+ * is observable. They are deliberately unused by the page today — see the
+ * "performs no container mutation" test for why they are wired up anyway.
+ */
+const removeContainerMock = vi.fn();
+const rebuildContainerMock = vi.fn();
+const startContainerMock = vi.fn();
+const stopContainerMock = vi.fn();
+const restartContainerMock = vi.fn();
+
 vi.mock("@/hooks/use-containers", () => ({
   useContainerDetails: (...args: unknown[]) => useContainerDetailsMock(...args),
   useContainerInspect: (...args: unknown[]) => useContainerInspectMock(...args),
@@ -15,6 +26,11 @@ vi.mock("@/hooks/use-containers", () => ({
   // The Stats tab accumulates its own polled history; the page-level fixtures cover the rest.
   useContainerStatsHistory: () => [],
   STATS_POLL_INTERVAL_MS: 5000,
+  useRemoveContainer: () => ({ mutateAsync: removeContainerMock, isPending: false }),
+  useRebuildContainer: () => ({ mutateAsync: rebuildContainerMock, isPending: false }),
+  useStartContainer: () => ({ mutateAsync: startContainerMock, isPending: false }),
+  useStopContainer: () => ({ mutateAsync: stopContainerMock, isPending: false }),
+  useRestartContainer: () => ({ mutateAsync: restartContainerMock, isPending: false }),
 }));
 
 vi.mock("@/hooks/use-engine", () => ({
@@ -95,6 +111,11 @@ describe("ContainerDetails route", () => {
     useContainerInspectMock.mockReset();
     useContainerStatsMock.mockReset();
     useEngineInfoMock.mockReset();
+    removeContainerMock.mockReset();
+    rebuildContainerMock.mockReset();
+    startContainerMock.mockReset();
+    stopContainerMock.mockReset();
+    restartContainerMock.mockReset();
 
     useEngineInfoMock.mockReturnValue({
       isLoading: false,
@@ -257,5 +278,55 @@ describe("ContainerDetails route", () => {
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Stats" }));
     expect(screen.getByText("Latest sample")).toBeInTheDocument();
     expect(screen.getByText("Sample history")).toBeInTheDocument();
+  });
+
+  function renderLoadedDetails() {
+    const loaded = (data: unknown) => ({ isLoading: false, isPending: false, isError: false, data, error: null });
+
+    useContainerDetailsMock.mockReturnValue(loaded(containerDetails));
+    useContainerInspectMock.mockReturnValue(loaded(containerDetails.inspect));
+    useContainerStatsMock.mockReturnValue(loaded(containerDetails.stats));
+
+    renderDetailsRoute();
+  }
+
+  /**
+   * The Quick Actions row on the Overview tab renders the same
+   * `ContainerActionButtons` as the two tables, but `ContainerOverviewTab`
+   * passes `onAction={() => {}}` — so Remove and Rebuild are inert here rather
+   * than unconfirmed. This pins that: whoever wires these buttons up must route
+   * them through `useContainerActions`, which gates remove and rebuild behind
+   * the shared confirmation. Wiring a mutation straight to the click fails here.
+   */
+  it("performs no container mutation when a destructive Quick Action is clicked", () => {
+    renderLoadedDetails();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove container nginx-proxy" }));
+    fireEvent.click(screen.getByRole("button", { name: "Refresh container nginx-proxy" }));
+
+    expect(removeContainerMock).not.toHaveBeenCalled();
+    expect(rebuildContainerMock).not.toHaveBeenCalled();
+  });
+
+  it("shows no confirmation for the reversible Quick Actions either", () => {
+    renderLoadedDetails();
+
+    fireEvent.click(screen.getByRole("button", { name: "Stop container nginx-proxy" }));
+
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(stopContainerMock).not.toHaveBeenCalled();
+  });
+
+  it("dead-ends on a not-found state rather than a stale view when the container is gone", () => {
+    const loaded = (data: unknown) => ({ isLoading: false, isPending: false, isError: false, data, error: null });
+
+    useContainerDetailsMock.mockReturnValue(loaded(undefined));
+    useContainerInspectMock.mockReturnValue(loaded(undefined));
+    useContainerStatsMock.mockReturnValue(loaded(undefined));
+
+    renderDetailsRoute();
+
+    expect(screen.getByText("Container not found")).toBeInTheDocument();
+    expect(screen.queryByText("nginx-proxy")).not.toBeInTheDocument();
   });
 });
