@@ -13,14 +13,7 @@ import { createVolumesRouter } from "./routes/volumes";
 import { BackendError } from "./types";
 import { EngineManager } from "./engine-manager";
 import { createAuthRouter } from "./routes/auth";
-
-function isAllowedOrigin(origin?: string) {
-  if (!origin) {
-    return true;
-  }
-
-  return /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(origin);
-}
+import { isLoopbackOrigin, requireTrustedOrigin } from "./http/origin";
 
 export interface CreateAppOptions {
   auth?: DockLiteAuth;
@@ -37,11 +30,15 @@ export function createApp(engine: EngineManager, options: CreateAppOptions = {})
   const sameOriginMode = options.sameOriginMode ?? false;
   const resolveBackend = () => engine.getActiveBackend();
 
+  // Before CORS: CORS is not mounted in sameOriginMode, and never applies to
+  // simple cross-origin POSTs at all. This is the CSRF gate for both modes.
+  app.use("/api", requireTrustedOrigin);
+
   if (!sameOriginMode) {
     app.use(
       cors({
         origin(origin, callback) {
-          if (isAllowedOrigin(origin)) {
+          if (isLoopbackOrigin(origin)) {
             callback(null, true);
             return;
           }

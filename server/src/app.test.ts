@@ -29,29 +29,49 @@ function createBuiltInTargetInputs(): EngineTargetProfileInput[] {
   }));
 }
 
+// An EngineManager's constructor kicks off a background engine-target store
+// load-and-persist. A test that never touches the engine (an auth rejection,
+// say) finishes with that write still in flight, and deleting the temp dir out
+// from under it fails with ENOTEMPTY. Every manager a test builds is registered
+// here so cleanup can await it settling first.
+const liveBackends: EngineManager[] = [];
+
+function trackBackend(backend: EngineManager): EngineManager {
+  liveBackends.push(backend);
+  return backend;
+}
+
+async function drainBackends() {
+  // A backend that failed to come up is fine — we only need its pending store
+  // write to have settled before the directory goes away.
+  await Promise.all(liveBackends.map((backend) => backend.getActiveBackend().catch(() => {})));
+  liveBackends.length = 0;
+}
+
 interface CreateTestAppOptions {
   onShutdown?: () => void;
   allowAuthBypass?: boolean;
+  sameOriginMode?: boolean;
 }
 
 async function createTestApp(options: CreateTestAppOptions = {}) {
   const dir = await mkdtemp(join(tmpdir(), "docklite-app-test-"));
   const targets = getDefaultEngineTargets();
-  const backend = new EngineManager(
+  const backend = trackBackend(new EngineManager(
     targets,
     undefined,
     new EngineTargetStore({
       filePath: join(dir, "engine-targets.json"),
       builtInTargets: createBuiltInTargetInputs(),
     }),
-  );
+  ));
 
   const authConfigStore = new AuthConfigStore({
     filePath: join(dir, "auth-config.json"),
     env: {
       DOCKLITE_ADMIN_USERNAME: "admin",
       DOCKLITE_ADMIN_PASSWORD: "admin",
-      DOCKLITE_AUTH_JWT_SECRET: "test-secret",
+      DOCKLITE_AUTH_JWT_SECRET: "test-secret-at-least-16-chars",
     },
   });
   const auth = new DockLiteAuth({
@@ -64,7 +84,11 @@ async function createTestApp(options: CreateTestAppOptions = {}) {
     backend,
     auth,
     authConfigStore,
-    app: createApp(backend, { auth, onShutdown: options.onShutdown }),
+    app: createApp(backend, {
+      auth,
+      onShutdown: options.onShutdown,
+      sameOriginMode: options.sameOriginMode,
+    }),
   };
 }
 
@@ -94,6 +118,7 @@ describe("DockLite backend app", () => {
   const tmpDirs: string[] = [];
 
   afterEach(async () => {
+    await drainBackends();
     await Promise.all(tmpDirs.map((dir) => rm(dir, { recursive: true, force: true })));
     tmpDirs.length = 0;
   });
@@ -177,18 +202,20 @@ describe("DockLite backend app", () => {
         adminUsername: "admin",
         adminPasswordHash: "x",
         authVersion: 1,
-        jwtSecret: "test-secret",
+        jwtSecret: "test-secret-at-least-16-chars",
         defaultCredentialsActive: true,
         updatedAt: "2026-01-01T00:00:00.000Z",
       }),
     );
-    const backend = new EngineManager(
-      getDefaultEngineTargets(),
-      undefined,
-      new EngineTargetStore({
-        filePath: join(dir, "engine-targets.json"),
-        builtInTargets: createBuiltInTargetInputs(),
-      }),
+    const backend = trackBackend(
+      new EngineManager(
+        getDefaultEngineTargets(),
+        undefined,
+        new EngineTargetStore({
+          filePath: join(dir, "engine-targets.json"),
+          builtInTargets: createBuiltInTargetInputs(),
+        }),
+      ),
     );
     const auth = new DockLiteAuth({
       configStore: new AuthConfigStore({ filePath: join(dir, "auth-config.json") }),
@@ -549,5 +576,108 @@ describe("DockLite backend app", () => {
     const statsResponse = await api.get("/api/containers/missing-container/stats");
     expect(statsResponse.status).toBe(404);
     expect(statsResponse.body.error.code).toBe("not_found");
+  });
+});
+
+describe("state-changing origin gate", () => {
+  const tmpDirs: string[] = [];
+  const LAN_HOST = "192.168.1.50:9001";
+
+  afterEach(async () => {
+    await Promise.all(tmpDirs.map((dir) => rm(dir, { recursive: true, force: true })));
+    tmpDirs.length = 0;
+  });
+
+  async function setup(options: CreateTestAppOptions = {}) {
+    process.env.DOCKLITE_ADAPTER = "mock";
+    const { app, dir, backend } = await createTestApp(options);
+    tmpDirs.push(dir);
+    // These cases are rejected before touching the engine, so settle the
+    // manager's background init here — otherwise its target-store write races
+    // the afterEach cleanup.
+    await backend.getEngineInfo();
+    return app;
+  }
+
+  async function login(app: ReturnType<typeof createApp>, headers: Record<string, string>) {
+    const response = await request(app)
+      .post("/api/auth/login")
+      .set(headers)
+      .send({ username: "admin", password: "admin" });
+
+    expect(response.status).toBe(200);
+
+    return `Bearer ${response.body.token as string}`;
+  }
+
+  it("rejects a simple cross-origin POST that CORS never preflights", async () => {
+    const app = await setup();
+
+    const response = await request(app)
+      .post("/api/containers/compose/app-stack/stop")
+      .set("Origin", "https://evil.example.com")
+      .set("Content-Type", "text/plain");
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe("forbidden_origin");
+  });
+
+  it("rejects a cross-origin shutdown before auth even gets a say", async () => {
+    const app = await setup({ allowAuthBypass: true });
+
+    const response = await request(app).post("/api/shutdown").set("Origin", "https://evil.example.com");
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe("forbidden_origin");
+  });
+
+  it("accepts a POST with no Origin header (non-browser client)", async () => {
+    const app = await setup();
+    const api = await createAuthenticatedApi(app);
+
+    expect((await api.post("/api/containers/compose/app-stack/stop")).status).toBe(204);
+  });
+
+  it("accepts the split-port loopback dev origin", async () => {
+    const app = await setup();
+    const headers = { Origin: "http://localhost:8080" };
+    const authorization = await login(app, headers);
+
+    const response = await request(app)
+      .post("/api/containers/compose/app-stack/stop")
+      .set({ ...headers, Authorization: authorization });
+
+    expect(response.status).toBe(204);
+  });
+
+  it("accepts the LAN origin in sameOriginMode (remote deploy)", async () => {
+    const app = await setup({ sameOriginMode: true });
+    const headers = { Host: LAN_HOST, Origin: `http://${LAN_HOST}` };
+    const authorization = await login(app, headers);
+
+    const response = await request(app)
+      .post("/api/containers/compose/app-stack/stop")
+      .set({ ...headers, Authorization: authorization });
+
+    expect(response.status).toBe(204);
+  });
+
+  it("rejects a cross-origin POST in sameOriginMode, where CORS is not mounted", async () => {
+    const app = await setup({ sameOriginMode: true });
+
+    const response = await request(app)
+      .post("/api/shutdown")
+      .set({ Host: LAN_HOST, Origin: "https://evil.example.com" });
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe("forbidden_origin");
+  });
+
+  it("leaves reads alone — only state-changing methods are gated", async () => {
+    const app = await setup({ sameOriginMode: true });
+
+    const response = await request(app).get("/api/health").set("Origin", "https://evil.example.com");
+
+    expect(response.status).toBe(200);
   });
 });

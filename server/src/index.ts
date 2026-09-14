@@ -7,6 +7,7 @@ import { EngineManager } from "./engine-manager";
 import { AuthConfigStore, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERNAME } from "./auth/config";
 import { DockLiteAuth } from "./auth/middleware";
 import { getRuntimeConfig } from "./runtime/config";
+import { isTrustedOrigin } from "./http/origin";
 import { BackendError } from "./types";
 
 loadEnv({ path: "server/.env", quiet: true });
@@ -82,6 +83,13 @@ async function main() {
 
     if (!match) {
       socket.destroy();
+      return;
+    }
+
+    // WebSockets are exempt from CORS, so this is the only thing standing
+    // between a random web page and a root shell inside a container.
+    if (!isTrustedOrigin(request.headers.origin, request.headers.host)) {
+      rejectUpgrade(socket, 403, "WebSocket origin is not allowed by DockLite");
       return;
     }
 
