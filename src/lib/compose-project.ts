@@ -11,6 +11,15 @@
  */
 
 /**
+ * The compose project a container belongs to: its real
+ * `com.docker.compose.project` label when Docker reported one, otherwise the
+ * display-only name heuristic below.
+ */
+export function composeProjectOfContainer(container: { composeProject: string | null; name: string }): string | null {
+  return container.composeProject || inferComposeProjectFromName(container.name);
+}
+
+/**
  * Normalizes `_`→`-`, splits on `-`, drops a trailing numeric replica suffix
  * (`web-app-1` → `web`) and then the service segment. Returns null when the
  * name is too short to carry a project.

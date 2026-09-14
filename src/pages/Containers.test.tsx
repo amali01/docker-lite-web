@@ -2,10 +2,37 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { toast } from "sonner";
 import Containers from "@/pages/Containers";
 import { renderWithProviders } from "@/test/render";
 
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
+}));
+
 const fetchMock = vi.fn();
+
+/** Container ids whose next mutation should come back as a server error. */
+const failingContainerIds = new Set<string>();
+
+const engineInfo = {
+  connected: true,
+  dockerVersion: "26.1.0",
+  apiVersion: "1.45",
+  os: "Linux",
+  arch: "x86_64",
+  kernelVersion: "6.8.0",
+  totalMemory: "32 GB",
+  cpus: 12,
+  storageDriver: "overlay2",
+  rootDir: "/var/lib/docker",
+  serverTime: new Date().toISOString(),
+  endpoint: "unix:///var/run/docker.sock",
+};
+
+function errorResponse(message: string) {
+  return new Response(JSON.stringify({ error: { message, code: "docker_error" } }), { status: 500 });
+}
 
 const containers = [
   { id: "ctr-1", name: "nginx-proxy", image: "nginx:alpine", composeProject: null, composeService: null, status: "running", state: "Up 3 hours", ports: "80/tcp", created: new Date().toISOString(), cpuPercent: null, memUsage: "20 MB", memLimit: "512 MB", netIO: null, blockIO: null },
@@ -36,11 +63,24 @@ function renderContainersRoute() {
 describe("Containers Page", () => {
   beforeEach(() => {
     fetchMock.mockReset();
+    vi.mocked(toast.success).mockClear();
+    vi.mocked(toast.error).mockClear();
+    vi.mocked(toast.info).mockClear();
+    failingContainerIds.clear();
     vi.stubGlobal("fetch", fetchMock);
 
     fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       const method = init?.method ?? "GET";
+
+      const failing = [...failingContainerIds].find((id) => url.includes(`/api/containers/${id}/`));
+      if (failing && method === "POST") {
+        return Promise.resolve(errorResponse(`container ${failing} is unresponsive`));
+      }
+
+      if (url.endsWith("/api/engine") && method === "GET") {
+        return Promise.resolve(new Response(JSON.stringify(engineInfo)));
+      }
 
       if (url.endsWith("/api/containers") && method === "GET") {
         return Promise.resolve(new Response(JSON.stringify(containers)));
@@ -145,6 +185,28 @@ describe("Containers Page", () => {
       expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/containers/ctr-1/stop"), expect.objectContaining({ method: "POST" }));
       expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/containers/ctr-3/stop"), expect.objectContaining({ method: "POST" }));
     });
+  });
+
+  it("attempts every selected container when one bulk item fails and reports the partial outcome", async () => {
+    failingContainerIds.add("ctr-1");
+
+    renderWithProviders(<Containers />);
+    await screen.findByText("nginx-proxy");
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select container nginx-proxy" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select container sportseventhub-redis" }));
+    fireEvent.click(screen.getByTitle("Stop selected containers"));
+
+    // The failure on ctr-1 must not abandon ctr-3.
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/containers/ctr-3/stop"), expect.objectContaining({ method: "POST" }));
+    });
+
+    await waitFor(() => {
+      expect(vi.mocked(toast.error)).toHaveBeenCalledWith(expect.stringContaining("1 of 2 containers"));
+    });
+    expect(vi.mocked(toast.error)).toHaveBeenCalledWith(expect.stringContaining("1 failed"));
+    expect(vi.mocked(toast.error)).toHaveBeenCalledWith(expect.stringContaining("container ctr-1 is unresponsive"));
+    expect(vi.mocked(toast.success)).not.toHaveBeenCalledWith(expect.stringContaining("Stopped 2 containers"));
   });
 
   it("stops a compose stack from the group row", async () => {

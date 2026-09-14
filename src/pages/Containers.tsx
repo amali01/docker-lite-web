@@ -1,9 +1,10 @@
 import { Fragment, useState } from "react";
 import { Boxes, ChevronDown, ChevronRight, Play, Plus, RotateCcw, Search, Square, Trash2, Activity } from "lucide-react";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
 import { ApiState } from "@/components/ApiState";
 import { ContainerActionButtons } from "@/components/ContainerActionButtons";
+import { ContainerNameLink } from "@/components/ContainerNameLink";
+import { PortLinks } from "@/components/PortLinks";
 import { MonitoringRow } from "@/components/MonitoringOptions";
 import { ContainerLogs } from "@/components/ContainerLogs";
 import { ContainerExec } from "@/components/ContainerExec";
@@ -16,65 +17,15 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   useContainers,
   useRemoveComposeProject,
-  useRemoveContainer,
-  useRestartContainer,
-  useRebuildContainer,
   useRunContainer,
   useStartComposeProject,
-  useStartContainer,
   useStopComposeProject,
-  useStopContainer,
 } from "@/hooks/use-containers";
+import { useContainerActions } from "@/hooks/use-container-actions";
 import { useTableSelection } from "@/hooks/use-table-selection";
 import { ContainerSummary, RunContainerPayload } from "@/lib/api/types";
-import { inferComposeProjectFromName, useResourceGroups } from "@/lib/resource-groups";
-
-function projectOf(container: ContainerSummary) {
-  if (container.composeProject) {
-    return container.composeProject;
-  }
-
-  return inferComposeProjectFromName(container.name);
-}
-
-
-function PortLinks({ ports }: { ports: string | null | undefined }) {
-  if (!ports || ports === "—") return <span>—</span>;
-  const parts = ports.split(", ");
-  return (
-    <div className="flex flex-col gap-0.5">
-      {parts.map((part, idx) => {
-        if (part.includes("->")) {
-          const hostPart = part.split("->")[0];
-          const portMatch = hostPart.match(/:(\d+)$/);
-          const port = portMatch ? portMatch[1] : null;
-          if (port) {
-            return (
-              <a key={idx} href={`http://localhost:${port}`} target="_blank" rel="noreferrer" className="text-primary hover:underline hover:text-primary/80">
-                {part}
-              </a>
-            );
-          }
-        }
-        return <span key={idx}>{part}</span>;
-      })}
-    </div>
-  );
-}
-
-function ContainerNameLink({ containerId, containerName, displayName }: { containerId: string; containerName: string; displayName: string }) {
-  return (
-    <Link
-      to={`/containers/${containerId}`}
-      className="block truncate text-foreground transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
-      title={containerName}
-    >
-      {displayName}
-    </Link>
-  );
-}
-
-
+import { composeProjectOfContainer } from "@/lib/compose-project";
+import { useResourceGroups } from "@/lib/resource-groups";
 
 export default function Containers() {
 
@@ -90,11 +41,7 @@ export default function Containers() {
   const [runDialogOpen, setRunDialogOpen] = useState(false);
   const containersQuery = useContainers();
   const runMutation = useRunContainer();
-  const startMutation = useStartContainer();
-  const stopMutation = useStopContainer();
-  const restartMutation = useRestartContainer();
-  const rebuildMutation = useRebuildContainer();
-  const removeMutation = useRemoveContainer();
+  const { runAction, runBulk } = useContainerActions();
   const startComposeProjectMutation = useStartComposeProject();
   const stopComposeProjectMutation = useStopComposeProject();
   const removeComposeProjectMutation = useRemoveComposeProject();
@@ -111,9 +58,9 @@ export default function Containers() {
   const selection = useTableSelection(filtered.map((container) => container.id));
   const selectedContainers = containers.filter((container) => selection.selectedIds.includes(container.id));
   const hasSelection = selection.selectedCount > 0;
-  const { rowEntries, expandedGroups, toggleGroup, groupSelectionState } = useResourceGroups({
+  const { rowEntries, expandedGroups, toggleGroup, groupSelectionState } = useResourceGroups<ContainerSummary>({
     items: filtered,
-    getProject: projectOf,
+    getProject: composeProjectOfContainer,
     getId: (container) => container.id,
     selectedIds: selection.selectedIds,
   });
@@ -138,54 +85,22 @@ export default function Containers() {
   }
 
   const handleAction = async (action: "start" | "stop" | "restart" | "remove" | "logs" | "terminal" | "rebuild", container: ContainerSummary) => {
-    try {
-      if (action === "start") {
-        await startMutation.mutateAsync(container.id);
-        toast.success(`Started ${container.name}`);
-        return;
-      }
+    if (action === "logs") {
+      setTerminalContainer(null);
+      setLogsContainer((current) => (current?.id === container.id ? null : container));
+      return;
+    }
 
-      if (action === "stop") {
-        await stopMutation.mutateAsync(container.id);
-        toast.success(`Stopped ${container.name}`);
-        return;
-      }
+    if (action === "terminal") {
+      setLogsContainer(null);
+      setTerminalContainer((current) => (current?.id === container.id ? null : container));
+      return;
+    }
 
-      if (action === "restart") {
-        await restartMutation.mutateAsync(container.id);
-        toast.success(`Restarted ${container.name}`);
-        return;
-      }
-      if (action === "rebuild") {
-        toast.info(`Refreshing ${container.name}...`);
-        await rebuildMutation.mutateAsync(container.id);
-        toast.success(`Refreshed ${container.name}`);
-        return;
-      }
+    const succeeded = await runAction(action, container);
 
-      if (action === "remove") {
-        await removeMutation.mutateAsync(container.id);
-        if (logsContainer?.id === container.id) {
-          setLogsContainer(null);
-        }
-        toast.success(`Removed ${container.name}`);
-        return;
-      }
-
-      if (action === "logs") {
-        setTerminalContainer(null);
-        setLogsContainer((current) => (current?.id === container.id ? null : container));
-        return;
-      }
-      
-      if (action === "terminal") {
-        setLogsContainer(null);
-        setTerminalContainer((current) => (current?.id === container.id ? null : container));
-        return;
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Docker action failed";
-      toast.error(message);
+    if (succeeded && action === "remove" && logsContainer?.id === container.id) {
+      setLogsContainer(null);
     }
   };
 
@@ -234,36 +149,13 @@ export default function Containers() {
       return;
     }
 
-    try {
-      for (const container of currentSelection) {
-        if (action === "start") {
-          await startMutation.mutateAsync(container.id);
-          continue;
-        }
+    const { succeeded } = await runBulk(action, currentSelection);
 
-        if (action === "stop") {
-          await stopMutation.mutateAsync(container.id);
-          continue;
-        }
-
-        if (action === "restart") {
-          await restartMutation.mutateAsync(container.id);
-          continue;
-        }
-
-        await removeMutation.mutateAsync(container.id);
-      }
-
-      if (action === "remove" && logsContainer && currentSelection.some((container) => container.id === logsContainer.id)) {
-        setLogsContainer(null);
-      }
-
-      selection.toggleAll(false);
-      toast.success(`${action === "remove" ? "Removed" : action === "restart" ? "Restarted" : action === "start" ? "Started" : "Stopped"} ${currentSelection.length} container${currentSelection.length === 1 ? "" : "s"}`);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Bulk Docker action failed";
-      toast.error(message);
+    if (action === "remove" && logsContainer && succeeded.some((container) => container.id === logsContainer.id)) {
+      setLogsContainer(null);
     }
+
+    selection.toggleAll(false);
   };
 
   return (

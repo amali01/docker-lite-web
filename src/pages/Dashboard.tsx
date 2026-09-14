@@ -1,79 +1,32 @@
 import { Fragment, useState } from "react";
 import { Box, Boxes, ChevronDown, ChevronRight, HardDrive, Image as ImageIcon, Network, Play, RotateCcw, Server, Square, Trash2 } from "lucide-react";
-import { Link } from "react-router-dom";
 import { ApiState } from "@/components/ApiState";
 import { ContainerActionButtons } from "@/components/ContainerActionButtons";
+import { ContainerNameLink } from "@/components/ContainerNameLink";
 import { ContainerLogs } from "@/components/ContainerLogs";
 import { ContainerExec } from "@/components/ContainerExec";
-import { toast } from "sonner";
+import { PortLinks } from "@/components/PortLinks";
 import { StatCard } from "@/components/StatCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { MonitoringRow } from "@/components/MonitoringOptions";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  useContainers,
-  useRemoveContainer,
-  useRestartContainer,
-  useRebuildContainer,
-  useStartContainer,
-  useStopContainer,
-} from "@/hooks/use-containers";
+import { useContainers } from "@/hooks/use-containers";
+import { useContainerActions } from "@/hooks/use-container-actions";
 import { useEngineInfo } from "@/hooks/use-engine";
 import { useImages } from "@/hooks/use-images";
 import { useNetworks } from "@/hooks/use-networks";
 import { useTableSelection } from "@/hooks/use-table-selection";
 import { useVolumes } from "@/hooks/use-volumes";
 import { ContainerSummary } from "@/lib/api/types";
-import { inferComposeProjectFromName, useResourceGroups } from "@/lib/resource-groups";
+import { composeProjectOfContainer } from "@/lib/compose-project";
+import { useResourceGroups } from "@/lib/resource-groups";
 
 function formatMetric(value: string | number | null) {
   if (value == null || value === "") return "—";
   if (typeof value === "number") return `${value}%`;
   return value;
-}
-
-function projectOf(container: ContainerSummary) {
-  if (container.composeProject) return container.composeProject;
-  return inferComposeProjectFromName(container.name);
-}
-
-
-function PortLinks({ ports }: { ports: string | null | undefined }) {
-  if (!ports || ports === "—") return <span>—</span>;
-  const parts = ports.split(", ");
-  return (
-    <div className="flex flex-col gap-0.5">
-      {parts.map((part, idx) => {
-        if (part.includes("->")) {
-          const hostPart = part.split("->")[0];
-          const portMatch = hostPart.match(/:(\d+)$/);
-          const port = portMatch ? portMatch[1] : null;
-          if (port) {
-            return (
-              <a key={idx} href={`http://localhost:${port}`} target="_blank" rel="noreferrer" className="text-primary hover:underline hover:text-primary/80">
-                {part}
-              </a>
-            );
-          }
-        }
-        return <span key={idx}>{part}</span>;
-      })}
-    </div>
-  );
-}
-
-function ContainerNameLink({ containerId, containerName, displayName }: { containerId: string; containerName: string; displayName: string }) {
-  return (
-    <Link
-      to={`/containers/${containerId}`}
-      className="block truncate text-foreground transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
-      title={containerName}
-    >
-      {displayName}
-    </Link>
-  );
 }
 
 export default function Dashboard() {
@@ -86,11 +39,7 @@ export default function Dashboard() {
 
   const engineQuery = useEngineInfo();
   const containersQuery = useContainers();
-  const startMutation = useStartContainer();
-  const stopMutation = useStopContainer();
-  const restartMutation = useRestartContainer();
-  const rebuildMutation = useRebuildContainer();
-  const removeMutation = useRemoveContainer();
+  const { runAction, runBulk } = useContainerActions();
   const imagesQuery = useImages();
   const volumesQuery = useVolumes();
   const networksQuery = useNetworks();
@@ -106,9 +55,9 @@ export default function Dashboard() {
   const hasSelection = selection.selectedCount > 0;
   const selectedContainers = containers.filter((c) => selection.selectedIds.includes(c.id));
 
-  const { rowEntries, expandedGroups, toggleGroup, groupSelectionState } = useResourceGroups({
+  const { rowEntries, expandedGroups, toggleGroup, groupSelectionState } = useResourceGroups<ContainerSummary>({
     items: containers,
-    getProject: projectOf,
+    getProject: composeProjectOfContainer,
     getId: (container) => container.id,
     selectedIds: selection.selectedIds,
   });
@@ -121,64 +70,64 @@ export default function Dashboard() {
     return <div className="p-6"><ApiState title="Docker connection unavailable" description="The local DockLite backend is not reachable or Docker is unavailable. Open Settings to test the configured API endpoint." /></div>;
   }
 
-  const engine = engineQuery.data!;
+  const engine = engineQuery.data;
+
+  if (!engine) {
+    return (
+      <div className="p-6">
+        <ApiState
+          title="Engine information unavailable"
+          description="DockLite reached the backend but got no engine details back. Open Settings to test the configured API endpoint."
+        />
+      </div>
+    );
+  }
+
   const running = allContainers.filter((c) => c.status === "running").length;
   const stopped = allContainers.filter((c) => c.status === "stopped").length;
 
   const handleAction = async (action: "start" | "stop" | "restart" | "remove" | "logs" | "terminal" | "rebuild", container: ContainerSummary) => {
-    try {
-      if (action === "start") { await startMutation.mutateAsync(container.id); toast.success(`Started ${container.name}`); return; }
-      if (action === "stop") { await stopMutation.mutateAsync(container.id); toast.success(`Stopped ${container.name}`); return; }
-      if (action === "restart") { await restartMutation.mutateAsync(container.id); toast.success(`Restarted ${container.name}`); return; }
-      if (action === "rebuild") { await rebuildMutation.mutateAsync(container.id); toast.success(`Refreshed ${container.name}`); return; }
-      if (action === "remove") {
-        await removeMutation.mutateAsync(container.id);
-        if (logsContainer?.id === container.id) setLogsContainer(null);
-        toast.success(`Removed ${container.name}`);
-        return;
-      }
-      if (action === "logs") {
-        setTerminalContainer(null);
-        setLogsContainer((c) => (c?.id === container.id ? null : container));
-        return;
-      }
-      if (action === "terminal") {
-        setLogsContainer(null);
-        setTerminalContainer((c) => (c?.id === container.id ? null : container));
-        return;
-      }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Docker action failed");
+    if (action === "logs") {
+      setTerminalContainer(null);
+      setLogsContainer((c) => (c?.id === container.id ? null : container));
+      return;
+    }
+
+    if (action === "terminal") {
+      setLogsContainer(null);
+      setTerminalContainer((c) => (c?.id === container.id ? null : container));
+      return;
+    }
+
+    const succeeded = await runAction(action, container);
+
+    if (succeeded && action === "remove" && logsContainer?.id === container.id) {
+      setLogsContainer(null);
     }
   };
 
   const handleBulkAction = async (action: "start" | "stop" | "restart" | "remove") => {
-    if (selectedContainers.length === 0) return;
-    try {
-      for (const container of selectedContainers) {
-        if (action === "start") await startMutation.mutateAsync(container.id);
-        else if (action === "stop") await stopMutation.mutateAsync(container.id);
-        else if (action === "restart") await restartMutation.mutateAsync(container.id);
-        else if (action === "remove") await removeMutation.mutateAsync(container.id);
-      }
-      selection.toggleAll(false);
-      toast.success(`Bulk action '${action}' completed on ${selectedContainers.length} containers`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Bulk action failed");
+    const currentSelection = [...selectedContainers];
+
+    if (currentSelection.length === 0) return;
+
+    const { succeeded } = await runBulk(action, currentSelection);
+
+    if (action === "remove" && logsContainer && succeeded.some((container) => container.id === logsContainer.id)) {
+      setLogsContainer(null);
     }
+
+    selection.toggleAll(false);
   };
 
   const handleGroupAction = async (action: "start" | "stop" | "remove", project: string, groupContainers: ContainerSummary[]) => {
-    try {
-      for (const container of groupContainers) {
-        if (action === "start" && container.status !== "running") await startMutation.mutateAsync(container.id);
-        else if (action === "stop" && container.status === "running") await stopMutation.mutateAsync(container.id);
-        else if (action === "remove") await removeMutation.mutateAsync(container.id);
-      }
-      toast.success(`Group action '${action}' completed for ${project}`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Group action failed");
-    }
+    // Starting a running container (or stopping a stopped one) is a no-op the
+    // daemon would reject, so the stack action only touches what it can change.
+    const targets = groupContainers.filter((container) =>
+      action === "start" ? container.status !== "running" : action === "stop" ? container.status === "running" : true,
+    );
+
+    await runBulk(action, targets, project);
   };
 
   return (

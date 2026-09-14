@@ -7,6 +7,24 @@ import { renderWithProviders } from "@/test/render";
 
 const fetchMock = vi.fn();
 
+const defaultEngineInfo = {
+  connected: true,
+  dockerVersion: "26.1.0",
+  apiVersion: "1.45",
+  os: "Linux",
+  arch: "x86_64",
+  kernelVersion: "6.8.0",
+  totalMemory: "32 GB",
+  cpus: 12,
+  storageDriver: "overlay2",
+  rootDir: "/var/lib/docker",
+  serverTime: new Date().toISOString(),
+  endpoint: "unix:///var/run/docker.sock",
+};
+
+/** Swapped per test to exercise remote engines and a missing engine payload. */
+let engineInfo: Record<string, unknown> | null = defaultEngineInfo;
+
 function renderDashboardRoute() {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -30,6 +48,7 @@ function renderDashboardRoute() {
 describe("Dashboard", () => {
   beforeEach(() => {
     fetchMock.mockReset();
+    engineInfo = defaultEngineInfo;
     vi.stubGlobal("fetch", fetchMock);
 
     fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
@@ -37,28 +56,13 @@ describe("Dashboard", () => {
       const method = init?.method ?? "GET";
 
       if (url.endsWith("/api/engine") && method === "GET") {
-        return Promise.resolve(
-          new Response(JSON.stringify({
-            connected: true,
-            dockerVersion: "26.1.0",
-            apiVersion: "1.45",
-            os: "Linux",
-            arch: "x86_64",
-            kernelVersion: "6.8.0",
-            totalMemory: "32 GB",
-            cpus: 12,
-            storageDriver: "overlay2",
-            rootDir: "/var/lib/docker",
-            serverTime: new Date().toISOString(),
-            endpoint: "unix:///var/run/docker.sock",
-          })),
-        );
+        return Promise.resolve(new Response(JSON.stringify(engineInfo)));
       }
 
       if (url.endsWith("/api/containers") && method === "GET") {
         return Promise.resolve(
           new Response(JSON.stringify([
-            { id: "1", name: "nginx-proxy", image: "nginx:alpine", status: "running", state: "Up", ports: "80/tcp", created: new Date().toISOString(), cpuPercent: null, memUsage: "20 MB", memLimit: "512 MB", netIO: null, blockIO: null },
+            { id: "1", name: "nginx-proxy", image: "nginx:alpine", status: "running", state: "Up", ports: "0.0.0.0:8080->80/tcp", created: new Date().toISOString(), cpuPercent: null, memUsage: "20 MB", memLimit: "512 MB", netIO: null, blockIO: null },
             { id: "2", name: "postgres-db", image: "postgres:16", status: "stopped", state: "Exited", ports: "", created: new Date().toISOString(), cpuPercent: null, memUsage: null, memLimit: null, netIO: null, blockIO: null },
           ])),
         );
@@ -164,6 +168,27 @@ describe("Dashboard", () => {
         expect.objectContaining({ method: "POST" }),
       );
     });
+  });
+
+  it("points a published port link at the local host for a local engine", async () => {
+    renderWithProviders(<Dashboard />);
+    const link = await screen.findByRole("link", { name: "0.0.0.0:8080->80/tcp" });
+    expect(link).toHaveAttribute("href", "http://localhost:8080");
+  });
+
+  it("points a published port link at the remote host for an ssh engine", async () => {
+    engineInfo = { ...defaultEngineInfo, endpoint: "ssh://deploy@10.0.0.5" };
+
+    renderWithProviders(<Dashboard />);
+    const link = await screen.findByRole("link", { name: "0.0.0.0:8080->80/tcp" });
+    expect(link).toHaveAttribute("href", "http://10.0.0.5:8080");
+  });
+
+  it("renders a fallback instead of crashing when the engine query resolves without data", async () => {
+    engineInfo = null;
+
+    renderWithProviders(<Dashboard />);
+    expect(await screen.findByText("Engine information unavailable")).toBeInTheDocument();
   });
 
   it("navigates to the detail route from the dashboard", async () => {
