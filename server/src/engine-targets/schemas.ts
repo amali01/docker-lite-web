@@ -1,6 +1,76 @@
+import { realpathSync } from "node:fs";
+import { homedir } from "node:os";
+import { basename, delimiter, dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { z } from "zod";
 
 const nonEmptyString = z.string().trim().min(1);
+
+/**
+ * TLS and SSH credential paths arrive from the client and are read off the
+ * DockLite host's filesystem. Left unconstrained they let a request point the
+ * server at any file it can reach: the contents never come back, but the
+ * distinct failures for "missing", "unreadable" and "not a key" make the
+ * engine-target API a file existence-and-readability oracle. So every such path
+ * must resolve inside an allowlisted directory, and the rejection is one fixed
+ * message that says nothing about what is or isn't on disk.
+ *
+ * DOCKLITE_CREDENTIAL_DIRS (a `path.delimiter`-separated list) replaces the
+ * defaults, which are the two places credentials normally live: the user's
+ * ~/.ssh and DockLite's own credential directory.
+ */
+export const CREDENTIAL_PATH_MESSAGE = "Credential path is not inside an allowed directory";
+
+export function getCredentialDirectories(): string[] {
+  const configured = process.env.DOCKLITE_CREDENTIAL_DIRS;
+  const directories = configured
+    ? configured.split(delimiter).map((entry) => entry.trim()).filter(Boolean)
+    : [join(homedir(), ".ssh"), join(process.cwd(), "server", "data", "credentials")];
+
+  return directories.map((directory) => resolveSymlinks(resolve(directory)));
+}
+
+/**
+ * realpath() of the deepest existing ancestor, with the not-yet-existing tail
+ * appended. This resolves symlinks — so a link inside an allowed directory
+ * cannot aim outside it — without requiring the target to exist, which keeps
+ * the check from depending on (and therefore leaking) file existence.
+ */
+function resolveSymlinks(target: string): string {
+  const tail: string[] = [];
+  let head = target;
+
+  for (;;) {
+    try {
+      return join(realpathSync(head), ...tail);
+    } catch {
+      const parent = dirname(head);
+      if (parent === head) {
+        return target;
+      }
+      tail.unshift(basename(head));
+      head = parent;
+    }
+  }
+}
+
+function isAllowedCredentialPath(value: string): boolean {
+  // A relative path would resolve against the server's working directory, which
+  // is never what a user means here. `resolve` also collapses "..", so traversal
+  // is judged on where the path actually lands, not on how it is spelled.
+  if (!isAbsolute(value)) {
+    return false;
+  }
+
+  const resolved = resolveSymlinks(resolve(value));
+  return getCredentialDirectories().some(
+    (directory) => resolved === directory || resolved.startsWith(directory + sep),
+  );
+}
+
+/** A client-supplied path to a TLS certificate/key or an SSH key/known_hosts file. */
+export const credentialPathSchema = nonEmptyString.refine(isAllowedCredentialPath, {
+  message: CREDENTIAL_PATH_MESSAGE,
+});
 
 export const engineTargetKindSchema = z.union([z.literal("local"), z.literal("ssh"), z.literal("tcpTls")]);
 export const engineTargetHealthStatusSchema = z.union([

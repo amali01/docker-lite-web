@@ -1,12 +1,18 @@
 import { Router } from "express";
 import { z } from "zod";
+import { credentialPathSchema } from "../engine-targets/schemas";
 import { EngineControlSurface } from "../types";
+
+// TLS/SSH credential paths name files on the DockLite host, so they are
+// constrained to the allowlisted credential directories here, at the client
+// boundary — nothing downstream ever opens a path this schema rejected.
+const clientCredentialPath = credentialPathSchema.nullable().optional();
 
 const selectEngineSchema = z.object({
   targetId: z.string().min(1),
 });
 
-const createTargetSchema = z.union([
+const createTargetSchema = z.discriminatedUnion("kind", [
   z
     .object({
       kind: z.literal("local"),
@@ -22,8 +28,8 @@ const createTargetSchema = z.union([
       port: z.number().int().positive(),
       username: z.string().trim().min(1),
       authMode: z.union([z.literal("agent"), z.literal("keyFile")]),
-      keyPath: z.string().trim().min(1).nullable().optional(),
-      knownHostsPath: z.string().trim().min(1).nullable().optional(),
+      keyPath: clientCredentialPath,
+      knownHostsPath: clientCredentialPath,
       dockerHostOverride: z.string().trim().min(1).nullable().optional(),
     })
     .strict(),
@@ -35,14 +41,14 @@ const createTargetSchema = z.union([
       port: z.number().int().positive(),
       serverName: z.string().trim().min(1).nullable().optional(),
       tlsMode: z.union([z.literal("serverOnly"), z.literal("mtls")]),
-      caPath: z.string().trim().min(1).nullable().optional(),
-      certPath: z.string().trim().min(1).nullable().optional(),
-      keyPath: z.string().trim().min(1).nullable().optional(),
+      caPath: clientCredentialPath,
+      certPath: clientCredentialPath,
+      keyPath: clientCredentialPath,
     })
     .strict(),
 ]);
 
-const updateTargetSchema = z.union([
+const updateTargetSchema = z.discriminatedUnion("kind", [
   z
     .object({
       kind: z.literal("local"),
@@ -58,8 +64,8 @@ const updateTargetSchema = z.union([
       port: z.number().int().positive().optional(),
       username: z.string().trim().min(1).optional(),
       authMode: z.union([z.literal("agent"), z.literal("keyFile")]).optional(),
-      keyPath: z.string().trim().min(1).nullable().optional(),
-      knownHostsPath: z.string().trim().min(1).nullable().optional(),
+      keyPath: clientCredentialPath,
+      knownHostsPath: clientCredentialPath,
       dockerHostOverride: z.string().trim().min(1).nullable().optional(),
     })
     .strict(),
@@ -71,9 +77,9 @@ const updateTargetSchema = z.union([
       port: z.number().int().positive().optional(),
       serverName: z.string().trim().min(1).nullable().optional(),
       tlsMode: z.union([z.literal("serverOnly"), z.literal("mtls")]).optional(),
-      caPath: z.string().trim().min(1).nullable().optional(),
-      certPath: z.string().trim().min(1).nullable().optional(),
-      keyPath: z.string().trim().min(1).nullable().optional(),
+      caPath: clientCredentialPath,
+      certPath: clientCredentialPath,
+      keyPath: clientCredentialPath,
     })
     .strict(),
 ]);

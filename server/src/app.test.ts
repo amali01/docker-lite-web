@@ -452,7 +452,9 @@ describe("DockLite backend app", () => {
       host: "prod.example.internal",
       port: 2376,
       tlsMode: "serverOnly",
-      caPath: "/tmp/prod-ca.pem",
+      // Credential paths are constrained to the allowlisted credential
+      // directories (CODE-AUDIT.md M19), so this names one instead of /tmp.
+      caPath: join(process.cwd(), "server", "data", "credentials", "prod-ca.pem"),
       certPath: null,
       keyPath: null,
     });
