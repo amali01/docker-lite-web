@@ -12,6 +12,9 @@ vi.mock("@/hooks/use-containers", () => ({
   useContainerDetails: (...args: unknown[]) => useContainerDetailsMock(...args),
   useContainerInspect: (...args: unknown[]) => useContainerInspectMock(...args),
   useContainerStats: (...args: unknown[]) => useContainerStatsMock(...args),
+  // The Stats tab accumulates its own polled history; the page-level fixtures cover the rest.
+  useContainerStatsHistory: () => [],
+  STATS_POLL_INTERVAL_MS: 5000,
 }));
 
 vi.mock("@/hooks/use-engine", () => ({
