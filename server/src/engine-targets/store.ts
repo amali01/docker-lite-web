@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
+import { readFile, writeFile, mkdir, rename, chmod } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
@@ -129,7 +129,8 @@ export class EngineTargetStore {
   private readonly seededSavedTargets: EngineTargetProfile[];
   private readonly now: () => string;
   private readonly idFactory: () => string;
-  private loaded = false;
+  private loadPromise: Promise<void> | null = null;
+  private writeLock: Promise<unknown> = Promise.resolve();
   private state: EngineTargetStoreSnapshot = {
     version: ENGINE_TARGET_STORE_VERSION,
     activeTargetId: null,
@@ -169,47 +170,112 @@ export class EngineTargetStore {
 
   private async persistState() {
     const serialized = JSON.stringify(this.snapshot(), null, 2);
-    await mkdir(dirname(this.filePath), { recursive: true });
+    const directory = dirname(this.filePath);
+    await mkdir(directory, { recursive: true, mode: 0o700 });
+    await chmod(directory, 0o700);
 
     const tmpPath = `${this.filePath}.${this.idFactory()}.tmp`;
-    await writeFile(tmpPath, serialized, "utf8");
+    await writeFile(tmpPath, serialized, { mode: 0o600 });
+    await chmod(tmpPath, 0o600);
     await rename(tmpPath, this.filePath);
+    await chmod(this.filePath, 0o600);
   }
 
-  private async loadState() {
-    if (this.loaded) {
-      return;
-    }
+  private cleanSnapshot(): EngineTargetStoreSnapshot {
+    return {
+      version: ENGINE_TARGET_STORE_VERSION,
+      activeTargetId: this.builtInTargets[0]?.id ?? null,
+      savedTargets: cloneTarget(this.seededSavedTargets),
+    };
+  }
 
-    let shouldPersist: boolean;
+  /** Preserves an unreadable state file aside instead of discarding it, so a corrupt/malformed
+   * `engine-targets.json` recovers with a clean state rather than 500ing every request forever. */
+  private async quarantineCorruptFile(error: unknown): Promise<void> {
+    const quarantinePath = `${this.filePath}.corrupt-${Date.now()}`;
+    const reason = error instanceof Error ? error.message : String(error);
 
     try {
-      const raw = await readFile(this.filePath, "utf8");
-      const parsed = engineTargetStoreStateSchema.parse(JSON.parse(raw)) as EngineTargetStoreState;
-      const migratedState = this.migrateLoadedState(parsed);
-      shouldPersist = migratedState.version !== parsed.version || migratedState.savedTargets.length !== parsed.savedTargets.length;
-      this.state = {
-        version: migratedState.version,
-        activeTargetId: migratedState.activeTargetId,
-        savedTargets: cloneTarget(migratedState.savedTargets),
-      };
+      await rename(this.filePath, quarantinePath);
+      console.error(
+        `[engine-targets] ${this.filePath} was corrupt (${reason}); preserved the original as ${quarantinePath} and reset to a clean state.`,
+      );
+    } catch (renameError) {
+      console.error(
+        `[engine-targets] ${this.filePath} was corrupt (${reason}) and could not be preserved (${
+          (renameError as Error).message
+        }); resetting to a clean state.`,
+      );
+    }
+  }
+
+  private async loadFromDisk(): Promise<{ state: EngineTargetStoreSnapshot; shouldPersist: boolean }> {
+    let raw: string;
+
+    try {
+      raw = await readFile(this.filePath, "utf8");
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
         throw error;
       }
-      this.state = {
-        version: ENGINE_TARGET_STORE_VERSION,
-        activeTargetId: this.builtInTargets[0]?.id ?? null,
-        savedTargets: cloneTarget(this.seededSavedTargets),
-      };
-      shouldPersist = true;
+      return { state: this.cleanSnapshot(), shouldPersist: true };
     }
 
-    this.loaded = true;
+    try {
+      const parsed = engineTargetStoreStateSchema.parse(JSON.parse(raw)) as EngineTargetStoreState;
+      const migratedState = this.migrateLoadedState(parsed);
+      const shouldPersist =
+        migratedState.version !== parsed.version || migratedState.savedTargets.length !== parsed.savedTargets.length;
+
+      return {
+        state: {
+          version: migratedState.version,
+          activeTargetId: migratedState.activeTargetId,
+          savedTargets: cloneTarget(migratedState.savedTargets),
+        },
+        shouldPersist,
+      };
+    } catch (error) {
+      // Malformed JSON or a schema-failing file: don't rethrow (that would 500 every
+      // /api/engine route forever with no UI path to recover). Preserve the bad file and
+      // start clean instead.
+      await this.quarantineCorruptFile(error);
+      return { state: this.cleanSnapshot(), shouldPersist: true };
+    }
+  }
+
+  private async performLoad(): Promise<void> {
+    const { state, shouldPersist } = await this.loadFromDisk();
+    this.state = state;
 
     if (shouldPersist) {
       await this.persistState();
     }
+  }
+
+  private async loadState(): Promise<void> {
+    if (!this.loadPromise) {
+      // Memoize the promise itself (not a flag set after the fact) so concurrent callers
+      // await the same in-flight load instead of each running their own read+persist.
+      this.loadPromise = this.performLoad().catch((error: unknown) => {
+        this.loadPromise = null;
+        throw error;
+      });
+    }
+
+    return this.loadPromise;
+  }
+
+  /** Serializes read-modify-write cycles over `this.state` so concurrent saveTarget /
+   * deleteTarget / selectTarget calls can't compute their update from a stale snapshot and
+   * clobber each other's persisted write. */
+  private async withWriteLock<T>(task: () => Promise<T>): Promise<T> {
+    const run = this.writeLock.then(task, task);
+    this.writeLock = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
   }
 
   private migrateLoadedState(parsed: EngineTargetStoreState): EngineTargetStoreSnapshot {
@@ -277,67 +343,75 @@ export class EngineTargetStore {
 
   async saveTarget(input: EngineTargetProfileInput): Promise<EngineTargetProfile> {
     await this.loadState();
-    const parsed = parseEngineTargetProfileInput(input);
-    const existing = parsed.id ? this.getSavedTarget(parsed.id) : undefined;
 
-    if (parsed.id && this.builtInTargets.some((target) => target.id === parsed.id)) {
-      throw new BackendError(409, "conflict", "Built-in engine targets cannot be overwritten");
-    }
+    return this.withWriteLock(async () => {
+      const parsed = parseEngineTargetProfileInput(input);
+      const existing = parsed.id ? this.getSavedTarget(parsed.id) : undefined;
 
-    const savedTarget = normalizeSavedTarget(parsed, existing, this.now, this.idFactory);
-    const nextSavedTargets = existing
-      ? this.state.savedTargets.map((target) => (target.id === savedTarget.id ? savedTarget : target))
-      : [...this.state.savedTargets, savedTarget];
+      if (parsed.id && this.builtInTargets.some((target) => target.id === parsed.id)) {
+        throw new BackendError(409, "conflict", "Built-in engine targets cannot be overwritten");
+      }
 
-    this.state = {
-      version: ENGINE_TARGET_STORE_VERSION,
-      activeTargetId: this.resolveActiveTargetId(),
-      savedTargets: nextSavedTargets,
-    };
+      const savedTarget = normalizeSavedTarget(parsed, existing, this.now, this.idFactory);
+      const nextSavedTargets = existing
+        ? this.state.savedTargets.map((target) => (target.id === savedTarget.id ? savedTarget : target))
+        : [...this.state.savedTargets, savedTarget];
 
-    await this.persistState();
-    return cloneTarget(savedTarget);
+      this.state = {
+        version: ENGINE_TARGET_STORE_VERSION,
+        activeTargetId: this.resolveActiveTargetId(),
+        savedTargets: nextSavedTargets,
+      };
+
+      await this.persistState();
+      return cloneTarget(savedTarget);
+    });
   }
 
   async deleteTarget(targetId: string): Promise<void> {
     await this.loadState();
 
-    if (this.builtInTargets.some((target) => target.id === targetId)) {
-      throw new BackendError(404, "not_found", "Engine target not found");
-    }
+    return this.withWriteLock(async () => {
+      if (this.builtInTargets.some((target) => target.id === targetId)) {
+        throw new BackendError(404, "not_found", "Engine target not found");
+      }
 
-    const nextSavedTargets = this.state.savedTargets.filter((target) => target.id !== targetId);
-    if (nextSavedTargets.length === this.state.savedTargets.length) {
-      throw new BackendError(404, "not_found", "Engine target not found");
-    }
+      const nextSavedTargets = this.state.savedTargets.filter((target) => target.id !== targetId);
+      if (nextSavedTargets.length === this.state.savedTargets.length) {
+        throw new BackendError(404, "not_found", "Engine target not found");
+      }
 
-    const activeTargetId = this.resolveActiveTargetId();
-    const nextActiveTargetId = activeTargetId === targetId ? this.getAllTargets().find((target) => target.id !== targetId)?.id ?? null : activeTargetId;
+      const activeTargetId = this.resolveActiveTargetId();
+      const nextActiveTargetId =
+        activeTargetId === targetId ? this.getAllTargets().find((target) => target.id !== targetId)?.id ?? null : activeTargetId;
 
-    this.state = {
-      version: ENGINE_TARGET_STORE_VERSION,
-      activeTargetId: nextActiveTargetId,
-      savedTargets: nextSavedTargets,
-    };
+      this.state = {
+        version: ENGINE_TARGET_STORE_VERSION,
+        activeTargetId: nextActiveTargetId,
+        savedTargets: nextSavedTargets,
+      };
 
-    await this.persistState();
+      await this.persistState();
+    });
   }
 
   async selectTarget(targetId: string): Promise<EngineTarget> {
     await this.loadState();
 
-    const target = this.getComposedTarget(targetId);
-    if (!target) {
-      throw new BackendError(404, "not_found", "Engine target not found");
-    }
+    return this.withWriteLock(async () => {
+      const target = this.getComposedTarget(targetId);
+      if (!target) {
+        throw new BackendError(404, "not_found", "Engine target not found");
+      }
 
-    this.state = {
-      version: ENGINE_TARGET_STORE_VERSION,
-      activeTargetId: targetId,
-      savedTargets: cloneTarget(this.state.savedTargets),
-    };
+      this.state = {
+        version: ENGINE_TARGET_STORE_VERSION,
+        activeTargetId: targetId,
+        savedTargets: cloneTarget(this.state.savedTargets),
+      };
 
-    await this.persistState();
-    return toPublicTarget(target, targetId);
+      await this.persistState();
+      return toPublicTarget(target, targetId);
+    });
   }
 }
