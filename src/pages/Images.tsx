@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { useTableSelection } from "@/hooks/use-table-selection";
 import { useImages, usePullImage, useRemoveImage } from "@/hooks/use-images";
+import { runBulkAction } from "@/lib/bulk-action";
 import { ImageSummary } from "@/lib/api/types";
 import { inferComposeProjectFromName, useResourceGroups } from "@/lib/resource-groups";
 
@@ -62,29 +63,30 @@ export default function Images() {
     );
   }
 
-  const handleBulkAction = async (action: "remove") => {
-    if (selectedImages.length === 0) return;
+  const handleRemove = async (image: ImageSummary) => {
     try {
-      for (const image of selectedImages) {
-        await removeMutation.mutateAsync(image.id);
-      }
-      selection.toggleAll(false);
-      toast.success(`Removed selected images`);
+      await removeMutation.mutateAsync(image.id);
+      toast.success(`Removed ${image.repository}:${image.tag}`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Bulk action failed");
+      toast.error(error instanceof Error ? error.message : "Unable to remove image");
     }
   };
 
-  const handleGroupAction = async (action: "remove", project: string, items: ImageSummary[]) => {
-    try {
-      for (const item of items) {
-        await removeMutation.mutateAsync(item.id);
-      }
-      toast.success(`Removed images for ${project}`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Group action failed");
-    }
+  const removeImages = (items: ImageSummary[], project?: string) =>
+    runBulkAction(items, (image) => removeMutation.mutateAsync(image.id), {
+      verb: "Removed",
+      noun: "image",
+      ...(project ? { context: project } : {}),
+    });
+
+  const handleBulkAction = async () => {
+    if (selectedImages.length === 0) return;
+
+    await removeImages(selectedImages);
+    selection.toggleAll(false);
   };
+
+  const handleGroupAction = (project: string, items: ImageSummary[]) => removeImages(items, project);
 
   return (
     <div className="p-6 space-y-4">
@@ -108,7 +110,7 @@ export default function Images() {
             <span className="font-mono text-[11px] text-muted-foreground whitespace-nowrap">
               {selection.selectedCount} selected
             </span>
-            <button type="button" onClick={() => void handleBulkAction("remove")} className="inline-flex h-9 w-10 items-center justify-center rounded-md bg-destructive text-destructive-foreground transition-colors hover:bg-destructive/90" title="Delete selected"><Trash2 className="h-4 w-4" /></button>
+            <button type="button" onClick={() => void handleBulkAction()} className="inline-flex h-9 w-10 items-center justify-center rounded-md bg-destructive text-destructive-foreground transition-colors hover:bg-destructive/90" title="Delete selected"><Trash2 className="h-4 w-4" /></button>
           </div>
         )}
       </div>
@@ -162,7 +164,7 @@ export default function Images() {
                       <td className="p-3 text-muted-foreground hidden lg:table-cell">—</td>
                       <td className="p-3 sticky right-0 bg-muted z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted transition-colors">
                         <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => void handleGroupAction("remove", entry.project, entry.items)} className="rounded p-2 text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Delete stack images">
+                          <button onClick={() => void handleGroupAction(entry.project, entry.items)} className="rounded p-2 text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Delete stack images">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
@@ -184,7 +186,7 @@ export default function Images() {
                         <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
                           <div className="flex items-center justify-end gap-1">
                             <button onClick={() => { navigator.clipboard.writeText(image.id); toast.success("Copied ID"); }} className="p-2 rounded hover:bg-muted text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Copy ID"><Copy className="w-3.5 h-3.5" /></button>
-                            <button onClick={async () => { try { await removeMutation.mutateAsync(image.id); toast.success(`Removed ${image.repository}:${image.tag}`); } catch (e) { toast.error("Error removing image"); } }} className="p-2 rounded hover:bg-destructive/10 text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => void handleRemove(image)} className="p-2 rounded hover:bg-destructive/10 text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="w-3.5 h-3.5" /></button>
                           </div>
                         </td>
                       </tr>
@@ -209,7 +211,7 @@ export default function Images() {
                   <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => { navigator.clipboard.writeText(image.id); toast.success("Copied ID"); }} className="p-2 rounded hover:bg-muted text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Copy ID"><Copy className="w-3.5 h-3.5" /></button>
-                      <button onClick={async () => { try { await removeMutation.mutateAsync(image.id); toast.success(`Removed ${image.repository}:${image.tag}`); } catch (e) { toast.error("Error removing image"); } }} className="p-2 rounded hover:bg-destructive/10 text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => void handleRemove(image)} className="p-2 rounded hover:bg-destructive/10 text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
                 </tr>

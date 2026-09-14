@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { useTableSelection } from "@/hooks/use-table-selection";
 import { useCreateNetwork, useNetworks, useRemoveNetwork } from "@/hooks/use-networks";
+import { runBulkAction } from "@/lib/bulk-action";
 import { NetworkSummary } from "@/lib/api/types";
 import { inferComposeProjectFromName, useResourceGroups } from "@/lib/resource-groups";
 
@@ -55,33 +56,35 @@ export default function Networks() {
     );
   }
 
-  const handleBulkAction = async (action: "remove") => {
-    if (selectedNetworks.length === 0) return;
+  const handleRemove = async (network: NetworkSummary) => {
     try {
-      for (const network of selectedNetworks) {
-        if (!defaultNetworks.includes(network.name)) {
-          await removeMutation.mutateAsync(network.id);
-        }
-      }
-      selection.toggleAll(false);
-      toast.success(`Removed selected networks`);
+      await removeMutation.mutateAsync(network.id);
+      toast.success(`Removed ${network.name}`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Bulk action failed");
+      toast.error(error instanceof Error ? error.message : "Unable to remove network");
     }
   };
 
-  const handleGroupAction = async (action: "remove", project: string, items: NetworkSummary[]) => {
-    try {
-      for (const item of items) {
-        if (!defaultNetworks.includes(item.name)) {
-          await removeMutation.mutateAsync(item.id);
-        }
-      }
-      toast.success(`Removed networks for ${project}`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Group action failed");
-    }
+  // Docker's built-in networks cannot be removed, so they never enter a batch.
+  const removeNetworks = (items: NetworkSummary[], project?: string) =>
+    runBulkAction(
+      items.filter((network) => !defaultNetworks.includes(network.name)),
+      (network) => removeMutation.mutateAsync(network.id),
+      {
+        verb: "Removed",
+        noun: "network",
+        ...(project ? { context: project } : {}),
+      },
+    );
+
+  const handleBulkAction = async () => {
+    if (selectedNetworks.length === 0) return;
+
+    await removeNetworks(selectedNetworks);
+    selection.toggleAll(false);
   };
+
+  const handleGroupAction = (project: string, items: NetworkSummary[]) => removeNetworks(items, project);
 
   return (
     <div className="p-6 space-y-4">
@@ -105,7 +108,7 @@ export default function Networks() {
             <span className="font-mono text-[11px] text-muted-foreground whitespace-nowrap">
               {selection.selectedCount} selected
             </span>
-            <button type="button" onClick={() => void handleBulkAction("remove")} className="inline-flex h-9 w-10 items-center justify-center rounded-md bg-destructive text-destructive-foreground transition-colors hover:bg-destructive/90" title="Delete selected"><Trash2 className="h-4 w-4" /></button>
+            <button type="button" onClick={() => void handleBulkAction()} className="inline-flex h-9 w-10 items-center justify-center rounded-md bg-destructive text-destructive-foreground transition-colors hover:bg-destructive/90" title="Delete selected"><Trash2 className="h-4 w-4" /></button>
           </div>
         )}
       </div>
@@ -161,7 +164,7 @@ export default function Networks() {
                       <td className="p-3 text-muted-foreground hidden md:table-cell">—</td>
                       <td className="p-3 sticky right-0 bg-muted z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted transition-colors">
                         <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => void handleGroupAction("remove", entry.project, entry.items)} className="rounded p-2 text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Delete stack networks">
+                          <button onClick={() => void handleGroupAction(entry.project, entry.items)} className="rounded p-2 text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Delete stack networks">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
@@ -184,7 +187,7 @@ export default function Networks() {
                         <td className="p-3 font-mono text-muted-foreground hidden md:table-cell">{network.containers}</td>
                         <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
                           <div className="flex items-center justify-end gap-1">
-                            <button onClick={async () => { try { await removeMutation.mutateAsync(network.id); toast.success(`Removed ${network.name}`); } catch (e) { toast.error("Error removing network"); } }} className="p-2 rounded hover:bg-destructive/10 text-destructive disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" disabled={defaultNetworks.includes(network.name)}><Trash2 className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => void handleRemove(network)} className="p-2 rounded hover:bg-destructive/10 text-destructive disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" disabled={defaultNetworks.includes(network.name)}><Trash2 className="w-3.5 h-3.5" /></button>
                           </div>
                         </td>
                       </tr>
@@ -210,7 +213,7 @@ export default function Networks() {
                   <td className="p-3 font-mono text-muted-foreground hidden md:table-cell">{network.containers}</td>
                   <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={async () => { try { await removeMutation.mutateAsync(network.id); toast.success(`Removed ${network.name}`); } catch (e) { toast.error("Error removing network"); } }} className="p-2 rounded hover:bg-destructive/10 text-destructive disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" disabled={defaultNetworks.includes(network.name)}><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => void handleRemove(network)} className="p-2 rounded hover:bg-destructive/10 text-destructive disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" disabled={defaultNetworks.includes(network.name)}><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
                 </tr>

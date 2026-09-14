@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { useTableSelection } from "@/hooks/use-table-selection";
 import { useCreateVolume, useRemoveVolume, useVolumes } from "@/hooks/use-volumes";
+import { runBulkAction } from "@/lib/bulk-action";
 import { VolumeSummary } from "@/lib/api/types";
 import { inferComposeProjectFromName, useResourceGroups } from "@/lib/resource-groups";
 
@@ -51,31 +52,32 @@ export default function Volumes() {
     );
   }
 
-  const handleBulkAction = async (action: "remove") => {
-    if (selectedVolumes.length === 0) return;
+  const handleRemove = async (volume: VolumeSummary) => {
     try {
-      for (const volume of selectedVolumes) {
-        await removeMutation.mutateAsync(volume.name);
-      }
-      selection.toggleAll(false);
-      toast.success(`Removed ${selectedVolumes.length} volumes`);
+      await removeMutation.mutateAsync(volume.name);
+      toast.success(`Removed ${volume.name}`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Bulk action failed");
+      toast.error(error instanceof Error ? error.message : "Unable to remove volume");
     }
   };
 
-  const handleGroupAction = async (action: "remove", project: string, items: VolumeSummary[]) => {
-    try {
-      for (const item of items) {
-        if (!item.inUse) {
-          await removeMutation.mutateAsync(item.name);
-        }
-      }
-      toast.success(`Removed unused volumes for ${project}`);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Group action failed");
-    }
+  const removeVolumes = (items: VolumeSummary[], project?: string) =>
+    runBulkAction(items, (volume) => removeMutation.mutateAsync(volume.name), {
+      verb: "Removed",
+      noun: "volume",
+      ...(project ? { context: project } : {}),
+    });
+
+  const handleBulkAction = async () => {
+    if (selectedVolumes.length === 0) return;
+
+    await removeVolumes(selectedVolumes);
+    selection.toggleAll(false);
   };
+
+  // Stack cleanup only touches volumes nothing is attached to.
+  const handleGroupAction = (project: string, items: VolumeSummary[]) =>
+    removeVolumes(items.filter((volume) => !volume.inUse), project);
 
   return (
     <div className="p-6 space-y-4">
@@ -99,7 +101,7 @@ export default function Volumes() {
             <span className="font-mono text-[11px] text-muted-foreground whitespace-nowrap">
               {selection.selectedCount} selected
             </span>
-            <button type="button" onClick={() => void handleBulkAction("remove")} className="inline-flex h-9 w-10 items-center justify-center rounded-md bg-destructive text-destructive-foreground transition-colors hover:bg-destructive/90" title="Delete selected"><Trash2 className="h-4 w-4" /></button>
+            <button type="button" onClick={() => void handleBulkAction()} className="inline-flex h-9 w-10 items-center justify-center rounded-md bg-destructive text-destructive-foreground transition-colors hover:bg-destructive/90" title="Delete selected"><Trash2 className="h-4 w-4" /></button>
           </div>
         )}
       </div>
@@ -156,7 +158,7 @@ export default function Volumes() {
                       <td className="p-3 text-muted-foreground">—</td>
                       <td className="p-3 sticky right-0 bg-muted z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted transition-colors">
                         <div className="flex items-center justify-end gap-1">
-                          <button onClick={() => void handleGroupAction("remove", entry.project, entry.items)} className="rounded p-2 text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Delete unused stack volumes">
+                          <button onClick={() => void handleGroupAction(entry.project, entry.items)} className="rounded p-2 text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Delete unused stack volumes">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </div>
@@ -182,7 +184,7 @@ export default function Volumes() {
                         <td className="p-3"><span className={`font-mono text-[11px] px-1.5 py-0.5 rounded ${volume.inUse ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>{volume.inUse ? "Yes" : "No"}</span></td>
                         <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
                           <div className="flex items-center justify-end gap-1">
-                            <button onClick={async () => { try { await removeMutation.mutateAsync(volume.name); toast.success(`Removed ${volume.name}`); } catch (e) { toast.error("Error removing volume"); } }} className="p-2 rounded hover:bg-destructive/10 text-destructive disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" disabled={volume.inUse}><Trash2 className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => void handleRemove(volume)} className="p-2 rounded hover:bg-destructive/10 text-destructive disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" disabled={volume.inUse}><Trash2 className="w-3.5 h-3.5" /></button>
                           </div>
                         </td>
                       </tr>
@@ -201,7 +203,7 @@ export default function Volumes() {
                   <td className="p-3"><span className={`font-mono text-[11px] px-1.5 py-0.5 rounded ${volume.inUse ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>{volume.inUse ? "Yes" : "No"}</span></td>
                   <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={async () => { try { await removeMutation.mutateAsync(volume.name); toast.success(`Removed ${volume.name}`); } catch (e) { toast.error("Error removing volume"); } }} className="p-2 rounded hover:bg-destructive/10 text-destructive disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" disabled={volume.inUse}><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => void handleRemove(volume)} className="p-2 rounded hover:bg-destructive/10 text-destructive disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" disabled={volume.inUse}><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
                 </tr>
