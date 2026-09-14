@@ -61,6 +61,22 @@ const engineTargetsFixture = [
       checkedAt: "2026-03-31T12:00:00.000Z",
     },
   },
+  {
+    // Configured with tlsMode "mtls" and client cert/key paths on the server;
+    // the public projection redacts all of that and exposes only the endpoint.
+    id: "staging-tls",
+    label: "Staging TLS",
+    endpoint: "tcp://staging.example.internal:2376",
+    active: false,
+    available: true,
+    kind: "tcpTls",
+    source: "saved",
+    lastHealth: {
+      status: "healthy",
+      message: "Connected",
+      checkedAt: "2026-03-31T12:00:00.000Z",
+    },
+  },
 ] as const;
 
 const authConfigFixture = {
@@ -161,6 +177,10 @@ describe("DockerSettings", () => {
         return Promise.resolve(new Response(JSON.stringify(createTargetResponse)));
       }
 
+      if (/\/api\/engine\/targets\/[^/]+$/.test(url) && method === "PATCH") {
+        return Promise.resolve(new Response(JSON.stringify(createTargetResponse)));
+      }
+
       if (url.endsWith("/api/engine/targets/test") && method === "POST") {
         expect(JSON.parse(String(init?.body))).toEqual(testTargetPayload);
         return Promise.resolve(
@@ -238,6 +258,86 @@ describe("DockerSettings", () => {
         }),
       );
     });
+  });
+
+  async function patchBodyAfterLabelEdit(targetLabel: string, nextLabel: string, alsoEdit?: () => void) {
+    renderWithProviders(<DockerSettings />);
+
+    const card = await screen.findByRole("group", { name: `Engine target ${targetLabel}` });
+    fireEvent.click(within(card).getByRole("button", { name: "Edit" }));
+
+    fireEvent.change(screen.getByLabelText("Label"), { target: { value: nextLabel } });
+    alsoEdit?.();
+    fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
+
+    const findPatchBody = () => {
+      const patchCall = fetchMock.mock.calls.find(
+        ([, init]: [unknown, RequestInit | undefined]) => init?.method === "PATCH",
+      );
+      const body = patchCall?.[1]?.body;
+      return typeof body === "string" ? body : null;
+    };
+
+    await waitFor(() => {
+      expect(findPatchBody()).not.toBeNull();
+    });
+
+    const parsed: unknown = JSON.parse(String(findPatchBody()));
+    return parsed;
+  }
+
+  it("renaming an mTLS target does not send a TLS mode or credential paths (H4)", async () => {
+    // Regression test for CODE-AUDIT.md H4: the edit form used to fall back to
+    // defaultDraft for everything the redacted projection hides, so a rename
+    // shipped tlsMode "serverOnly" and silently disabled client certificates.
+    const body = await patchBodyAfterLabelEdit("Staging TLS", "Staging TLS (eu)");
+
+    expect(body).toEqual({
+      kind: "tcpTls",
+      label: "Staging TLS (eu)",
+      host: "staging.example.internal",
+      port: 2376,
+    });
+    expect(body).not.toHaveProperty("tlsMode");
+    expect(body).not.toHaveProperty("caPath");
+    expect(body).not.toHaveProperty("certPath");
+    expect(body).not.toHaveProperty("keyPath");
+  });
+
+  it("rotating an mTLS target's CA path leaves its TLS mode alone (H4)", async () => {
+    // The audited scenario in full: the old form demanded a CA path before it
+    // would save a TLS target, and then shipped the defaultDraft tlsMode
+    // "serverOnly" alongside it, turning client certificates off.
+    const body = await patchBodyAfterLabelEdit("Staging TLS", "Staging TLS", () => {
+      fireEvent.change(screen.getByLabelText("CA Certificate Path"), {
+        target: { value: "/etc/docklite/ca-2027.pem" },
+      });
+    });
+
+    expect(body).toEqual({
+      kind: "tcpTls",
+      label: "Staging TLS",
+      host: "staging.example.internal",
+      port: 2376,
+      caPath: "/etc/docklite/ca-2027.pem",
+    });
+    expect(body).not.toHaveProperty("tlsMode");
+  });
+
+  it("renaming an SSH target does not send an auth mode or port (H4)", async () => {
+    // Same fault on the SSH side: a rename used to reset keyFile auth to agent
+    // and a non-22 port back to 22.
+    const body = await patchBodyAfterLabelEdit("Prod Server", "Prod Server (eu)");
+
+    expect(body).toEqual({
+      kind: "ssh",
+      label: "Prod Server (eu)",
+      host: "prod.example.internal",
+      username: "ops",
+    });
+    expect(body).not.toHaveProperty("authMode");
+    expect(body).not.toHaveProperty("port");
+    expect(body).not.toHaveProperty("keyPath");
   });
 
   it("disables login after confirming the Require login toggle", async () => {

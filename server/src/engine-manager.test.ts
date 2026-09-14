@@ -30,13 +30,13 @@ async function makeManager() {
       connection: { socketPath: target.socketPath },
     })),
   });
-  return new EngineManager(targets, undefined, store);
+  return { manager: new EngineManager(targets, undefined, store), store };
 }
 
 describe("EngineManager (testable without the DockerBackend facade)", () => {
   it("resolves an active backend and reports the selected engine id", async () => {
     vi.stubEnv("DOCKLITE_ADAPTER", "mock");
-    const manager = await makeManager();
+    const { manager } = await makeManager();
 
     const backend = await manager.getActiveBackend();
     expect(typeof backend.listContainers).toBe("function");
@@ -50,13 +50,65 @@ describe("EngineManager (testable without the DockerBackend facade)", () => {
 
   it("re-resolves the active backend when a target is selected", async () => {
     vi.stubEnv("DOCKLITE_ADAPTER", "mock");
-    const manager = await makeManager();
+    const { manager } = await makeManager();
 
     const info = await manager.selectTarget("system");
     expect(info.selectedEngineId).toBe("system");
 
     const backend = await manager.getActiveBackend();
     expect(typeof backend.execContainer).toBe("function");
+  });
+
+  it("keeps redacted credential settings when an update omits them (H4)", async () => {
+    // CODE-AUDIT.md H4: the public projection hides tlsMode/authMode/port and
+    // every credential path, so the edit form cannot resend them. The merge has
+    // to treat an omitted field as "unchanged" — this pins that contract from
+    // the server side, alongside the DockerSettings tests that pin the client
+    // sending partial payloads in the first place.
+    vi.stubEnv("DOCKLITE_ADAPTER", "mock");
+    const { manager, store } = await makeManager();
+
+    const tlsTarget = await manager.createTarget({
+      kind: "tcpTls",
+      label: "Staging TLS",
+      host: "staging.example.internal",
+      port: 2376,
+      tlsMode: "mtls",
+      caPath: "/secure/ca.pem",
+      certPath: "/secure/cert.pem",
+      keyPath: "/secure/key.pem",
+    });
+
+    await manager.updateTarget(tlsTarget.id, { kind: "tcpTls", label: "Staging TLS (eu)" });
+
+    expect(await store.getTargetProfile(tlsTarget.id)).toMatchObject({
+      label: "Staging TLS (eu)",
+      connection: { host: "staging.example.internal", port: 2376 },
+      tls: {
+        tlsMode: "mtls",
+        caPath: "/secure/ca.pem",
+        certPath: "/secure/cert.pem",
+        keyPath: "/secure/key.pem",
+      },
+    });
+
+    const sshTarget = await manager.createTarget({
+      kind: "ssh",
+      label: "Prod Server",
+      host: "prod.example.internal",
+      port: 2222,
+      username: "ops",
+      authMode: "keyFile",
+      keyPath: "/secure/id_ed25519",
+    });
+
+    await manager.updateTarget(sshTarget.id, { kind: "ssh", label: "Prod Server (eu)" });
+
+    expect(await store.getTargetProfile(sshTarget.id)).toMatchObject({
+      label: "Prod Server (eu)",
+      connection: { host: "prod.example.internal", port: 2222 },
+      ssh: { authMode: "keyFile", keyPath: "/secure/id_ed25519" },
+    });
   });
 
   it("does not crash the process when a stored backend promise rejects (H6)", async () => {

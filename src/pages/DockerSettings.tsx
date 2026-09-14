@@ -48,6 +48,17 @@ import type {
   UpdateEngineTargetPayload,
 } from "@/lib/api/types";
 
+/**
+ * The public target projection redacts every credential setting (it exposes
+ * only `endpoint`), so the edit form cannot show what an existing target is
+ * configured with. Those fields start in an explicit "keep" state instead of a
+ * plausible-looking default: `"keep"` for the two mode selects, `""` for the
+ * path and port inputs. `buildUpdatePayload` omits anything still in that
+ * state, so the server's `payload.x ?? stored.x` merge preserves the stored
+ * value rather than being overwritten by a default the user never chose.
+ */
+const KEEP_CURRENT = "keep";
+
 type EngineTargetDraft = {
   kind: EngineTargetKind;
   label: string;
@@ -55,12 +66,12 @@ type EngineTargetDraft = {
   host: string;
   port: string;
   username: string;
-  authMode: "agent" | "keyFile";
+  authMode: "agent" | "keyFile" | typeof KEEP_CURRENT;
   sshKeyPath: string;
   knownHostsPath: string;
   dockerHostOverride: string;
   serverName: string;
-  tlsMode: "serverOnly" | "mtls";
+  tlsMode: "serverOnly" | "mtls" | typeof KEEP_CURRENT;
   caPath: string;
   certPath: string;
   tlsKeyPath: string;
@@ -125,7 +136,10 @@ function createDraftFromTarget(target: EngineTarget): EngineTargetDraft {
       label: target.label,
       host: match?.[2] ?? "",
       username: match?.[1] ?? "",
-      port: "22",
+      // The endpoint carries user@host only: port and auth settings are not
+      // recoverable, so they stay in the "keep" state.
+      port: "",
+      authMode: KEEP_CURRENT,
     };
   }
 
@@ -135,7 +149,8 @@ function createDraftFromTarget(target: EngineTarget): EngineTargetDraft {
     kind: "tcpTls",
     label: target.label,
     host: tlsMatch?.[1] ?? "",
-    port: tlsMatch?.[2] ?? "2376",
+    port: tlsMatch?.[2] ?? "",
+    tlsMode: KEEP_CURRENT,
   };
 }
 
@@ -149,6 +164,10 @@ function buildCreatePayload(draft: EngineTargetDraft): CreateEngineTargetPayload
   }
 
   if (draft.kind === "ssh") {
+    if (draft.authMode === KEEP_CURRENT) {
+      throw new Error("Select an auth mode");
+    }
+
     return {
       kind: "ssh",
       label: draft.label.trim(),
@@ -160,6 +179,10 @@ function buildCreatePayload(draft: EngineTargetDraft): CreateEngineTargetPayload
       knownHostsPath: trimOrNull(draft.knownHostsPath),
       dockerHostOverride: trimOrNull(draft.dockerHostOverride),
     };
+  }
+
+  if (draft.tlsMode === KEEP_CURRENT) {
+    throw new Error("Select a TLS mode");
   }
 
   return {
@@ -175,14 +198,56 @@ function buildCreatePayload(draft: EngineTargetDraft): CreateEngineTargetPayload
   };
 }
 
+/**
+ * Only send what the user actually supplied. A field left in its "keep" state
+ * is omitted so the server keeps the stored value; sending a default here is
+ * how renaming an mTLS target used to silently turn client certificates off.
+ */
 function buildUpdatePayload(draft: EngineTargetDraft): UpdateEngineTargetPayload {
-  return buildCreatePayload(draft) as UpdateEngineTargetPayload;
+  if (draft.kind === "local") {
+    return {
+      kind: "local",
+      label: draft.label.trim(),
+      socketPath: draft.socketPath.trim(),
+    };
+  }
+
+  if (draft.kind === "ssh") {
+    return {
+      kind: "ssh",
+      label: draft.label.trim(),
+      host: draft.host.trim(),
+      username: draft.username.trim(),
+      ...(draft.port.trim() ? { port: Number(draft.port) } : {}),
+      ...(draft.authMode !== KEEP_CURRENT ? { authMode: draft.authMode } : {}),
+      ...(draft.sshKeyPath.trim() ? { keyPath: draft.sshKeyPath.trim() } : {}),
+      ...(draft.knownHostsPath.trim() ? { knownHostsPath: draft.knownHostsPath.trim() } : {}),
+      ...(draft.dockerHostOverride.trim() ? { dockerHostOverride: draft.dockerHostOverride.trim() } : {}),
+    };
+  }
+
+  return {
+    kind: "tcpTls",
+    label: draft.label.trim(),
+    host: draft.host.trim(),
+    ...(draft.port.trim() ? { port: Number(draft.port) } : {}),
+    ...(draft.tlsMode !== KEEP_CURRENT ? { tlsMode: draft.tlsMode } : {}),
+    ...(draft.serverName.trim() ? { serverName: draft.serverName.trim() } : {}),
+    ...(draft.caPath.trim() ? { caPath: draft.caPath.trim() } : {}),
+    ...(draft.certPath.trim() ? { certPath: draft.certPath.trim() } : {}),
+    ...(draft.tlsKeyPath.trim() ? { keyPath: draft.tlsKeyPath.trim() } : {}),
+  };
 }
 
-function validateDraft(draft: EngineTargetDraft) {
+function validateDraft(draft: EngineTargetDraft, isEditing: boolean) {
   if (!draft.label.trim()) {
     throw new Error("Target label is required");
   }
+
+  // While editing, a blank field means "keep the stored value" — only a field
+  // the user actually filled in has to be valid.
+  const portProvided = !isEditing || draft.port.trim() !== "";
+  const portValid = Number.isInteger(Number(draft.port)) && Number(draft.port) > 0;
 
   if (draft.kind === "local" && !draft.socketPath.trim()) {
     throw new Error("Socket path is required");
@@ -192,10 +257,10 @@ function validateDraft(draft: EngineTargetDraft) {
     if (!draft.host.trim() || !draft.username.trim()) {
       throw new Error("SSH targets require host and username");
     }
-    if (!Number.isInteger(Number(draft.port)) || Number(draft.port) <= 0) {
+    if (portProvided && !portValid) {
       throw new Error("SSH targets require a valid port");
     }
-    if (draft.authMode === "keyFile" && !draft.sshKeyPath.trim()) {
+    if (draft.authMode === "keyFile" && !draft.sshKeyPath.trim() && !isEditing) {
       throw new Error("SSH key-file auth requires a private key path");
     }
   }
@@ -204,13 +269,13 @@ function validateDraft(draft: EngineTargetDraft) {
     if (!draft.host.trim()) {
       throw new Error("TCP/TLS targets require a host");
     }
-    if (!Number.isInteger(Number(draft.port)) || Number(draft.port) <= 0) {
+    if (portProvided && !portValid) {
       throw new Error("TCP/TLS targets require a valid port");
     }
-    if (!draft.caPath.trim()) {
+    if (!draft.caPath.trim() && !isEditing) {
       throw new Error("TCP/TLS targets require a CA certificate path");
     }
-    if (draft.tlsMode === "mtls" && (!draft.certPath.trim() || !draft.tlsKeyPath.trim())) {
+    if (draft.tlsMode === "mtls" && !isEditing && (!draft.certPath.trim() || !draft.tlsKeyPath.trim())) {
       throw new Error("mTLS targets require certificate and key paths");
     }
   }
@@ -291,7 +356,7 @@ export default function DockerSettings() {
 
   async function handleSaveTarget() {
     try {
-      validateDraft(draft);
+      validateDraft(draft, isEditing);
 
       if (editingTargetId) {
         const updated = await updateTargetMutation.mutateAsync({
@@ -312,7 +377,9 @@ export default function DockerSettings() {
 
   async function handleTestTarget() {
     try {
-      validateDraft(draft);
+      // Testing always needs a complete config: there is nothing stored to
+      // merge a half-filled draft into.
+      validateDraft(draft, false);
       const health = await testTargetMutation.mutateAsync(buildCreatePayload(draft));
 
       if (health.status === "healthy") {
@@ -759,7 +826,9 @@ export default function DockerSettings() {
             <div>
               <h3 className="text-sm font-mono font-semibold">{isEditing ? "Edit Engine Target" : "New Engine Target"}</h3>
               <p className="mt-1 text-xs font-mono text-muted-foreground">
-                Keep the transport config in DockLite while the backend stores secrets and validates connectivity.
+                {isEditing
+                  ? "Only the fields you change are saved. Credential paths, auth mode and TLS mode are never sent back to the browser, so anything left blank keeps its stored value."
+                  : "Keep the transport config in DockLite while the backend stores secrets and validates connectivity."}
               </p>
             </div>
             {isEditing ? (
@@ -827,7 +896,7 @@ export default function DockerSettings() {
                     value={draft.port}
                     onChange={(event) => updateDraft({ port: event.target.value })}
                     className="h-9 border-border bg-background font-mono text-sm"
-                    placeholder="22"
+                    placeholder={isEditing ? "Keep current port" : "22"}
                   />
                 </div>
                 <div>
@@ -842,11 +911,15 @@ export default function DockerSettings() {
                 </div>
                 <div>
                   <Label htmlFor="target-auth-mode" className="mb-1 block text-xs font-mono text-muted-foreground">Auth Mode</Label>
-                  <Select value={draft.authMode} onValueChange={(value: "agent" | "keyFile") => updateDraft({ authMode: value })}>
+                  <Select
+                    value={draft.authMode}
+                    onValueChange={(value: EngineTargetDraft["authMode"]) => updateDraft({ authMode: value })}
+                  >
                     <SelectTrigger id="target-auth-mode" aria-label="Auth Mode" className="h-9 border-border bg-background font-mono text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      {isEditing ? <SelectItem value={KEEP_CURRENT}>Keep current setting</SelectItem> : null}
                       <SelectItem value="agent">SSH Agent</SelectItem>
                       <SelectItem value="keyFile">Key File</SelectItem>
                     </SelectContent>
@@ -860,7 +933,7 @@ export default function DockerSettings() {
                       value={draft.sshKeyPath}
                       onChange={(event) => updateDraft({ sshKeyPath: event.target.value })}
                       className="h-9 border-border bg-background font-mono text-sm"
-                      placeholder="/home/user/.ssh/id_ed25519"
+                      placeholder={isEditing ? "Keep current path" : "/home/user/.ssh/id_ed25519"}
                     />
                   </div>
                 ) : null}
@@ -871,7 +944,7 @@ export default function DockerSettings() {
                     value={draft.knownHostsPath}
                     onChange={(event) => updateDraft({ knownHostsPath: event.target.value })}
                     className="h-9 border-border bg-background font-mono text-sm"
-                    placeholder="Optional"
+                    placeholder={isEditing ? "Keep current path" : "Optional"}
                   />
                 </div>
                 <div>
@@ -881,7 +954,7 @@ export default function DockerSettings() {
                     value={draft.dockerHostOverride}
                     onChange={(event) => updateDraft({ dockerHostOverride: event.target.value })}
                     className="h-9 border-border bg-background font-mono text-sm"
-                    placeholder="Optional"
+                    placeholder={isEditing ? "Keep current value" : "Optional"}
                   />
                 </div>
               </>
@@ -906,16 +979,20 @@ export default function DockerSettings() {
                     value={draft.port}
                     onChange={(event) => updateDraft({ port: event.target.value })}
                     className="h-9 border-border bg-background font-mono text-sm"
-                    placeholder="2376"
+                    placeholder={isEditing ? "Keep current port" : "2376"}
                   />
                 </div>
                 <div>
                   <Label htmlFor="target-tls-mode" className="mb-1 block text-xs font-mono text-muted-foreground">TLS Mode</Label>
-                  <Select value={draft.tlsMode} onValueChange={(value: "serverOnly" | "mtls") => updateDraft({ tlsMode: value })}>
+                  <Select
+                    value={draft.tlsMode}
+                    onValueChange={(value: EngineTargetDraft["tlsMode"]) => updateDraft({ tlsMode: value })}
+                  >
                     <SelectTrigger id="target-tls-mode" aria-label="TLS Mode" className="h-9 border-border bg-background font-mono text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      {isEditing ? <SelectItem value={KEEP_CURRENT}>Keep current setting</SelectItem> : null}
                       <SelectItem value="serverOnly">Server Only</SelectItem>
                       <SelectItem value="mtls">Mutual TLS</SelectItem>
                     </SelectContent>
@@ -928,7 +1005,7 @@ export default function DockerSettings() {
                     value={draft.serverName}
                     onChange={(event) => updateDraft({ serverName: event.target.value })}
                     className="h-9 border-border bg-background font-mono text-sm"
-                    placeholder="Optional"
+                    placeholder={isEditing ? "Keep current value" : "Optional"}
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -938,7 +1015,7 @@ export default function DockerSettings() {
                     value={draft.caPath}
                     onChange={(event) => updateDraft({ caPath: event.target.value })}
                     className="h-9 border-border bg-background font-mono text-sm"
-                    placeholder="/etc/docklite/ca.pem"
+                    placeholder={isEditing ? "Keep current path" : "/etc/docklite/ca.pem"}
                   />
                 </div>
                 {draft.tlsMode === "mtls" ? (
@@ -950,7 +1027,7 @@ export default function DockerSettings() {
                         value={draft.certPath}
                         onChange={(event) => updateDraft({ certPath: event.target.value })}
                         className="h-9 border-border bg-background font-mono text-sm"
-                        placeholder="/etc/docklite/cert.pem"
+                        placeholder={isEditing ? "Keep current path" : "/etc/docklite/cert.pem"}
                       />
                     </div>
                     <div>
@@ -960,7 +1037,7 @@ export default function DockerSettings() {
                         value={draft.tlsKeyPath}
                         onChange={(event) => updateDraft({ tlsKeyPath: event.target.value })}
                         className="h-9 border-border bg-background font-mono text-sm"
-                        placeholder="/etc/docklite/key.pem"
+                        placeholder={isEditing ? "Keep current path" : "/etc/docklite/key.pem"}
                       />
                     </div>
                   </>
