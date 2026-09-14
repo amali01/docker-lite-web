@@ -1,5 +1,5 @@
 import { Fragment, useState } from "react";
-import { Boxes, ChevronDown, ChevronRight, Copy, Download, Image as ImageIcon, Plus, Search, Trash2, X } from "lucide-react";
+import { Boxes, ChevronDown, ChevronRight, Copy, Download, Image as ImageIcon, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ApiState } from "@/components/ApiState";
 import { destructiveActionLabel } from "@/components/ConfirmDestructiveDialog";

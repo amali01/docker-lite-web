@@ -40,12 +40,9 @@ import {
 import { ApiClientError, getApiBaseUrl, setApiBaseUrl } from "@/lib/api/client";
 import type {
   CreateEngineTargetPayload,
-  AuthConfigView,
   EngineTarget,
   EngineTargetHealthStatus,
   EngineTargetKind,
-  SshEngineTargetPayload,
-  TcpTlsEngineTargetPayload,
   UpdateEngineTargetPayload,
 } from "@/lib/api/types";
 

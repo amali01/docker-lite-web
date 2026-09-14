@@ -1,5 +1,5 @@
 import type { IncomingHttpHeaders, IncomingMessage } from "node:http";
-import type { NextFunction, Request, RequestHandler } from "express";
+import type { Request, RequestHandler } from "express";
 import type { AuthConfigView, AuthSessionState } from "../../../src/lib/api/types";
 import { BackendError } from "../types";
 import { AuthConfigStore } from "./config";

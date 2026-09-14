@@ -1,5 +1,4 @@
 import { Writable } from "node:stream";
-import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { access } from "node:fs/promises";
 import Docker from "dockerode";
@@ -13,20 +12,14 @@ import {
 } from "../../../src/lib/mock-data";
 import {
   ContainerDetails,
-  ContainerLogsChunk,
   ContainerLabelEntry,
   ContainerMountSummary,
   ContainerPortBinding,
-  ContainerStatsSample,
   ContainerSummary,
-  CreateNetworkPayload,
-  CreateVolumePayload,
   DockerBackend,
   BackendError,
   ImageSummary,
   NetworkSummary,
-  PullImagePayload,
-  RunContainerPayload,
   VolumeSummary,
 } from "../types";
 import { createSshDockerConnectionConfig, createTcpTlsDockerConnectionConfig } from "../engine-targets/connection-test";
@@ -676,7 +669,7 @@ export function createMockBackend(
       state.networks.unshift(network);
       return network;
     },
-    async execContainer(id: string, cols: number, rows: number) {
+    async execContainer(_id: string, _cols: number, _rows: number) {
       throw new Error("Exec not supported in mock adapter");
     },
     async removeNetwork(id) {
