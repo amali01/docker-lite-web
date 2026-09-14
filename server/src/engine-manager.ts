@@ -87,6 +87,28 @@ export class EngineManager {
       });
     this.currentTargetId = initialTargetId ?? this.resolveInitialTargetId();
     this.backendPromise = this.initializeBackend();
+    this.observeBackendPromiseRejection(this.backendPromise);
+  }
+
+  /**
+   * `backendPromise` is stored un-awaited (callers only await it later, via
+   * getActiveBackend()) so a rejection - a 404 for a deleted target, a
+   * missing TLS cert file, a corrupt engine-targets.json - would otherwise be
+   * an unhandled rejection under Node's default `--unhandled-rejections=throw`
+   * and crash the whole process. Attaching a no-op `.catch` here marks the
+   * promise as observed without swallowing the error: `this.backendPromise`
+   * is unchanged, so a later `await this.getActiveBackend()` still rejects
+   * with the real error.
+   *
+   * A rejected promise is left cached rather than cleared/retried: the
+   * broken target stays broken until an explicit selectTarget/updateTarget/
+   * deleteTarget call replaces backendPromise, instead of every subsequent
+   * request silently retrying (and re-failing) against the same bad config.
+   */
+  private observeBackendPromiseRejection(promise: Promise<DockerBackend>) {
+    promise.catch(() => {
+      // Intentionally empty - see comment above.
+    });
   }
 
   private resolveInitialTargetId() {
@@ -165,6 +187,7 @@ export class EngineManager {
     await this.targetStore.selectTarget(targetId);
     this.currentTargetId = targetId;
     this.backendPromise = this.createBackendForTargetId(targetId);
+    this.observeBackendPromiseRejection(this.backendPromise);
 
     return this.getEngineInfo();
   }
@@ -187,6 +210,7 @@ export class EngineManager {
 
     if (targetId === this.currentTargetId) {
       this.backendPromise = this.createBackendForTargetId(targetId);
+      this.observeBackendPromiseRejection(this.backendPromise);
     }
 
     return this.getPublicTarget(targetId);
@@ -197,6 +221,7 @@ export class EngineManager {
     const activeTarget = await this.targetStore.getActiveTargetProfile();
     this.currentTargetId = activeTarget?.id ?? this.resolveInitialTargetId();
     this.backendPromise = this.createBackendForTargetId(this.currentTargetId);
+    this.observeBackendPromiseRejection(this.backendPromise);
   }
 
   async testTarget(payload: TestEngineTargetPayload) {
