@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
 import { Copy, Search } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { copyToClipboard } from "@/lib/clipboard";
 import type { ContainerInspectView } from "@/lib/api/types";
 
 interface ContainerInspectTabProps {
@@ -34,7 +36,12 @@ export function ContainerInspectTab({ inspect }: ContainerInspectTabProps) {
           variant="outline"
           className="gap-1.5 font-mono text-xs"
           onClick={async () => {
-            await navigator.clipboard.writeText(rawJson);
+            const copied = await copyToClipboard(rawJson);
+            if (copied) {
+              toast.success("Copied inspect JSON");
+            } else {
+              toast.error("Unable to copy inspect JSON");
+            }
           }}
         >
           <Copy className="h-3.5 w-3.5" />
