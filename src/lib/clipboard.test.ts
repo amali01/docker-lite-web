@@ -3,7 +3,7 @@ import { copyToClipboard } from "./clipboard";
 
 afterEach(() => {
   Object.defineProperty(navigator, "clipboard", { value: undefined, configurable: true });
-  delete document.execCommand;
+  Reflect.deleteProperty(document, "execCommand");
   vi.restoreAllMocks();
 });
 

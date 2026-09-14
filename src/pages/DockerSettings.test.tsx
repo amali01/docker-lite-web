@@ -4,7 +4,7 @@ import DockerSettings from "@/pages/DockerSettings";
 import { resetAuthRuntimeState, setAuthRuntimeState } from "@/lib/api/client";
 import { renderWithProviders } from "@/test/render";
 
-const fetchMock = vi.fn();
+const fetchMock = vi.fn<typeof fetch>();
 const testTargetPayload = {
   kind: "ssh",
   label: "Prod Server",
@@ -275,9 +275,7 @@ describe("DockerSettings", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
     const findPatchBody = () => {
-      const patchCall = fetchMock.mock.calls.find(
-        ([, init]: [unknown, RequestInit | undefined]) => init?.method === "PATCH",
-      );
+      const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === "PATCH");
       const body = patchCall?.[1]?.body;
       return typeof body === "string" ? body : null;
     };

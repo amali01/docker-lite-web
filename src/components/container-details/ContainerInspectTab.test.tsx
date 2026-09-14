@@ -12,7 +12,7 @@ const inspect: ContainerInspectView = { raw: { Id: "abc123", Name: "/web" } };
 
 afterEach(() => {
   Object.defineProperty(navigator, "clipboard", { value: undefined, configurable: true });
-  delete document.execCommand;
+  Reflect.deleteProperty(document, "execCommand");
   vi.clearAllMocks();
 });
 
