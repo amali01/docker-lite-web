@@ -19,6 +19,10 @@ import {
 import { engineQueryKey, useEngineInfo } from "@/hooks/use-engine";
 
 export const containersQueryKey = ["containers"] as const;
+// Prefixes: the full keys carry the engine id and container id, and TanStack
+// matches by prefix, so invalidating these covers every container's detail.
+export const containerDetailsQueryKey = ["container-details"] as const;
+export const containerInspectQueryKey = ["container-inspect"] as const;
 
 export function useContainers() {
   return useQuery({
@@ -33,7 +37,7 @@ export function useContainerDetails(containerId?: string) {
   const selectedEngineId = engineQuery.data?.selectedEngineId ?? null;
 
   return useQuery({
-    queryKey: ["container-details", selectedEngineId, containerId ?? null] as const,
+    queryKey: [...containerDetailsQueryKey, selectedEngineId, containerId ?? null] as const,
     queryFn: () => getContainerDetails(containerId ?? ""),
     enabled: Boolean(selectedEngineId && containerId),
   });
@@ -44,7 +48,7 @@ export function useContainerInspect(containerId?: string) {
   const selectedEngineId = engineQuery.data?.selectedEngineId ?? null;
 
   return useQuery({
-    queryKey: ["container-inspect", selectedEngineId, containerId ?? null] as const,
+    queryKey: [...containerInspectQueryKey, selectedEngineId, containerId ?? null] as const,
     queryFn: () => getContainerInspect(containerId ?? ""),
     enabled: Boolean(selectedEngineId && containerId),
   });
@@ -122,6 +126,11 @@ function createContainerMutation(mutationFn: (id: string) => Promise<unknown>) {
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: containersQueryKey });
         await queryClient.invalidateQueries({ queryKey: engineQueryKey });
+        // An action changes the container's own state too. Without these the
+        // detail page keeps reporting the state from before the action, even
+        // when the action was fired from the list.
+        await queryClient.invalidateQueries({ queryKey: containerDetailsQueryKey });
+        await queryClient.invalidateQueries({ queryKey: containerInspectQueryKey });
       },
     });
   };
@@ -135,6 +144,11 @@ function createComposeProjectMutation(mutationFn: (project: string) => Promise<v
       onSuccess: async () => {
         await queryClient.invalidateQueries({ queryKey: containersQueryKey });
         await queryClient.invalidateQueries({ queryKey: engineQueryKey });
+        // An action changes the container's own state too. Without these the
+        // detail page keeps reporting the state from before the action, even
+        // when the action was fired from the list.
+        await queryClient.invalidateQueries({ queryKey: containerDetailsQueryKey });
+        await queryClient.invalidateQueries({ queryKey: containerInspectQueryKey });
       },
     });
   };
