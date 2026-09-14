@@ -92,4 +92,45 @@ describe("App auth gating", () => {
 
     expect(await screen.findByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
   });
+
+  it("does not redirect to login on a transient session-fetch failure", async () => {
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/auth/session") && method === "GET") {
+        return Promise.reject(new TypeError("Failed to fetch"));
+      }
+
+      return Promise.reject(new Error(`Unhandled ${method} ${url}`));
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText(/reconnecting|can.?t reach/i, {}, { timeout: 10000 })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Admin Login" })).not.toBeInTheDocument();
+  }, 15000);
+
+  it("still redirects to login on a real 401/not-authenticated response", async () => {
+    fetchMock.mockImplementation((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const method = init?.method ?? "GET";
+
+      if (url.endsWith("/api/auth/session") && method === "GET") {
+        return Promise.resolve(new Response(JSON.stringify({
+          authenticated: false,
+          username: null,
+          expiresAt: null,
+          defaultCredentialsActive: true,
+          message: null,
+        })));
+      }
+
+      return Promise.reject(new Error(`Unhandled ${method} ${url}`));
+    });
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Admin Login" })).toBeInTheDocument();
+  });
 });

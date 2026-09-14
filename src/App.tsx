@@ -16,6 +16,14 @@ import DockerSettings from "@/pages/DockerSettings";
 import Login from "@/pages/Login";
 import NotFound from "@/pages/NotFound";
 
+function ReconnectingBanner() {
+  return (
+    <div className="border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-center font-mono text-xs text-amber-600 dark:text-amber-400">
+      Reconnecting to the server…
+    </div>
+  );
+}
+
 function ProtectedRoutes() {
   const authSession = useAuthSession();
 
@@ -24,6 +32,40 @@ function ProtectedRoutes() {
   }
 
   const session = authSession.data;
+
+  // A failed session fetch (network drop, server restart) is not the same as
+  // a real "not authenticated" response — the server always answers that with
+  // a normal 200 body, never a thrown/rejected request. Treating a transient
+  // error as a sign-out would bounce an authenticated user to /login and
+  // discard whatever they were doing, so only navigate away on an actual
+  // authenticated: false response.
+  if (authSession.isError) {
+    if (session?.authenticated) {
+      // Stale-but-authenticated: keep showing the last known-good UI instead
+      // of silently pretending the user signed out.
+      return (
+        <>
+          <ReconnectingBanner />
+          <Outlet />
+        </>
+      );
+    }
+
+    if (!session) {
+      return (
+        <div className="flex min-h-screen flex-col items-center justify-center gap-3 font-mono text-sm text-muted-foreground">
+          <p>Can&apos;t reach the server. Retrying…</p>
+          <button
+            type="button"
+            onClick={() => authSession.refetch()}
+            className="rounded-md border border-input px-3 py-1 text-xs hover:bg-accent"
+          >
+            Retry now
+          </button>
+        </div>
+      );
+    }
+  }
 
   if (!session?.authenticated) {
     return <Navigate to="/login" replace />;

@@ -28,6 +28,16 @@ export function useAuthSession() {
 
       return session;
     },
+    // The server answers "not authenticated" with a normal 200 body
+    // (authenticated: false) — this query only throws (isError) on a genuine
+    // transport failure (network drop, server restart, 5xx). Those are worth
+    // a few automatic retries rather than immediately reporting the caller as
+    // signed out.
+    retry: 2,
+    // Keep checking in the background while the last attempt failed, so the
+    // UI recovers on its own once the server/network comes back instead of
+    // requiring a manual reload.
+    refetchInterval: (query) => (query.state.status === "error" ? 5000 : false),
   });
 }
 
