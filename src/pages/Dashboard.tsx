@@ -8,7 +8,6 @@ import { ContainerExec } from "@/components/ContainerExec";
 import { PortLinks } from "@/components/PortLinks";
 import { StatCard } from "@/components/StatCard";
 import { StatusBadge } from "@/components/StatusBadge";
-import { MonitoringRow } from "@/components/MonitoringOptions";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -32,10 +31,6 @@ function formatMetric(value: string | number | null) {
 export default function Dashboard() {
   const [terminalContainer, setTerminalContainer] = useState<ContainerSummary | null>(null);
   const [logsContainer, setLogsContainer] = useState<ContainerSummary | null>(null);
-  const [expandedMonitoring, setExpandedMonitoring] = useState<Record<string, boolean>>({});
-  const toggleMonitoring = (id: string) => {
-    setExpandedMonitoring((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
 
   const engineQuery = useEngineInfo();
   const containersQuery = useContainers();
@@ -276,8 +271,7 @@ export default function Dashboard() {
                         </td>
                       </tr>
                       {expandedGroups[entry.project] && entry.items.map((container, index, arr) => (
-                        <Fragment key={container.id}>
-                        <tr key={container.id} onClick={(e) => { if (!(e.target as HTMLElement).closest('button, a, input, [role="checkbox"], .cursor-default')) toggleMonitoring(container.id); }} className="cursor-pointer group border-b border-border/50 hover:bg-muted/30 transition-colors">
+                        <tr key={container.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors">
                           <td className="p-3"><Checkbox aria-label={`Select dashboard container ${container.name}`} checked={selection.selectedIds.includes(container.id)} onCheckedChange={(checked) => selection.toggleOne(container.id, checked === true)} /></td>
                           <td className="p-3 relative">
                             <div className="absolute left-5 top-0 bottom-1/2 w-px bg-primary/50 z-0" />
@@ -328,16 +322,13 @@ export default function Dashboard() {
                             <ContainerActionButtons compact container={container} logsActive={logsContainer?.id === container.id} terminalActive={terminalContainer?.id === container.id} onAction={(action, currentContainer) => void handleAction(action, currentContainer)} />
                           </td>
                         </tr>
-                        {expandedMonitoring[container.id] && <MonitoringRow container={container} isGroupItem={true} isLast={index === arr.length - 1} />}
-                      </Fragment>
                       ))}
                     </Fragment>
                   );
                 }
                 const container = entry.item;
                 return (
-                  <Fragment key={container.id}>
-                  <tr key={container.id} onClick={(e) => { if (!(e.target as HTMLElement).closest('button, a, input, [role="checkbox"], .cursor-default')) toggleMonitoring(container.id); }} className="cursor-pointer group border-b border-border/50 hover:bg-muted/30 transition-colors bg-card">
+                  <tr key={container.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors bg-card">
                     <td className="p-3"><Checkbox aria-label={`Select dashboard container ${container.name}`} checked={selection.selectedIds.includes(container.id)} onCheckedChange={(checked) => selection.toggleOne(container.id, checked === true)} /></td>
                     <td className="p-3 font-mono font-medium">
                       <div className="max-w-[8rem] md:max-w-[11rem] lg:max-w-[14rem] xl:max-w-[18rem]">
@@ -380,8 +371,6 @@ export default function Dashboard() {
                       <ContainerActionButtons compact container={container} logsActive={logsContainer?.id === container.id} terminalActive={terminalContainer?.id === container.id} onAction={(action, currentContainer) => void handleAction(action, currentContainer)} />
                     </td>
                   </tr>
-                  {expandedMonitoring[container.id] && <MonitoringRow container={container} />}
-                </Fragment>
                 );
               })}
             </tbody>

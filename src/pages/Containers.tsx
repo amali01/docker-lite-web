@@ -1,11 +1,10 @@
 import { Fragment, useState } from "react";
-import { Boxes, ChevronDown, ChevronRight, Play, Plus, RotateCcw, Search, Square, Trash2, Activity } from "lucide-react";
+import { Boxes, ChevronDown, ChevronRight, Play, Plus, RotateCcw, Search, Square, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { ApiState } from "@/components/ApiState";
 import { ContainerActionButtons } from "@/components/ContainerActionButtons";
 import { ContainerNameLink } from "@/components/ContainerNameLink";
 import { PortLinks } from "@/components/PortLinks";
-import { MonitoringRow } from "@/components/MonitoringOptions";
 import { ContainerLogs } from "@/components/ContainerLogs";
 import { ContainerExec } from "@/components/ContainerExec";
 import { RunContainerDialog } from "@/components/RunContainerDialog";
@@ -30,11 +29,6 @@ import { useResourceGroups } from "@/lib/resource-groups";
 export default function Containers() {
 
   const [filter, setFilter] = useState("");
-  const [expandedMonitoring, setExpandedMonitoring] = useState<Record<string, boolean>>({});
-  const toggleMonitoring = (id: string) => {
-    setExpandedMonitoring(prev => ({ ...prev, [id]: !prev[id] }));
-  };
-
   const [visibilityFilter, setVisibilityFilter] = useState<"all" | "running" | "stopped">("all");
   const [terminalContainer, setTerminalContainer] = useState<ContainerSummary | null>(null);
   const [logsContainer, setLogsContainer] = useState<ContainerSummary | null>(null);
@@ -354,8 +348,7 @@ export default function Containers() {
                       </tr>
                       {expandedGroups[entry.project] &&
                         entry.items.map((container, index, arr) => (
-                          <Fragment key={container.id}>
-<tr key={container.id} onClick={(e) => { if (!(e.target as HTMLElement).closest('button, a, input, [role="checkbox"], .cursor-default')) toggleMonitoring(container.id); }} className="cursor-pointer group border-b border-border/50 hover:bg-muted/30 transition-colors">
+<tr key={container.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors">
                             <td className="p-3">
                               <Checkbox
                                 aria-label={`Select container ${container.name}`}
@@ -439,9 +432,6 @@ export default function Containers() {
                             <td className="p-3 font-mono text-muted-foreground text-[11px] hidden lg:table-cell"><PortLinks ports={container.ports} /></td>
                             <td className="sticky right-0 z-10 bg-card p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
                               <div className="flex items-center justify-end gap-1">
-                              <button onClick={() => toggleMonitoring(container.id)} className={`p-2 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring hidden lg:inline-flex ${expandedMonitoring[container.id] ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground"}`} title="Monitoring Options">
-                                <Activity className="w-3.5 h-3.5" />
-                              </button>
                               <ContainerActionButtons
                                 container={container}
                                 logsActive={logsContainer?.id === container.id} terminalActive={terminalContainer?.id === container.id}
@@ -450,9 +440,6 @@ export default function Containers() {
                             </div>
                             </td>
                           </tr>
-
-                  {expandedMonitoring[container.id] && <MonitoringRow container={container} isGroupItem={true} isLast={index === arr.length - 1} />}
-                          </Fragment>
                         ))}
                     </Fragment>
                   );
@@ -460,8 +447,7 @@ export default function Containers() {
 
                 const container = entry.item;
                 return (
-                  <Fragment key={container.id}>
-<tr key={container.id} onClick={(e) => { if (!(e.target as HTMLElement).closest('button, a, input, [role="checkbox"], .cursor-default')) toggleMonitoring(container.id); }} className="cursor-pointer group border-b border-border/50 hover:bg-muted/30 transition-colors">
+<tr key={container.id} className="group border-b border-border/50 hover:bg-muted/30 transition-colors">
                     <td className="p-3">
                       <Checkbox
                         aria-label={`Select container ${container.name}`}
@@ -535,9 +521,6 @@ export default function Containers() {
                     <td className="p-3 font-mono text-muted-foreground text-[11px] hidden lg:table-cell"><PortLinks ports={container.ports} /></td>
                     <td className="sticky right-0 z-10 bg-card p-3 border-l border-border/70 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] group-hover:bg-muted">
                       <div className="flex items-center justify-end gap-1">
-                              <button onClick={() => toggleMonitoring(container.id)} className={`p-2 rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring hidden lg:inline-flex ${expandedMonitoring[container.id] ? "bg-primary/20 text-primary" : "hover:bg-muted text-muted-foreground"}`} title="Monitoring Options">
-                                <Activity className="w-3.5 h-3.5" />
-                              </button>
                               <ContainerActionButtons
                         container={container}
                         logsActive={logsContainer?.id === container.id} terminalActive={terminalContainer?.id === container.id}
@@ -546,9 +529,6 @@ export default function Containers() {
                             </div>
                     </td>
                   </tr>
-
-                  {expandedMonitoring[container.id] && <MonitoringRow container={container} />}
-                </Fragment>
                 );
               })}
             </tbody>
