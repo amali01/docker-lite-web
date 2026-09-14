@@ -18,20 +18,41 @@ export function createLogsRouter(resolveBackend: BackendResolver, auth: DockLite
       response.setHeader("Connection", "keep-alive");
       response.flushHeaders();
 
-      const unsubscribe = await backend.subscribeToContainerLogs(request.params.id, (chunk) => {
+      let cleaned = false;
+      let heartbeat: NodeJS.Timeout | null = null;
+      let unsubscribe: (() => void) | null = null;
+
+      // Registered before the subscribe await below: if the client aborts
+      // while we're still waiting on the backend, this still fires and tears
+      // down whatever has been set up so far.
+      const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
+        if (heartbeat) clearInterval(heartbeat);
+        unsubscribe?.();
+        if (!response.writableEnded) response.end();
+      };
+
+      request.on("close", cleanup);
+
+      const subscribed = await backend.subscribeToContainerLogs(request.params.id, (chunk) => {
         response.write("event: log\n");
         response.write(`data: ${JSON.stringify(chunk)}\n\n`);
       });
 
-      const heartbeat = setInterval(() => {
+      // The client may have already aborted while the await above was in
+      // flight (the "close" event fires only once, before this code resumes)
+      // or the socket may already be gone without the event having fired yet.
+      // Either way, the subscription and heartbeat below must not outlive it.
+      if (cleaned || request.destroyed) {
+        subscribed();
+        return;
+      }
+
+      unsubscribe = subscribed;
+      heartbeat = setInterval(() => {
         response.write(": heartbeat\n\n");
       }, 15000);
-
-      request.on("close", async () => {
-        clearInterval(heartbeat);
-        await unsubscribe();
-        response.end();
-      });
     } catch (error) {
       next(error);
     }
