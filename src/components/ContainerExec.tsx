@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
-import { resolveStreamEndpoint } from "@/lib/api/client";
+import { attachStreamTicket, resolveStreamEndpoint } from "@/lib/api/client";
 
 interface ContainerExecProps {
   containerId: string;
@@ -46,6 +46,16 @@ export function ContainerExec({ containerId, containerName, onClose }: Container
       const wsUrl = resolveStreamEndpoint(`/api/containers/${containerId}/exec`, "websocket");
       wsUrl.searchParams.set("cols", String(term.cols));
       wsUrl.searchParams.set("rows", String(term.rows));
+      // Fresh single-use ticket per connection: this effect is the only place a
+      // terminal is dialled, so remounting is what reconnects, and it comes
+      // back through here for a new one.
+      await attachStreamTicket(wsUrl);
+
+      if (closed) {
+        term.dispose();
+        return;
+      }
+
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 

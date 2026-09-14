@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Download, Pause, Play, Trash2, X } from "lucide-react";
-import { createStreamUrl } from "@/lib/api/client";
+import { attachStreamTicket, resolveStreamEndpoint } from "@/lib/api/client";
 import { ContainerLogLine, ContainerLogsChunk } from "@/lib/api/types";
 import { Button } from "@/components/ui/button";
 
@@ -13,6 +13,10 @@ interface ContainerLogsProps {
 // ponytail: cap at 2000 lines so a chatty container can't grow the array (and
 // the re-render cost) without bound; raise this if a longer scrollback is needed.
 const MAX_LOG_LINES = 2000;
+
+// ponytail: fixed delay, no backoff — a log panel is open for minutes, not
+// days. Add backoff if reconnect storms ever show up in the server logs.
+const RECONNECT_DELAY_MS = 2000;
 
 function appendCapped(existing: ContainerLogLine[], incoming: ContainerLogLine[]): ContainerLogLine[] {
   return [...existing, ...incoming].slice(-MAX_LOG_LINES);
@@ -33,7 +37,9 @@ export function ContainerLogs({ containerId, containerName, onClose }: Container
   // duplicate the whole backlog or need fragile content-based dedup. Keeping
   // one connection alive for the component's lifetime sidesteps that entirely.
   useEffect(() => {
-    const eventSource = new EventSource(createStreamUrl(`/api/containers/${containerId}/logs/stream`));
+    let closed = false;
+    let source: EventSource | null = null;
+    let retry: ReturnType<typeof setTimeout> | null = null;
 
     const handleMessage = (event: MessageEvent<string>) => {
       let chunk: ContainerLogsChunk;
@@ -52,11 +58,46 @@ export function ContainerLogs({ containerId, containerName, onClose }: Container
       setLines((previous) => appendCapped(previous, chunk.lines));
     };
 
-    eventSource.addEventListener("log", handleMessage as EventListener);
+    const scheduleReconnect = () => {
+      if (closed) return;
+      retry = setTimeout(() => {
+        void connect();
+      }, RECONNECT_DELAY_MS);
+    };
+
+    const connect = async () => {
+      try {
+        const url = await attachStreamTicket(
+          resolveStreamEndpoint(`/api/containers/${containerId}/logs/stream`),
+        );
+
+        if (closed) return;
+
+        const eventSource = new EventSource(url.toString());
+        source = eventSource;
+        eventSource.addEventListener("log", handleMessage as EventListener);
+
+        // EventSource retries on its own, but it replays the same URL — and a
+        // stream ticket is spent the moment the first connection redeemed it.
+        // Take the retry over so each attempt fetches a fresh ticket; without
+        // this, one blip would break the stream permanently.
+        eventSource.onerror = () => {
+          eventSource.close();
+          scheduleReconnect();
+        };
+      } catch (error) {
+        console.error("Unable to open the container log stream", error);
+        scheduleReconnect();
+      }
+    };
+
+    void connect();
 
     return () => {
-      eventSource.removeEventListener("log", handleMessage as EventListener);
-      eventSource.close();
+      closed = true;
+      if (retry) clearTimeout(retry);
+      source?.removeEventListener("log", handleMessage as EventListener);
+      source?.close();
     };
   }, [containerId]);
 

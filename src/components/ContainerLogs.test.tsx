@@ -1,11 +1,14 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { ContainerLogs } from "@/components/ContainerLogs";
+import { resetAuthRuntimeState, setAuthRuntimeState } from "@/lib/api/client";
 import { ContainerLogLine } from "@/lib/api/types";
 
 interface MockEventSourceInstance {
   emit: (type: string, payload: unknown) => void;
   listeners: Map<string, Set<(event: MessageEvent<string>) => void>>;
+  onerror: ((event: Event) => void) | null;
+  url: string;
 }
 
 function getInstances(): MockEventSourceInstance[] {
@@ -16,14 +19,34 @@ function line(msg: string): ContainerLogLine {
   return { time: new Date().toISOString(), msg };
 }
 
+// The stream now opens only after the stream-ticket round-trip resolves, so
+// every test has to let that microtask settle before an EventSource exists.
+async function renderLogs(props: { containerId?: string; containerName?: string; onClose?: () => void } = {}) {
+  const result = render(
+    <ContainerLogs
+      containerId={props.containerId ?? "ctr-1"}
+      containerName={props.containerName ?? "my-app"}
+      onClose={props.onClose ?? (() => {})}
+    />,
+  );
+
+  await act(async () => {});
+
+  return result;
+}
+
 describe("ContainerLogs", () => {
-  it("renders with container name", () => {
-    render(<ContainerLogs containerId="ctr-1" containerName="test-container" onClose={() => {}} />);
+  beforeEach(() => {
+    resetAuthRuntimeState();
+  });
+
+  it("renders with container name", async () => {
+    await renderLogs({ containerName: "test-container" });
     expect(screen.getByText(/test-container/)).toBeInTheDocument();
   });
 
-  it("shows streamed log lines", () => {
-    render(<ContainerLogs containerId="ctr-1" containerName="my-app" onClose={() => {}} />);
+  it("shows streamed log lines", async () => {
+    await renderLogs();
     const eventSource = getInstances().at(-1);
     act(() => {
       eventSource?.emit("log", {
@@ -34,8 +57,8 @@ describe("ContainerLogs", () => {
     expect(screen.getByText(/Starting application/)).toBeInTheDocument();
   });
 
-  it("clears logs when clear button clicked", () => {
-    render(<ContainerLogs containerId="ctr-1" containerName="my-app" onClose={() => {}} />);
+  it("clears logs when clear button clicked", async () => {
+    await renderLogs();
     const eventSource = getInstances().at(-1);
     act(() => {
       eventSource?.emit("log", {
@@ -48,15 +71,15 @@ describe("ContainerLogs", () => {
     expect(screen.getByText("Waiting for logs...")).toBeInTheDocument();
   });
 
-  it("calls onClose when close button clicked", () => {
+  it("calls onClose when close button clicked", async () => {
     let closed = false;
-    render(<ContainerLogs containerId="ctr-1" containerName="my-app" onClose={() => { closed = true; }} />);
+    await renderLogs({ onClose: () => { closed = true; } });
     fireEvent.click(screen.getByTitle("Close"));
     expect(closed).toBe(true);
   });
 
-  it("does not duplicate the backlog across a pause/resume cycle", () => {
-    render(<ContainerLogs containerId="ctr-1" containerName="my-app" onClose={() => {}} />);
+  it("does not duplicate the backlog across a pause/resume cycle", async () => {
+    await renderLogs();
     const instancesBefore = getInstances().length;
     const initial = getInstances().at(-1);
 
@@ -91,8 +114,8 @@ describe("ContainerLogs", () => {
     expect(screen.getAllByText(/^L4$/)).toHaveLength(1);
   });
 
-  it("caps the buffer to the newest lines instead of growing without bound", () => {
-    render(<ContainerLogs containerId="ctr-1" containerName="my-app" onClose={() => {}} />);
+  it("caps the buffer to the newest lines instead of growing without bound", async () => {
+    await renderLogs();
     const eventSource = getInstances().at(-1);
     const total = 2005;
     const chunk = Array.from({ length: total }, (_, i) => line(`N${i}`));
@@ -108,9 +131,9 @@ describe("ContainerLogs", () => {
     expect(screen.getByText(/^N2004$/)).toBeInTheDocument();
   });
 
-  it("drops a malformed frame without crashing or going silent", () => {
+  it("drops a malformed frame without crashing or going silent", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    render(<ContainerLogs containerId="ctr-1" containerName="my-app" onClose={() => {}} />);
+    await renderLogs();
     const eventSource = getInstances().at(-1);
     const listener = eventSource?.listeners.get("log")?.values().next().value;
 
@@ -128,5 +151,42 @@ describe("ContainerLogs", () => {
     expect(screen.getByText(/after-malformed/)).toBeInTheDocument();
 
     errorSpy.mockRestore();
+  });
+
+  it("opens the stream with a ticket and reconnects with a fresh one after a drop", async () => {
+    vi.useFakeTimers();
+
+    try {
+      setAuthRuntimeState({ token: "bearer-token" });
+
+      let issued = 0;
+      const fetchMock = vi.fn(async () => {
+        issued += 1;
+        return new Response(JSON.stringify({ ticket: `ticket-${issued}`, expiresAt: "2026-01-01T00:00:00.000Z" }));
+      });
+      vi.stubGlobal("fetch", fetchMock);
+
+      await renderLogs();
+
+      const first = getInstances().at(-1);
+      expect(first?.url).toContain("ticket=ticket-1");
+      // The bearer token must never reach the URL — that is the whole fix.
+      expect(first?.url).not.toContain("bearer-token");
+
+      // A spent ticket makes EventSource's own retry useless, so the component
+      // takes the reconnect over and mints a new ticket for each attempt.
+      await act(async () => {
+        first?.onerror?.(new Event("error"));
+        await vi.advanceTimersByTimeAsync(2000);
+      });
+
+      const second = getInstances().at(-1);
+      expect(second).not.toBe(first);
+      expect(second?.url).toContain("ticket=ticket-2");
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+      resetAuthRuntimeState();
+    }
   });
 });

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   apiRequest,
-  createStreamUrl,
+  attachStreamTicket,
   getApiBaseUrl,
   resetAuthRuntimeState,
   resolveStreamEndpoint,
@@ -48,14 +48,50 @@ describe("api client auth behavior", () => {
     );
   });
 
-  it("adds the bearer token to stream urls", () => {
-    setAuthRuntimeState({
-      token: "stream-token",
-    });
-
-    expect(createStreamUrl("/api/containers/demo/logs/stream")).toBe(
-      "http://127.0.0.1:9001/api/containers/demo/logs/stream?access_token=stream-token",
+  it("opens a stream with a single-use ticket instead of the bearer token", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ ticket: "one-shot-ticket", expiresAt: "2026-01-01T00:00:00.000Z" })),
     );
+    setAuthRuntimeState({ token: "stream-token" });
+
+    const url = await attachStreamTicket(resolveStreamEndpoint("/api/containers/demo/logs/stream"));
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:9001/api/auth/stream-ticket",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ Authorization: "Bearer stream-token" }),
+      }),
+    );
+    expect(url.toString()).toBe(
+      "http://127.0.0.1:9001/api/containers/demo/logs/stream?ticket=one-shot-ticket",
+    );
+    expect(url.toString()).not.toContain("stream-token");
+    expect(url.searchParams.has("access_token")).toBe(false);
+  });
+
+  it("skips the ticket round-trip when there is no token (auth-bypass mode)", async () => {
+    const url = await attachStreamTicket(resolveStreamEndpoint("/api/containers/demo/logs/stream"));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(url.search).toBe("");
+  });
+
+  it("tickets a websocket endpoint too, preserving its other query params", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ ticket: "ws-ticket", expiresAt: "2026-01-01T00:00:00.000Z" })),
+    );
+    setAuthRuntimeState({ token: "ws-token" });
+
+    const endpoint = resolveStreamEndpoint("/api/containers/demo/exec", "websocket");
+    endpoint.searchParams.set("cols", "80");
+
+    const url = await attachStreamTicket(endpoint);
+
+    expect(url.protocol).toBe("ws:");
+    expect(url.searchParams.get("cols")).toBe("80");
+    expect(url.searchParams.get("ticket")).toBe("ws-ticket");
+    expect(url.toString()).not.toContain("ws-token");
   });
 
   it("merges caller-supplied headers with the auth/default headers instead of replacing them", async () => {
@@ -110,7 +146,7 @@ describe("api client auth behavior", () => {
     expect(String(requestedUrl)).toBe("http://127.0.0.1:9001/api/engine");
   });
 
-  it("builds a websocket stream endpoint with the token in the query", () => {
+  it("builds a websocket stream endpoint carrying no credential at all", () => {
     setAuthRuntimeState({ token: "ws-token" });
 
     const url = resolveStreamEndpoint("/api/containers/demo/exec", "websocket");
@@ -118,7 +154,8 @@ describe("api client auth behavior", () => {
     expect(url.protocol).toBe("ws:");
     expect(url.host).toBe("127.0.0.1:9001");
     expect(url.pathname).toBe("/api/containers/demo/exec");
-    expect(url.searchParams.get("access_token")).toBe("ws-token");
+    expect(url.search).toBe("");
+    expect(url.toString()).not.toContain("ws-token");
   });
 
   it("uses wss when the backend base url is https", () => {
@@ -131,9 +168,13 @@ describe("api client auth behavior", () => {
     expect(url.host).toBe("remote.example:9443");
   });
 
-  it("omits the token from stream urls when unauthenticated", () => {
+  it("never puts the bearer token in a stream url", () => {
+    setAuthRuntimeState({ token: "stream-token" });
+
     const sse = resolveStreamEndpoint("/api/containers/demo/logs/stream", "sse");
+
     expect(sse.searchParams.has("access_token")).toBe(false);
+    expect(sse.toString()).not.toContain("stream-token");
   });
 
   it("preserves a configured base-url path prefix in a websocket endpoint", () => {

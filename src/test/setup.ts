@@ -18,6 +18,8 @@ Object.defineProperty(window, "matchMedia", {
 class MockEventSource {
   static instances: MockEventSource[] = [];
   listeners = new Map<string, Set<(event: MessageEvent<string>) => void>>();
+  // Assigned by the component so a test can simulate a dropped stream.
+  onerror: ((event: Event) => void) | null = null;
   url: string;
 
   constructor(url: string) {

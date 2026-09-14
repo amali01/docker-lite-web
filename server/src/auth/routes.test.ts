@@ -29,7 +29,7 @@ function createBuiltInTargetInputs(): EngineTargetProfileInput[] {
   }));
 }
 
-async function createAuthTestContext() {
+async function createAuthTestContext(options: { allowAuthBypass?: boolean } = {}) {
   const dir = await mkdtemp(join(tmpdir(), "docklite-auth-test-"));
   const backend = new EngineManager(
     getDefaultEngineTargets(),
@@ -49,12 +49,21 @@ async function createAuthTestContext() {
   });
   const auth = new DockLiteAuth({
     configStore: authStore,
+    allowAuthBypass: options.allowAuthBypass ?? false,
   });
 
   return {
     dir,
+    authStore,
     app: createApp(backend, { auth }),
   };
+}
+
+async function login(app: ReturnType<typeof createApp>) {
+  const response = await request(app).post("/api/auth/login").send({ username: "admin", password: "admin" });
+
+  expect(response.status).toBe(200);
+  return response.body.token as string;
 }
 
 describe("auth routes", () => {
@@ -216,5 +225,83 @@ describe("auth routes", () => {
 
     expect(nextLoginResponse.status).toBe(200);
     expect(nextLoginResponse.body.username).toBe("operator");
+  });
+  it("mints a single-use stream ticket that authenticates a stream exactly once", async () => {
+    process.env.DOCKLITE_ADAPTER = "mock";
+    const { app, dir } = await createAuthTestContext();
+    tmpDirs.push(dir);
+
+    const token = await login(app);
+    const ticketResponse = await request(app)
+      .post("/api/auth/stream-ticket")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(ticketResponse.status).toBe(200);
+    expect(ticketResponse.body.ticket).toEqual(expect.any(String));
+    expect(ticketResponse.body.expiresAt).toEqual(expect.any(String));
+    // The whole point of the exercise: what ends up in an access log is not
+    // the long-lived bearer token.
+    expect(ticketResponse.body.ticket).not.toBe(token);
+
+    const ticket = encodeURIComponent(ticketResponse.body.ticket as string);
+
+    expect((await request(app).get(`/api/auth/config?ticket=${ticket}`)).status).toBe(200);
+
+    const replayed = await request(app).get(`/api/auth/config?ticket=${ticket}`);
+
+    expect(replayed.status).toBe(401);
+    expect(replayed.body.error.code).toBe("auth_required");
+  });
+
+  it("refuses a ticket that was never issued", async () => {
+    process.env.DOCKLITE_ADAPTER = "mock";
+    const { app, dir } = await createAuthTestContext();
+    tmpDirs.push(dir);
+
+    const response = await request(app).get("/api/auth/config?ticket=made-up-ticket");
+
+    expect(response.status).toBe(401);
+  });
+
+  it("no longer accepts the bearer token as an access_token query parameter", async () => {
+    process.env.DOCKLITE_ADAPTER = "mock";
+    const { app, dir } = await createAuthTestContext();
+    tmpDirs.push(dir);
+
+    const token = encodeURIComponent(await login(app));
+
+    const apiResponse = await request(app).get(`/api/auth/config?access_token=${token}`);
+
+    expect(apiResponse.status).toBe(401);
+    expect(apiResponse.body.error.code).toBe("auth_required");
+
+    // The SSE log stream is where the query token used to live.
+    const streamResponse = await request(app).get(`/api/containers/demo/logs/stream?access_token=${token}`);
+
+    expect(streamResponse.status).toBe(401);
+  });
+
+  it("rejects a log stream opened with no ticket while login is required", async () => {
+    process.env.DOCKLITE_ADAPTER = "mock";
+    const { app, dir } = await createAuthTestContext();
+    tmpDirs.push(dir);
+
+    const response = await request(app).get("/api/containers/demo/logs/stream");
+
+    expect(response.status).toBe(401);
+    expect(response.body.error.code).toBe("auth_required");
+  });
+
+  it("still serves streams with no ticket when login is disabled on a loopback instance", async () => {
+    process.env.DOCKLITE_ADAPTER = "mock";
+    const { app, authStore, dir } = await createAuthTestContext({ allowAuthBypass: true });
+    tmpDirs.push(dir);
+
+    await authStore.write({ ...(await authStore.read()), loginRequired: false });
+
+    // No bearer token, no ticket: the loopback bypass still authenticates.
+    expect((await request(app).get("/api/auth/config")).status).toBe(200);
+    // ...and a junk ticket in the URL must not turn the bypass off either.
+    expect((await request(app).get("/api/auth/config?ticket=junk")).status).toBe(200);
   });
 });

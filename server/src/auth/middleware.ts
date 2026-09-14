@@ -3,6 +3,7 @@ import type { NextFunction, Request, RequestHandler } from "express";
 import type { AuthConfigView, AuthSessionState } from "../../../src/lib/api/types";
 import { BackendError } from "../types";
 import { AuthConfigStore } from "./config";
+import { createStreamTicketStore, type StreamTicketStore } from "./stream-ticket";
 import { createAuthToken, verifyAuthToken } from "./token";
 import type { AuthConfig } from "./types";
 
@@ -56,14 +57,16 @@ function getBearerToken(headers: IncomingHttpHeaders) {
   return match?.[1] ?? null;
 }
 
-function getTokenFromUrl(url: string | undefined, hostHeader: string | undefined) {
+// The only credential DockLite ever reads out of a URL. Never the bearer token:
+// a stream ticket is opaque, expires in seconds, and is spent on first use.
+function getStreamTicketFromUrl(url: string | undefined, hostHeader: string | undefined) {
   if (!url) {
     return null;
   }
 
   try {
     const parsedUrl = new URL(url, `http://${hostHeader ?? "127.0.0.1"}`);
-    return parsedUrl.searchParams.get("access_token");
+    return parsedUrl.searchParams.get("ticket");
   } catch {
     return null;
   }
@@ -72,6 +75,7 @@ function getTokenFromUrl(url: string | undefined, hostHeader: string | undefined
 export class DockLiteAuth {
   readonly configStore: AuthConfigStore;
   readonly allowAuthBypass: boolean;
+  private readonly streamTickets: StreamTicketStore = createStreamTicketStore();
 
   constructor(options: DockLiteAuthOptions = {}) {
     this.configStore = options.configStore ?? new AuthConfigStore();
@@ -124,6 +128,15 @@ export class DockLiteAuth {
     };
   }
 
+  // Minted only for an already-authenticated caller, and bound to the identity
+  // that asked for it, so redeeming one grants nothing the requester lacked.
+  issueStreamTicket(config: AuthConfig) {
+    return this.streamTickets.issue({
+      username: config.adminUsername,
+      authVersion: config.authVersion,
+    });
+  }
+
   assertResolvedRequest(resolved: ResolvedAuthRequest) {
     if (!resolved.identity) {
       throw new BackendError(401, "auth_required", "Sign in required");
@@ -143,13 +156,31 @@ export class DockLiteAuth {
     };
   }
 
+  // A ticket only stands in for the identity it was minted for, so a credential
+  // change (which bumps authVersion) invalidates any ticket still in flight.
+  private redeemStreamTicket(ticket: string | null, config: AuthConfig): AuthIdentity | null {
+    if (!ticket) {
+      return null;
+    }
+
+    const claims = this.streamTickets.redeem(ticket);
+
+    if (!claims || claims.username !== config.adminUsername || claims.authVersion !== config.authVersion) {
+      return null;
+    }
+
+    return { username: claims.username, expiresAt: claims.expiresAt };
+  }
+
   private async resolveRequest(headers: IncomingHttpHeaders, url: string | undefined): Promise<ResolvedAuthRequest> {
     const config = await this.configStore.read();
-    const token = getBearerToken(headers) ?? getTokenFromUrl(url, getHeader(headers, "host"));
+    const token = getBearerToken(headers);
 
     // When login is disabled on a loopback instance, every request is the admin
     // regardless of token. Centralized here so the express, WebSocket-upgrade,
     // and SSE paths (all of which resolve through this method) share one gate.
+    // Checked before any ticket is looked at, so a bypassed instance never needs
+    // one — and a junk ticket in the URL can't switch the bypass off.
     if (this.isAuthBypassed(config)) {
       return {
         config,
@@ -158,7 +189,12 @@ export class DockLiteAuth {
       };
     }
 
-    const identity = token ? verifyAuthToken(token, config) : null;
+    // Bearer header first; the stream ticket is the fallback for EventSource and
+    // WebSocket, which cannot set headers. Redeeming is destructive, so it must
+    // not happen when a perfectly good bearer token was already presented.
+    const identity = token
+      ? verifyAuthToken(token, config)
+      : this.redeemStreamTicket(getStreamTicketFromUrl(url, getHeader(headers, "host")), config);
 
     return {
       config,

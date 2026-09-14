@@ -128,6 +128,18 @@ export function createAuthRouter(auth: DockLiteAuth) {
     response.status(204).send();
   });
 
+  // EventSource and WebSocket cannot send an Authorization header, so a stream
+  // is opened with a ticket from here instead of with the bearer token. One
+  // ticket per connection attempt — reconnects must come back for a new one.
+  router.post("/stream-ticket", auth.requireAuth(), async (request, response, next) => {
+    try {
+      const resolved = request.dockliteAuth ?? await auth.resolveExpressRequest(request);
+      response.json(auth.issueStreamTicket(resolved.config));
+    } catch (error) {
+      next(error);
+    }
+  });
+
   router.get("/config", auth.requireAuth(), async (request, response, next) => {
     try {
       const resolved = request.dockliteAuth ?? await auth.resolveExpressRequest(request);

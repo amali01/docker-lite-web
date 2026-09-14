@@ -120,12 +120,11 @@ export async function apiRequest<T>(path: string, init?: ApiRequestInit): Promis
 }
 
 /**
- * Streaming transports (EventSource and WebSocket) cannot set an Authorization
- * header, so the auth token rides in the `access_token` query param. This is
- * the single seam that owns base-URL resolution, the http→ws protocol flip,
- * and query-token attachment for both stream kinds. It has no `http` transport
- * on purpose: ordinary fetch requests keep their Bearer header (see
- * apiRequest) and must never carry the token in the URL.
+ * Builds the URL for a stream without any credential on it. This is the single
+ * seam that owns base-URL resolution and the http→ws protocol flip for both
+ * stream kinds. It has no `http` transport on purpose: ordinary fetch requests
+ * keep their Bearer header (see apiRequest) and must never carry a credential
+ * in the URL.
  */
 export function resolveStreamEndpoint(path: string, transport: "sse" | "websocket" = "sse"): URL {
   // Resolve against the page origin so a relative or empty base URL
@@ -141,13 +140,31 @@ export function resolveStreamEndpoint(path: string, transport: "sse" | "websocke
         )
       : httpUrl;
 
-  if (authRuntimeState.token) {
-    url.searchParams.set("access_token", authRuntimeState.token);
-  }
-
   return url;
 }
 
-export function createStreamUrl(path: string) {
-  return resolveStreamEndpoint(path, "sse").toString();
+/**
+ * EventSource and WebSocket cannot set an Authorization header. Rather than put
+ * the long-lived bearer token in the URL — where it lands in server access
+ * logs, proxy logs and browser history — mint a single-use, short-TTL ticket
+ * over a normal authenticated request and spend that instead. Every connection
+ * attempt, reconnects included, needs its own ticket: the server invalidates
+ * one the moment it is redeemed.
+ */
+export async function attachStreamTicket(url: URL): Promise<URL> {
+  // No token means either auth-bypass mode (a loopback server with login
+  // disabled authenticates every request anyway) or a signed-out client.
+  // Neither can mint a ticket, and the first does not need one.
+  if (!authRuntimeState.token) {
+    return url;
+  }
+
+  const { ticket } = await apiRequest<{ ticket: string; expiresAt: string }>("/api/auth/stream-ticket", {
+    method: "POST",
+    auth: true,
+  });
+
+  url.searchParams.set("ticket", ticket);
+
+  return url;
 }
