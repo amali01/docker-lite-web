@@ -10,21 +10,46 @@ interface ContainerLogsProps {
   onClose: () => void;
 }
 
+// ponytail: cap at 2000 lines so a chatty container can't grow the array (and
+// the re-render cost) without bound; raise this if a longer scrollback is needed.
+const MAX_LOG_LINES = 2000;
+
+function appendCapped(existing: ContainerLogLine[], incoming: ContainerLogLine[]): ContainerLogLine[] {
+  return [...existing, ...incoming].slice(-MAX_LOG_LINES);
+}
+
 export function ContainerLogs({ containerId, containerName, onClose }: ContainerLogsProps) {
   const [lines, setLines] = useState<ContainerLogLine[]>([]);
   const [paused, setPaused] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const pausedRef = useRef(paused);
+  // Lines received while paused, flushed into `lines` on resume so the view
+  // catches up without re-fetching (and re-appending) the server's replay.
+  const pendingRef = useRef<ContainerLogLine[]>([]);
 
+  // The stream stays open across pause/resume: reopening on resume would make
+  // the server replay its `tail: 500` backlog (server/src/docker/client.ts),
+  // which — with no id/seq field to dedupe on, only time+msg — would either
+  // duplicate the whole backlog or need fragile content-based dedup. Keeping
+  // one connection alive for the component's lifetime sidesteps that entirely.
   useEffect(() => {
-    if (paused) {
-      return;
-    }
-
     const eventSource = new EventSource(createStreamUrl(`/api/containers/${containerId}/logs/stream`));
 
     const handleMessage = (event: MessageEvent<string>) => {
-      const chunk = JSON.parse(event.data) as ContainerLogsChunk;
-      setLines((previous) => [...previous, ...chunk.lines]);
+      let chunk: ContainerLogsChunk;
+      try {
+        chunk = JSON.parse(event.data) as ContainerLogsChunk;
+      } catch (error) {
+        console.error("Discarding malformed container log frame", error);
+        return;
+      }
+
+      if (pausedRef.current) {
+        pendingRef.current = appendCapped(pendingRef.current, chunk.lines);
+        return;
+      }
+
+      setLines((previous) => appendCapped(previous, chunk.lines));
     };
 
     eventSource.addEventListener("log", handleMessage as EventListener);
@@ -33,7 +58,16 @@ export function ContainerLogs({ containerId, containerName, onClose }: Container
       eventSource.removeEventListener("log", handleMessage as EventListener);
       eventSource.close();
     };
-  }, [containerId, paused]);
+  }, [containerId]);
+
+  useEffect(() => {
+    pausedRef.current = paused;
+    if (!paused && pendingRef.current.length > 0) {
+      const pending = pendingRef.current;
+      pendingRef.current = [];
+      setLines((previous) => appendCapped(previous, pending));
+    }
+  }, [paused]);
 
   useEffect(() => {
     if (!paused && scrollRef.current) {
@@ -67,7 +101,16 @@ export function ContainerLogs({ containerId, containerName, onClose }: Container
           >
             {paused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
           </Button>
-          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setLines([])} title="Clear">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 w-7 p-0"
+            onClick={() => {
+              pendingRef.current = [];
+              setLines([]);
+            }}
+            title="Clear"
+          >
             <Trash2 className="w-3.5 h-3.5" />
           </Button>
           <Button
