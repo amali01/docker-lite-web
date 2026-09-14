@@ -57,8 +57,14 @@ export function PromptDialog({
               className="font-mono text-xs"
               disabled={!value.trim() || pending}
               onClick={async () => {
-                await onSubmit(value);
-                onOpenChange(false);
+                try {
+                  await onSubmit(value);
+                  onOpenChange(false);
+                } catch {
+                  // Every caller already shows an error toast and rethrows so we land
+                  // here; keep the dialog open with the typed value instead of closing
+                  // on failure, and don't raise a second toast on top of theirs.
+                }
               }}
             >
               {confirmLabel}
