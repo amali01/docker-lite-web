@@ -469,6 +469,80 @@ describe("DockLite backend app", () => {
     expect(switchResponse.body.endpoint).toBe("tcp://prod.example.internal:2376");
   });
 
+  // The allowlist is enforced at the route, which is the client trust boundary.
+  // schemas.test.ts covers the validator in isolation; these pin the wiring, so
+  // dropping credentialPathSchema from the router would not go unnoticed.
+  it("refuses a credential path outside the allowed directories, on create and update", async () => {
+    process.env.DOCKLITE_ADAPTER = "mock";
+    const { app, dir } = await createTestApp();
+    tmpDirs.push(dir);
+    const api = await createAuthenticatedApi(app);
+
+    const rejected = await api.post("/api/engine/targets").send({
+      kind: "tcpTls",
+      label: "Sneaky TLS",
+      host: "prod.example.internal",
+      port: 2376,
+      tlsMode: "serverOnly",
+      caPath: "/etc/shadow",
+      certPath: null,
+      keyPath: null,
+    });
+
+    expect(rejected.status).toBe(400);
+
+    const allowed = await api.post("/api/engine/targets").send({
+      kind: "tcpTls",
+      label: "Prod TLS Docker",
+      host: "prod.example.internal",
+      port: 2376,
+      tlsMode: "serverOnly",
+      caPath: join(process.cwd(), "server", "data", "credentials", "prod-ca.pem"),
+      certPath: null,
+      keyPath: null,
+    });
+
+    expect(allowed.status).toBe(201);
+
+    // An existing target must not be a way in either.
+    const patched = await api.patch(`/api/engine/targets/${allowed.body.id as string}`).send({
+      caPath: "/etc/shadow",
+    });
+
+    expect(patched.status).toBe(400);
+  });
+
+  it("does not reveal whether a refused credential path exists", async () => {
+    process.env.DOCKLITE_ADAPTER = "mock";
+    const { app, dir } = await createTestApp();
+    tmpDirs.push(dir);
+    const api = await createAuthenticatedApi(app);
+
+    async function refuse(caPath: string) {
+      const response = await api.post("/api/engine/targets").send({
+        kind: "tcpTls",
+        label: "Probe",
+        host: "prod.example.internal",
+        port: 2376,
+        tlsMode: "serverOnly",
+        caPath,
+        certPath: null,
+        keyPath: null,
+      });
+
+      return { status: response.status, body: JSON.stringify(response.body) };
+    }
+
+    // One exists and is readable, one does not exist at all. If the responses
+    // differed, the endpoint would still be the file-existence oracle M19
+    // describes.
+    const existing = await refuse("/etc/hostname");
+    const missing = await refuse("/etc/definitely-not-here-9f3a2b");
+
+    expect(existing.status).toBe(400);
+    expect(missing).toEqual(existing);
+  });
+
   it("selects a saved ssh engine target by id", async () => {
     process.env.DOCKLITE_ADAPTER = "mock";
     const { app, dir } = await createTestApp();
