@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
+import { inferComposeProjectFromName } from "./compose-project";
 
 /**
  * One deep module for the compose-grouped resource list shared by the
  * Containers, Images, Volumes, Networks, and Dashboard pages. It owns the
- * compose-project name heuristic, the group/flat row construction, and the
- * expand/collapse + group-selection state. Callers keep their own filtering,
+ * group/flat row construction and the expand/collapse + group-selection
+ * state; the compose-project name heuristic itself lives in
+ * `./compose-project` so the server can share it (display grouping only —
+ * see that module's doc comment). Callers keep their own filtering,
  * selection, and table markup and cross this seam through `getProject`
  * (per-resource skip/label rule) and `getId` (per-resource identity).
  */
@@ -13,25 +16,9 @@ export type ResourceRowEntry<T> =
   | { type: "group"; project: string; items: T[] }
   | { type: "item"; item: T };
 
-/**
- * Shared compose-project name heuristic. Normalizes `_`→`-`, splits on `-`,
- * drops a trailing numeric replica suffix (`web-app-1` → `web`) and then the
- * service segment. Returns null when the name is too short to carry a project.
- */
-export function inferComposeProjectFromName(name: string): string | null {
-  const normalizedName = name.replace(/_/g, "-");
-  const parts = normalizedName.split("-").filter(Boolean);
-
-  if (parts.length >= 3 && /^\d+$/.test(parts.at(-1) ?? "")) {
-    return parts.slice(0, -2).join("-");
-  }
-
-  if (parts.length >= 2) {
-    return parts.slice(0, -1).join("-");
-  }
-
-  return null;
-}
+// Re-exported for existing consumers (`src/pages/*`, tests) — the heuristic
+// itself now lives in `./compose-project`.
+export { inferComposeProjectFromName };
 
 /**
  * Build compose-grouped rows in original item order. A project with more than

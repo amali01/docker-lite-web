@@ -31,6 +31,7 @@ import {
 } from "../types";
 import { createSshDockerConnectionConfig, createTcpTlsDockerConnectionConfig } from "../engine-targets/connection-test";
 import { formatBytes, formatCreatedDate, formatPercentage, formatPorts, formatUnixDate } from "../format";
+import { inferComposeProjectFromName } from "../../../src/lib/compose-project";
 
 const DEFAULT_SOCKET_PATH = process.env.DOCKLITE_DOCKER_SOCKET ?? "/var/run/docker.sock";
 
@@ -120,23 +121,26 @@ function normalizeContainerName(name: string) {
   return name.replace(/^\//, "");
 }
 
-function inferProjectFromName(name: string) {
-  const normalizedName = normalizeContainerName(name).replace(/_/g, "-");
-  const parts = normalizedName.split("-").filter(Boolean);
-
-  if (parts.length >= 3 && /^\d+$/.test(parts.at(-1) ?? "")) {
-    return parts.slice(0, -2).join("-");
-  }
-
-  if (parts.length >= 2) {
-    return parts.slice(0, -1).join("-");
-  }
-
-  return null;
+/**
+ * Label-only project match: the ONLY match a destructive action may use.
+ * `com.docker.compose.project` is set by Docker Compose itself and cannot be
+ * spoofed by an unrelated container's name.
+ */
+export function isContainerLabeledForProject(container: { composeProject: string | null }, project: string) {
+  return container.composeProject === project;
 }
 
-function isContainerInProject(container: { composeProject: string | null; name: string }, project: string) {
-  return container.composeProject === project || inferProjectFromName(container.name) === project;
+/**
+ * Label-or-name-heuristic project match, for non-destructive (start/stop)
+ * actions only. The name heuristic (`inferComposeProjectFromName`) can match
+ * an unrelated standalone container that merely shares a name prefix, so it
+ * must never gate `remove` — see `applyComposeProjectAction`.
+ */
+export function isContainerInProject(container: { composeProject: string | null; name: string }, project: string) {
+  return (
+    isContainerLabeledForProject(container, project) ||
+    inferComposeProjectFromName(normalizeContainerName(container.name)) === project
+  );
 }
 
 function getContainerStatus(state?: string, status?: string): ContainerSummary["status"] {
@@ -526,7 +530,7 @@ export function createMockBackend(
     },
     async removeComposeProject(project) {
       const beforeCount = state.containers.length;
-      state.containers = state.containers.filter((container) => !isContainerInProject(container, project));
+      state.containers = state.containers.filter((container) => !isContainerLabeledForProject(container, project));
 
       if (beforeCount === state.containers.length) {
         throw new BackendError(404, "not_found", `Compose project '${project}' was not found`);
@@ -789,17 +793,34 @@ async function createDockerBackend(
     });
   }
 
+  /**
+   * Label-only lookup — the only one `remove` may use (irreversible: force
+   * removal must never be triggered by the name heuristic, see H3 in
+   * CODE-AUDIT.md).
+   */
+  async function listLabeledProjectContainers(project: string) {
+    const containers = await docker.listContainers({ all: true });
+    return containers.filter((container) => (container.Labels?.["com.docker.compose.project"] ?? null) === project);
+  }
+
+  /**
+   * Label-or-name-heuristic lookup, for non-destructive start/stop only:
+   * reversible, and matches what the UI shows grouped under the project.
+   */
   async function listProjectContainers(project: string) {
     const containers = await docker.listContainers({ all: true });
     return containers.filter((container) => {
       const labeledProject = container.Labels?.["com.docker.compose.project"] ?? null;
-      const inferredProject = inferProjectFromName(container.Names?.[0] ?? container.Id.slice(0, 12));
+      const inferredProject = inferComposeProjectFromName(
+        normalizeContainerName(container.Names?.[0] ?? container.Id.slice(0, 12)),
+      );
       return labeledProject === project || inferredProject === project;
     });
   }
 
   async function applyComposeProjectAction(project: string, action: "start" | "stop" | "remove") {
-    const projectContainers = await listProjectContainers(project);
+    const projectContainers =
+      action === "remove" ? await listLabeledProjectContainers(project) : await listProjectContainers(project);
 
     if (projectContainers.length === 0) {
       throw new BackendError(404, "not_found", `Compose project '${project}' was not found`);

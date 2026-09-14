@@ -1,26 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { buildResourceRowEntries, inferComposeProjectFromName } from "./resource-groups";
 
-describe("inferComposeProjectFromName", () => {
-  it("returns null for a single-segment name", () => {
-    expect(inferComposeProjectFromName("postgres")).toBeNull();
-  });
-
-  it("drops the service segment for a two-segment name", () => {
-    expect(inferComposeProjectFromName("myapp-db")).toBe("myapp");
-  });
-
-  it("drops the numeric replica suffix and the service segment", () => {
-    expect(inferComposeProjectFromName("myapp-web-1")).toBe("myapp");
-  });
-
-  it("normalizes underscores to hyphens before splitting", () => {
-    expect(inferComposeProjectFromName("myapp_web_2")).toBe("myapp");
-  });
-
-  it("keeps multi-segment project names intact", () => {
-    expect(inferComposeProjectFromName("acme-shop-api")).toBe("acme-shop");
-  });
+// The heuristic itself now lives in ./compose-project (moved for M24 —
+// shared with the server, see ./compose-project.test.ts). This re-export
+// smoke test guards the public API this module's existing consumers rely on.
+it("re-exports inferComposeProjectFromName for existing consumers", () => {
+  expect(inferComposeProjectFromName("myapp-db")).toBe("myapp");
 });
 
 interface Item {
