@@ -6,8 +6,20 @@
   },
   "ignorePatterns": ["dist/**"],
   "rules": {
-    "no-unused-vars": "off",
-    "typescript/no-unused-vars": "off",
+    "no-unused-vars": ["error", {
+      "args": "after-used",
+      "argsIgnorePattern": "^_",
+      "varsIgnorePattern": "^_",
+      "caughtErrorsIgnorePattern": "^_",
+      "ignoreRestSiblings": true
+    }],
+    "typescript/no-unused-vars": ["error", {
+      "args": "after-used",
+      "argsIgnorePattern": "^_",
+      "varsIgnorePattern": "^_",
+      "caughtErrorsIgnorePattern": "^_",
+      "ignoreRestSiblings": true
+    }],
     "react/rules-of-hooks": "error"
   }
 }
