@@ -122,6 +122,46 @@ function normalizeContainerName(name: string) {
 }
 
 /**
+ * The Docker API returns `CreatedAt` for volumes but `@types/dockerode`'s
+ * `VolumeInspectInfo` does not declare it, so read it defensively rather than
+ * stamping "now" on every volume (M6 in CODE-AUDIT.md). Engines that omit the
+ * field fall back to the current time, which is what the old code always did.
+ */
+export function readVolumeCreatedAt(volume: object): string {
+  if ("CreatedAt" in volume && typeof volume.CreatedAt === "string" && volume.CreatedAt.trim()) {
+    return volume.CreatedAt;
+  }
+
+  return new Date().toISOString();
+}
+
+/**
+ * Split an image reference into repository + tag.
+ *
+ * A naive `split(":")` breaks on the two references that legitimately contain
+ * a colon inside the repository part (M5 in CODE-AUDIT.md):
+ *   - a registry port:  `registry.example.com:5000/app`  (no tag at all)
+ *   - a digest:         `alpine@sha256:abc…`
+ * The tag separator is only the last `:` that appears *after* the last `/`.
+ */
+export function parseImageReference(reference: string): { repository: string; tag: string } {
+  const trimmed = reference.trim();
+  const digestSeparator = trimmed.indexOf("@");
+
+  if (digestSeparator !== -1) {
+    return { repository: trimmed.slice(0, digestSeparator), tag: trimmed.slice(digestSeparator + 1) };
+  }
+
+  const tagSeparator = trimmed.lastIndexOf(":");
+
+  if (tagSeparator > trimmed.lastIndexOf("/")) {
+    return { repository: trimmed.slice(0, tagSeparator), tag: trimmed.slice(tagSeparator + 1) };
+  }
+
+  return { repository: trimmed, tag: "latest" };
+}
+
+/**
  * Label-only project match: the ONLY match a destructive action may use.
  * `com.docker.compose.project` is set by Docker Compose itself and cannot be
  * spoofed by an unrelated container's name.
@@ -570,7 +610,7 @@ export function createMockBackend(
         throw new BackendError(400, "invalid_request", "Image name is required");
       }
 
-      const [repository, tag = "latest"] = imageName.split(":");
+      const { repository, tag } = parseImageReference(imageName);
       const image: ImageSummary = {
         id: `sha256:${randomUUID().replace(/-/g, "").slice(0, 12)}`,
         repository,
@@ -656,8 +696,15 @@ export function createMockBackend(
 }
 
 
+type ContainerStatsRow = {
+  cpuPercent: number;
+  memUsage: string | null;
+  memPercent: number | null;
+  netIO: string | null;
+};
+
 async function getStatsMap(runningContainers: Array<{ Id: string }>, docker: Pick<Docker, "getContainer">) {
-  const statsMap = new Map();
+  const statsMap = new Map<string, ContainerStatsRow>();
   await Promise.all(runningContainers.map(async (container) => {
     try {
       const stats = (await docker.getContainer(container.Id).stats({ stream: false })) as DockerStatsSnapshot;
@@ -732,9 +779,152 @@ function mapContainerSummary(details: {
   };
 }
 
+/**
+ * Endpoint settings for a recreated container, derived from the inspected one.
+ *
+ * Runtime-assigned identity (endpoint/network ids, the leased addresses, the
+ * MAC) belongs to the container being replaced and must not be re-declared, or
+ * the engine rejects the create. Everything the user actually configured
+ * (static IPAM, links, aliases, driver options) is carried over.
+ */
+export function buildEndpointsConfig(details: Docker.ContainerInspectInfo): Docker.EndpointsConfig {
+  const shortId = details.Id.slice(0, 12);
+  const endpoints: Docker.EndpointsConfig = {};
+
+  for (const [networkName, network] of Object.entries(details.NetworkSettings?.Networks ?? {})) {
+    const {
+      NetworkID,
+      EndpointID,
+      Gateway,
+      IPAddress,
+      IPPrefixLen,
+      IPv6Gateway,
+      GlobalIPv6Address,
+      GlobalIPv6PrefixLen,
+      MacAddress,
+      Aliases,
+      ...configured
+    } = network;
+
+    // Docker adds the container's own short id as an alias; re-using it would
+    // point the new container's DNS name at an id that is about to disappear.
+    const aliases = Array.isArray(Aliases)
+      ? Aliases.filter((alias): alias is string => typeof alias === "string" && alias !== shortId)
+      : [];
+
+    endpoints[networkName] = aliases.length > 0 ? { ...configured, Aliases: aliases } : { ...configured };
+  }
+
+  return endpoints;
+}
+
+/**
+ * Container `Config` fields the Docker API really returns but
+ * `@types/dockerode` does not declare. They are read with `in`-narrowing rather
+ * than cast, so a malformed engine response degrades to "absent" instead of
+ * lying about its type.
+ *
+ * These matter on a recreate: a container with a custom `StopSignal` that lost
+ * it would be killed with the default signal on its next stop — a silent
+ * behaviour change a rebuild must never introduce.
+ */
+export function readUndeclaredContainerConfig(config: object): {
+  StopSignal?: string;
+  StopTimeout?: number;
+  Shell?: string[];
+  OnBuild?: string[];
+  MacAddress?: string;
+} {
+  const toStringArray = (value: unknown) =>
+    Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === "string") : [];
+
+  const preserved: {
+    StopSignal?: string;
+    StopTimeout?: number;
+    Shell?: string[];
+    OnBuild?: string[];
+    MacAddress?: string;
+  } = {};
+
+  if ("StopSignal" in config && typeof config.StopSignal === "string" && config.StopSignal) {
+    preserved.StopSignal = config.StopSignal;
+  }
+
+  if ("StopTimeout" in config && typeof config.StopTimeout === "number" && Number.isFinite(config.StopTimeout)) {
+    preserved.StopTimeout = config.StopTimeout;
+  }
+
+  if ("MacAddress" in config && typeof config.MacAddress === "string" && config.MacAddress) {
+    preserved.MacAddress = config.MacAddress;
+  }
+
+  if ("Shell" in config) {
+    const shell = toStringArray(config.Shell);
+
+    if (shell.length > 0) {
+      preserved.Shell = shell;
+    }
+  }
+
+  if ("OnBuild" in config) {
+    const onBuild = toStringArray(config.OnBuild);
+
+    if (onBuild.length > 0) {
+      preserved.OnBuild = onBuild;
+    }
+  }
+
+  return preserved;
+}
+
+/**
+ * Create options for the replacement container, taken faithfully from the
+ * inspected original: its name, image, command/entrypoint, env, labels,
+ * exposed ports, stdio flags, healthcheck, stop signal/timeout, the whole
+ * `HostConfig` (port bindings, restart policy, binds/mounts, resource limits)
+ * and its network attachments.
+ *
+ * Only the first endpoint can be declared at create time — Docker rejects a
+ * create that names more than one — so the caller attaches the rest afterwards.
+ */
+export function buildRecreateOptions(details: Docker.ContainerInspectInfo, name: string): Docker.ContainerCreateOptions {
+  const config = details.Config;
+  const shortId = details.Id.slice(0, 12);
+  const [firstEndpoint] = Object.entries(buildEndpointsConfig(details));
+
+  return {
+    name,
+    // An unset hostname defaults to the container's own short id; carrying the
+    // old id over would pin the replacement to a dead identity.
+    Hostname: config.Hostname === shortId ? undefined : config.Hostname,
+    Domainname: config.Domainname,
+    User: config.User,
+    AttachStdin: config.AttachStdin,
+    AttachStdout: config.AttachStdout,
+    AttachStderr: config.AttachStderr,
+    Tty: config.Tty,
+    OpenStdin: config.OpenStdin,
+    StdinOnce: config.StdinOnce,
+    Env: config.Env,
+    Cmd: config.Cmd,
+    Entrypoint: config.Entrypoint,
+    Image: config.Image,
+    Labels: config.Labels,
+    Volumes: config.Volumes,
+    WorkingDir: config.WorkingDir,
+    ExposedPorts: config.ExposedPorts,
+    Healthcheck: config.Healthcheck,
+    // StopSignal/StopTimeout/Shell/OnBuild/MacAddress — real settings that the
+    // dockerode types omit, so they have to be picked up separately.
+    ...readUndeclaredContainerConfig(config),
+    HostConfig: details.HostConfig,
+    NetworkingConfig: firstEndpoint ? { EndpointsConfig: { [firstEndpoint[0]]: firstEndpoint[1] } } : undefined,
+  };
+}
+
 type DockerClientOptions = ConstructorParameters<typeof Docker>[0];
 
-async function createDockerBackend(
+export async function createDockerBackend(
   dockerOptions: DockerClientOptions,
   endpoint: string,
   selectedEngineId?: string,
@@ -749,8 +939,7 @@ async function createDockerBackend(
     try {
       const images = await docker.listImages();
       return images.map((image) => {
-        const tagReference = image.RepoTags?.[0] ?? "<none>:<none>";
-        const [repository, tag] = tagReference.split(":");
+        const { repository, tag } = parseImageReference(image.RepoTags?.[0] ?? "<none>:<none>");
         return {
           id: image.Id,
           repository,
@@ -816,6 +1005,100 @@ async function createDockerBackend(
       );
       return labeledProject === project || inferredProject === project;
     });
+  }
+
+  /**
+   * `stats({ stream: false })` blocks the daemon for ~1s per container while it
+   * computes a CPU delta, and `listContainers` fans one out per running
+   * container. Every open browser tab polling the list multiplied that fan-out
+   * (M8 in CODE-AUDIT.md), so concurrent and closely-spaced callers share a
+   * single result instead.
+   *
+   * ponytail: fixed-TTL shared cache, not a streaming subscription. Ceiling —
+   * rows can be up to STATS_CACHE_TTL_MS stale, and one fan-out per TTL still
+   * costs one blocking call per running container; the TTL sits just under the
+   * UI's 10s poll so a lone tab still sees fresh numbers every poll. Upgrade
+   * path if that is still too much: one long-lived `stats({ stream: true })`
+   * subscription per container feeding this same map.
+   */
+  const STATS_CACHE_TTL_MS = 8_000;
+  let cachedStats = new Map<string, ContainerStatsRow>();
+  let cachedStatsAt = 0;
+  let inFlightStats: Promise<Map<string, ContainerStatsRow>> | null = null;
+
+  async function getCachedStatsMap(runningContainers: Array<{ Id: string }>) {
+    if (Date.now() - cachedStatsAt < STATS_CACHE_TTL_MS) {
+      return cachedStats;
+    }
+
+    inFlightStats ??= getStatsMap(runningContainers, docker)
+      .then((stats) => {
+        cachedStats = stats;
+        cachedStatsAt = Date.now();
+        return stats;
+      })
+      .finally(() => {
+        inFlightStats = null;
+      });
+
+    return await inFlightStats;
+  }
+
+  async function pullImageReference(reference: string) {
+    const stream = await docker.pull(reference);
+    await new Promise<void>((resolve, reject) => {
+      docker.modem.followProgress(stream, (error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve();
+      });
+    });
+  }
+
+  /**
+   * Undo a failed rebuild: drop the half-built replacement, put the original
+   * back under its own name and restart it if it had been running. Returns the
+   * first restore failure (if any) so the caller can report it alongside the
+   * error that triggered the rollback instead of swallowing either.
+   */
+  async function restoreOriginalContainer(restore: {
+    original: Docker.Container;
+    replacement: Docker.Container | null;
+    renamed: boolean;
+    name: string;
+    wasRunning: boolean;
+  }): Promise<unknown> {
+    let failure: unknown = null;
+
+    const attempt = async (step: () => Promise<unknown>) => {
+      try {
+        await step();
+      } catch (error) {
+        if (isAlreadyInDesiredStateError(error)) {
+          return;
+        }
+
+        failure ??= error;
+      }
+    };
+
+    if (restore.replacement) {
+      const replacement = restore.replacement;
+      await attempt(() => replacement.remove({ force: true }));
+    }
+
+    if (restore.renamed) {
+      await attempt(() => restore.original.rename({ name: restore.name }));
+    }
+
+    if (restore.wasRunning) {
+      await attempt(() => restore.original.start());
+    }
+
+    return failure;
   }
 
   async function applyComposeProjectAction(project: string, action: "start" | "stop" | "remove") {
@@ -894,10 +1177,12 @@ async function createDockerBackend(
       try {
         const containers = await docker.listContainers({ all: true });
         const runningContainers = containers.filter(c => c.State === "running");
-        const statsMap = await getStatsMap(runningContainers, docker);
-        
+        const statsMap = await getCachedStatsMap(runningContainers);
+
         return containers.map((container) => {
-          const stats = statsMap.get(container.Id) || {};
+          // A cached entry can outlive the container's running state; never
+          // report stale CPU/memory numbers against a stopped container.
+          const stats = container.State === "running" ? statsMap.get(container.Id) : undefined;
           const summary = mapContainerSummary({
             id: container.Id.slice(0, 12),
             name: container.Names?.[0] ?? container.Id.slice(0, 12),
@@ -909,10 +1194,12 @@ async function createDockerBackend(
             ports: container.Ports,
             createdAt: formatUnixDate(container.Created),
           });
-          if (stats.cpuPercent !== undefined) summary.cpuPercent = formatPercentage(stats.cpuPercent);
-          if (stats.memUsage !== undefined) summary.memUsage = stats.memUsage;
-          if (stats.memPercent !== undefined) summary.memPercent = formatPercentage(stats.memPercent);
-          if (stats.netIO !== undefined) summary.netIO = stats.netIO;
+          if (stats) {
+            summary.cpuPercent = formatPercentage(stats.cpuPercent);
+            summary.memUsage = stats.memUsage;
+            summary.memPercent = formatPercentage(stats.memPercent);
+            summary.netIO = stats.netIO;
+          }
           return summary;
         });
       } catch (error) {
@@ -1023,21 +1310,84 @@ async function createDockerBackend(
         throw createBackendError(error);
       }
     },
+    /**
+     * Recreate the container from a freshly pulled image.
+     *
+     * The order is load-bearing and destructive: inspect → pull → stop →
+     * *rename* the original (never remove it) → create the replacement → start
+     * it → and only once it is proven startable, remove the renamed original.
+     * Any failure before that last step rolls the original back to its own name
+     * and running state.
+     */
     async rebuildContainer(id) {
-      try {
-        const container = docker.getContainer(id);
-        const details = await container.inspect();
+      const original = docker.getContainer(id);
+      let details: Docker.ContainerInspectInfo;
 
-        if (details.State?.Running) {
-          await container.restart();
-        } else {
-          await container.start();
+      try {
+        details = await original.inspect();
+      } catch (error) {
+        throw createContainerNotFoundError(error);
+      }
+
+      const name = normalizeContainerName(details.Name);
+      const wasRunning = details.State?.Running === true;
+      const supersededName = `${name}-docklite-superseded-${Date.now()}`;
+
+      try {
+        await pullImageReference(details.Config.Image);
+      } catch (error) {
+        // A locally built image has nothing to pull from, and failing the whole
+        // rebuild for that would be worse than recreating from the image the
+        // engine already holds. Registry images still get refreshed.
+        console.warn(
+          `Rebuild of '${name}': could not pull '${details.Config.Image}', recreating from the local image instead (${getErrorMessage(error)})`,
+        );
+      }
+
+      let renamed = false;
+      let replacement: Docker.Container | null = null;
+
+      try {
+        if (wasRunning) {
+          await original.stop();
         }
 
-        return await getContainerSummaryById(id);
+        await original.rename({ name: supersededName });
+        renamed = true;
+
+        replacement = await docker.createContainer(buildRecreateOptions(details, name));
+
+        // Only one endpoint may be declared at create time; attach the rest
+        // before the container starts so it comes up on every network it had.
+        const [, ...remainingEndpoints] = Object.entries(buildEndpointsConfig(details));
+        for (const [networkName, endpointConfig] of remainingEndpoints) {
+          await docker.getNetwork(networkName).connect({ Container: replacement.id, EndpointConfig: endpointConfig });
+        }
+
+        await replacement.start();
       } catch (error) {
+        const restoreFailure = await restoreOriginalContainer({ original, replacement, renamed, name, wasRunning });
+
+        if (restoreFailure) {
+          throw new BackendError(
+            500,
+            "rebuild_failed",
+            `Rebuild of '${name}' failed (${getErrorMessage(error)}) and the original container could not be fully restored: ${getErrorMessage(restoreFailure)}`,
+          );
+        }
+
         throw createBackendError(error);
       }
+
+      try {
+        await original.remove({ force: true });
+      } catch (error) {
+        // The replacement is up and serving; a leftover superseded container is
+        // a cleanup problem, not a reason to fail the request.
+        console.warn(`Rebuild of '${name}': replacement is running but '${supersededName}' could not be removed (${getErrorMessage(error)})`);
+      }
+
+      return await getContainerSummaryById(replacement.id);
     },
     async removeContainer(id) {
       try {
@@ -1145,28 +1495,25 @@ async function createDockerBackend(
         throw new BackendError(400, "invalid_request", "Image name is required");
       }
 
+      const reference = payload.image.trim();
+
       try {
-        const stream = await docker.pull(payload.image.trim());
-        await new Promise<void>((resolve, reject) => {
-          docker.modem.followProgress(stream, (error) => {
-            if (error) {
-              reject(error);
-              return;
-            }
+        await pullImageReference(reference);
 
-            resolve();
-          });
-        });
+        // Resolve the image the engine just stored by the very reference we
+        // pulled, rather than scanning `listImages()` for a repository/tag
+        // pair. A digest pull produces no matching RepoTag at all, so the scan
+        // reported a 500 for a pull that had in fact succeeded (M5).
+        const inspected = await docker.getImage(reference).inspect();
+        const { repository, tag } = parseImageReference(inspected.RepoTags?.[0] ?? reference);
 
-        const images = await listImages();
-        const [repository, tag = "latest"] = payload.image.trim().split(":");
-        const pulled = images.find((image) => image.repository === repository && image.tag === tag);
-
-        if (!pulled) {
-          throw new BackendError(500, "pull_failed", "Image pulled but was not returned by the engine");
-        }
-
-        return pulled;
+        return {
+          id: inspected.Id,
+          repository,
+          tag,
+          size: formatBytes(inspected.Size) ?? "unknown",
+          created: formatCreatedDate(inspected.Created),
+        };
       } catch (error) {
         throw createBackendError(error);
       }
@@ -1186,7 +1533,7 @@ async function createDockerBackend(
           name: volume.Name,
           driver: volume.Driver,
           mountpoint: volume.Mountpoint,
-          created: formatCreatedDate(new Date().toISOString()),
+          created: formatCreatedDate(readVolumeCreatedAt(volume)),
           size: formatBytes(volume.UsageData?.Size) ?? "Unknown",
           inUse: (volume.UsageData?.RefCount ?? 0) > 0,
         }));
@@ -1206,7 +1553,7 @@ async function createDockerBackend(
           name: details.Name,
           driver: details.Driver,
           mountpoint: details.Mountpoint,
-          created: formatCreatedDate(new Date().toISOString()),
+          created: formatCreatedDate(readVolumeCreatedAt(details)),
           size: formatBytes(details.UsageData?.Size) ?? "0 B",
           inUse: (details.UsageData?.RefCount ?? 0) > 0,
         };
