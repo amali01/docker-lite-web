@@ -77,17 +77,23 @@ type ApiRequestInit = RequestInit & {
 };
 
 export async function apiRequest<T>(path: string, init?: ApiRequestInit): Promise<T> {
-  const includeAuth = init?.auth ?? false;
+  const { baseUrl, auth, headers: callerHeaders, ...rest } = init ?? {};
+  const includeAuth = auth ?? false;
+
+  // Caller headers merge over the defaults (Accept/Content-Type: caller wins,
+  // matching normal fetch-wrapper convention), but the bearer token is applied
+  // last so a caller can never silently override or drop it when `auth: true`
+  // was requested.
   const headers = {
     Accept: "application/json",
     "Content-Type": "application/json",
+    ...callerHeaders,
     ...(includeAuth && authRuntimeState.token ? { Authorization: `Bearer ${authRuntimeState.token}` } : {}),
-    ...init?.headers,
   };
 
-  const response = await fetch(`${init?.baseUrl ?? getApiBaseUrl()}${path}`, {
+  const response = await fetch(`${baseUrl ?? getApiBaseUrl()}${path}`, {
+    ...rest,
     headers,
-    ...init,
   });
 
   if (!response.ok) {

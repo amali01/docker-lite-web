@@ -58,6 +58,47 @@ describe("api client auth behavior", () => {
     );
   });
 
+  it("merges caller-supplied headers with the auth/default headers instead of replacing them", async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ ok: true })));
+    setAuthRuntimeState({ token: "jwt-token" });
+
+    await apiRequest("/api/engine", {
+      auth: true,
+      headers: { "X-Custom": "value" },
+    });
+
+    const [, requestInit] = fetchMock.mock.calls[0];
+    expect(requestInit.headers).toEqual({
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      "X-Custom": "value",
+      Authorization: "Bearer jwt-token",
+    });
+  });
+
+  it("keeps default headers unchanged when a caller passes none", async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ ok: true })));
+
+    await apiRequest("/api/engine");
+
+    const [, requestInit] = fetchMock.mock.calls[0];
+    expect(requestInit.headers).toEqual({
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    });
+  });
+
+  it("does not forward baseUrl or auth as stray fetch options", async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ ok: true })));
+
+    await apiRequest("/api/engine", { baseUrl: "http://example.test", auth: true });
+
+    const [requestedUrl, requestInit] = fetchMock.mock.calls[0];
+    expect(requestedUrl).toBe("http://example.test/api/engine");
+    expect(requestInit).not.toHaveProperty("baseUrl");
+    expect(requestInit).not.toHaveProperty("auth");
+  });
+
   it("never puts the auth token in an ordinary fetch url", async () => {
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ ok: true })));
     setAuthRuntimeState({ token: "jwt-token" });
