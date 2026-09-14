@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { useTableSelection } from "@/hooks/use-table-selection";
 import { useImages, usePullImage, useRemoveImage } from "@/hooks/use-images";
 import { runBulkAction } from "@/lib/bulk-action";
+import { copyToClipboard } from "@/lib/clipboard";
 import { ImageSummary } from "@/lib/api/types";
 import { inferComposeProjectFromName, useResourceGroups } from "@/lib/resource-groups";
 
@@ -20,6 +21,17 @@ const projectOf = (image: ImageSummary) => {
 
   return inferComposeProjectFromName(baseName);
 };
+
+// navigator.clipboard is undefined outside a secure context, which is exactly
+// what remote mode serves over. copyToClipboard falls back and never throws.
+async function handleCopyId(id: string) {
+  if (await copyToClipboard(id)) {
+    toast.success("Copied ID");
+    return;
+  }
+
+  toast.error("Unable to copy ID");
+}
 
 export default function Images() {
   const [filter, setFilter] = useState("");
@@ -185,7 +197,7 @@ export default function Images() {
                         <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">{image.created}</td>
                         <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
                           <div className="flex items-center justify-end gap-1">
-                            <button onClick={() => { navigator.clipboard.writeText(image.id); toast.success("Copied ID"); }} className="p-2 rounded hover:bg-muted text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Copy ID"><Copy className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => void handleCopyId(image.id)} className="p-2 rounded hover:bg-muted text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Copy ID"><Copy className="w-3.5 h-3.5" /></button>
                             <button onClick={() => void handleRemove(image)} className="p-2 rounded hover:bg-destructive/10 text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="w-3.5 h-3.5" /></button>
                           </div>
                         </td>
@@ -210,7 +222,7 @@ export default function Images() {
                   <td className="p-3 font-mono text-muted-foreground hidden lg:table-cell">{image.created}</td>
                   <td className="p-3 sticky right-0 bg-card z-10 shadow-[-12px_0_16px_-16px_rgba(0,0,0,0.85)] border-l group-hover:bg-muted">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => { navigator.clipboard.writeText(image.id); toast.success("Copied ID"); }} className="p-2 rounded hover:bg-muted text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Copy ID"><Copy className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => void handleCopyId(image.id)} className="p-2 rounded hover:bg-muted text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" title="Copy ID"><Copy className="w-3.5 h-3.5" /></button>
                       <button onClick={() => void handleRemove(image)} className="p-2 rounded hover:bg-destructive/10 text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
