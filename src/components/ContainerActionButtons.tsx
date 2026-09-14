@@ -3,15 +3,38 @@ import { Link } from "react-router-dom";
 import { ContainerSummary } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
+/**
+ * Everything this row can ask its caller to do. The five container mutations
+ * are handled by `useContainerActions` (which confirms `remove` and `rebuild`);
+ * `logs` and `terminal` are presentation, and each caller decides where they go.
+ */
+export type ContainerActionButtonsAction =
+  | "start"
+  | "stop"
+  | "restart"
+  | "rebuild"
+  | "remove"
+  | "logs"
+  | "terminal";
+
 interface ContainerActionButtonsProps {
   container: ContainerSummary;
   compact?: boolean;
   logsActive?: boolean;
   terminalActive?: boolean;
-  onAction: (action: "start" | "stop" | "restart" | "remove" | "logs" | "terminal" | "rebuild", container: ContainerSummary) => void;
+  /** The container detail page renders this row too, where a link to the route already open goes nowhere. */
+  showDetailsLink?: boolean;
+  onAction: (action: ContainerActionButtonsAction, container: ContainerSummary) => void;
 }
 
-export function ContainerActionButtons({ container, compact = false, logsActive, terminalActive, onAction }: ContainerActionButtonsProps) {
+export function ContainerActionButtons({
+  container,
+  compact = false,
+  logsActive,
+  terminalActive,
+  showDetailsLink = true,
+  onAction,
+}: ContainerActionButtonsProps) {
   const containerName = container.name.replace(/^\//, "");
   const buttonClassName = cn(
     "rounded transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -21,14 +44,16 @@ export function ContainerActionButtons({ container, compact = false, logsActive,
 
   return (
     <div className={cn("flex items-center justify-end", compact ? "gap-0.5 md:gap-1" : "gap-1")}>
-      <Link
-        to={`/containers/${container.id}`}
-        className={cn(buttonClassName, "hover:bg-muted text-muted-foreground")}
-        title="Details"
-        aria-label={`View details for ${containerName}`}
-      >
-        <Eye className={iconClassName} />
-      </Link>
+      {showDetailsLink ? (
+        <Link
+          to={`/containers/${container.id}`}
+          className={cn(buttonClassName, "hover:bg-muted text-muted-foreground")}
+          title="Details"
+          aria-label={`View details for ${containerName}`}
+        >
+          <Eye className={iconClassName} />
+        </Link>
+      ) : null}
       {container.status === "stopped" ? (
         <button onClick={() => onAction("start", container)} className={cn(buttonClassName, "hover:bg-success/10 text-success")} title="Start" aria-label={`Start container ${containerName}`}>
           <Play className={iconClassName} />

@@ -46,9 +46,8 @@ describe("ContainerActionButtons", () => {
    * Every single-container destructive click in the app funnels through here,
    * and this component performs no mutation of its own — it hands the action to
    * its caller. Confirmation therefore lives one level up, in
-   * `useContainerActions`, which owns the mutations; gating here instead would
-   * put a confirmation in front of callers that pass a no-op handler and tell
-   * the user something was destroyed when nothing was.
+   * `useContainerActions`, which owns the mutations and gates remove and
+   * rebuild. Each of the three callers routes through that hook.
    */
   it("delegates destructive clicks to the caller rather than acting on its own", () => {
     const onAction = vi.fn();
@@ -66,15 +65,28 @@ describe("ContainerActionButtons", () => {
     expect(onAction).toHaveBeenCalledExactlyOnceWith("rebuild", runningContainer);
   });
 
-  it("shows no confirmation of its own, so a no-op caller destroys nothing and claims nothing", () => {
+  it("raises no confirmation of its own — that belongs to the caller that owns the mutation", () => {
+    const onAction = vi.fn();
     render(
       <MemoryRouter>
-        <ContainerActionButtons container={runningContainer} onAction={() => {}} />
+        <ContainerActionButtons container={runningContainer} onAction={onAction} />
       </MemoryRouter>,
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Remove container nginx-proxy" }));
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("drops the Details link when the caller is already on the detail route", () => {
+    render(
+      <MemoryRouter>
+        <ContainerActionButtons container={runningContainer} showDetailsLink={false} onAction={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByRole("link", { name: "View details for nginx-proxy" })).not.toBeInTheDocument();
+    // The actions themselves are untouched by hiding the link.
+    expect(screen.getByRole("button", { name: "Remove container nginx-proxy" })).toBeInTheDocument();
   });
 
   it("communicates when terminal is unavailable", () => {

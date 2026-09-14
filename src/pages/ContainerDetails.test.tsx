@@ -1,18 +1,19 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { toast } from "sonner";
 import ContainerDetails from "./ContainerDetails";
+
+vi.mock("sonner", () => ({
+  toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() },
+}));
 
 const useContainerDetailsMock = vi.fn();
 const useContainerInspectMock = vi.fn();
 const useContainerStatsMock = vi.fn();
 const useEngineInfoMock = vi.fn();
 
-/**
- * Every container mutation the page could reach, stubbed so a destructive click
- * is observable. They are deliberately unused by the page today — see the
- * "performs no container mutation" test for why they are wired up anyway.
- */
+/** Every container mutation the Quick Actions row can reach, stubbed so each click is observable. */
 const removeContainerMock = vi.fn();
 const rebuildContainerMock = vi.fn();
 const startContainerMock = vi.fn();
@@ -116,6 +117,9 @@ describe("ContainerDetails route", () => {
     startContainerMock.mockReset();
     stopContainerMock.mockReset();
     restartContainerMock.mockReset();
+    vi.mocked(toast.success).mockClear();
+    vi.mocked(toast.error).mockClear();
+    vi.mocked(toast.info).mockClear();
 
     useEngineInfoMock.mockReturnValue({
       isLoading: false,
@@ -130,6 +134,7 @@ describe("ContainerDetails route", () => {
     render(
       <MemoryRouter initialEntries={["/containers/container-123"]}>
         <Routes>
+          <Route path="/containers" element={<div>Containers list route reached</div>} />
           <Route path="/containers/:containerId" element={<ContainerDetails />} />
         </Routes>
       </MemoryRouter>,
@@ -281,40 +286,130 @@ describe("ContainerDetails route", () => {
   });
 
   function renderLoadedDetails() {
-    const loaded = (data: unknown) => ({ isLoading: false, isPending: false, isError: false, data, error: null });
+    // The detail queries are keyed per container and the container mutations do
+    // not invalidate them, so the page refetches them itself after an action.
+    const detailsRefetch = vi.fn();
+    const inspectRefetch = vi.fn();
+    const loaded = (data: unknown, refetch: () => void) => ({
+      isLoading: false,
+      isPending: false,
+      isError: false,
+      data,
+      error: null,
+      refetch,
+    });
 
-    useContainerDetailsMock.mockReturnValue(loaded(containerDetails));
-    useContainerInspectMock.mockReturnValue(loaded(containerDetails.inspect));
-    useContainerStatsMock.mockReturnValue(loaded(containerDetails.stats));
+    useContainerDetailsMock.mockReturnValue(loaded(containerDetails, detailsRefetch));
+    useContainerInspectMock.mockReturnValue(loaded(containerDetails.inspect, inspectRefetch));
+    useContainerStatsMock.mockReturnValue(loaded(containerDetails.stats, vi.fn()));
 
     renderDetailsRoute();
+
+    return { detailsRefetch, inspectRefetch };
   }
 
-  /**
-   * The Quick Actions row on the Overview tab renders the same
-   * `ContainerActionButtons` as the two tables, but `ContainerOverviewTab`
-   * passes `onAction={() => {}}` — so Remove and Rebuild are inert here rather
-   * than unconfirmed. This pins that: whoever wires these buttons up must route
-   * them through `useContainerActions`, which gates remove and rebuild behind
-   * the shared confirmation. Wiring a mutation straight to the click fails here.
-   */
-  it("performs no container mutation when a destructive Quick Action is clicked", () => {
+  it("does not remove the container until the confirmation is accepted", async () => {
     renderLoadedDetails();
 
     fireEvent.click(screen.getByRole("button", { name: "Remove container nginx-proxy" }));
-    fireEvent.click(screen.getByRole("button", { name: "Refresh container nginx-proxy" }));
 
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveAccessibleName("Delete container?");
+    expect(within(dialog).getByText("nginx-proxy")).toBeInTheDocument();
     expect(removeContainerMock).not.toHaveBeenCalled();
-    expect(rebuildContainerMock).not.toHaveBeenCalled();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete container" }));
+
+    await waitFor(() => {
+      expect(removeContainerMock).toHaveBeenCalledExactlyOnceWith("container-123");
+    });
   });
 
-  it("shows no confirmation for the reversible Quick Actions either", () => {
+  it("returns to the containers list after a confirmed remove instead of sitting on a dead route", async () => {
+    renderLoadedDetails();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove container nginx-proxy" }));
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete container" }));
+
+    expect(await screen.findByText("Containers list route reached")).toBeInTheDocument();
+    expect(screen.queryByText("Container not found")).not.toBeInTheDocument();
+    expect(vi.mocked(toast.success)).toHaveBeenCalledWith("Removed nginx-proxy");
+  });
+
+  it("removes nothing and stays put when the confirmation is cancelled", async () => {
+    renderLoadedDetails();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove container nginx-proxy" }));
+    const dialog = await screen.findByRole("alertdialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    });
+    expect(removeContainerMock).not.toHaveBeenCalled();
+    expect(screen.queryByText("Containers list route reached")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove container nginx-proxy" })).toBeInTheDocument();
+  });
+
+  it("confirms a rebuild, which destroys and recreates the container", async () => {
+    renderLoadedDetails();
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh container nginx-proxy" }));
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(dialog).toHaveAccessibleName("Rebuild container?");
+    expect(rebuildContainerMock).not.toHaveBeenCalled();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Rebuild container" }));
+
+    await waitFor(() => {
+      expect(rebuildContainerMock).toHaveBeenCalledExactlyOnceWith("container-123");
+    });
+    // A rebuilt container still exists, so the page stays on it.
+    expect(screen.queryByText("Containers list route reached")).not.toBeInTheDocument();
+  });
+
+  it("runs the reversible actions straight away, with no confirmation", async () => {
     renderLoadedDetails();
 
     fireEvent.click(screen.getByRole("button", { name: "Stop container nginx-proxy" }));
 
+    await waitFor(() => {
+      expect(stopContainerMock).toHaveBeenCalledExactlyOnceWith("container-123");
+    });
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-    expect(stopContainerMock).not.toHaveBeenCalled();
+    expect(vi.mocked(toast.success)).toHaveBeenCalledWith("Stopped nginx-proxy");
+    // Refreshing the header afterwards is the mutation's job, not this page's -
+    // see the invalidation contract in use-containers.test.tsx.
+  });
+
+  it("restarts from Quick Actions without a confirmation", async () => {
+    renderLoadedDetails();
+
+    fireEvent.click(screen.getByRole("button", { name: "Restart container nginx-proxy" }));
+
+    await waitFor(() => {
+      expect(restartContainerMock).toHaveBeenCalledExactlyOnceWith("container-123");
+    });
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  });
+
+  it("sends the Logs and Terminal Quick Actions to the matching tab", () => {
+    renderLoadedDetails();
+
+    fireEvent.click(screen.getByRole("button", { name: "View logs for nginx-proxy" }));
+    expect(screen.getByText("Embedded logs for nginx-proxy")).toBeInTheDocument();
+
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Overview" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open terminal for nginx-proxy" }));
+    expect(screen.getByText("Embedded terminal for nginx-proxy")).toBeInTheDocument();
+  });
+
+  it("drops the self-referential Details link from the Quick Actions row", () => {
+    renderLoadedDetails();
+
+    expect(screen.queryByRole("link", { name: "View details for nginx-proxy" })).not.toBeInTheDocument();
   });
 
   it("dead-ends on a not-found state rather than a stale view when the container is gone", () => {

@@ -1,14 +1,20 @@
 import { HardDrive, Network, Tags } from "lucide-react";
-import { ContainerActionButtons } from "@/components/ContainerActionButtons";
+import { ContainerActionButtons, type ContainerActionButtonsAction } from "@/components/ContainerActionButtons";
 import { Badge } from "@/components/ui/badge";
 import { ContainerStatsMiniChart } from "@/components/container-details/ContainerStatsMiniChart";
-import type { ContainerDetails } from "@/lib/api/types";
+import type { ContainerDetails, ContainerSummary } from "@/lib/api/types";
 
 interface ContainerOverviewTabProps {
   details: ContainerDetails;
+  /**
+   * Required on purpose. Quick Actions used to be wired to a `() => {}`
+   * placeholder, so every button here silently did nothing; making the handler
+   * mandatory means a caller cannot reintroduce that by omission.
+   */
+  onAction: (action: ContainerActionButtonsAction, container: ContainerSummary) => void;
 }
 
-export function ContainerOverviewTab({ details }: ContainerOverviewTabProps) {
+export function ContainerOverviewTab({ details, onAction }: ContainerOverviewTabProps) {
   const { summary } = details;
 
   return (
@@ -85,7 +91,7 @@ export function ContainerOverviewTab({ details }: ContainerOverviewTabProps) {
               <Network className="h-3.5 w-3.5" />
               Quick Actions
             </div>
-            <ContainerActionButtons container={summary} onAction={() => {}} />
+            <ContainerActionButtons container={summary} showDetailsLink={false} onAction={onAction} />
           </div>
 
           <div>
