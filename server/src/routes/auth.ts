@@ -18,8 +18,64 @@ const loginRequiredSchema = z.object({
   required: z.boolean(),
 });
 
+const LOGIN_MAX_FAILURES = 5;
+const LOGIN_WINDOW_MS = 60_000;
+const LOGIN_THROTTLE_MAX_KEYS = 1_000;
+
+interface LoginAttempts {
+  failures: number;
+  resetAt: number;
+}
+
+/**
+ * Windowed per-IP cap on failed logins: argon2 alone is not a brute-force
+ * barrier once DOCKLITE_REMOTE_ENABLED is on. A successful login clears the
+ * counter, and the window always expires, so the only admin is never locked
+ * out permanently.
+ *
+ * ponytail: in-memory Map — single process only, and it forgets everything on
+ * restart. Move to a shared store (Redis/SQLite) if DockLite ever runs more
+ * than one instance behind a load balancer. The size cap below is a crude
+ * guard against an attacker growing the map by rotating source IPs.
+ */
+function createLoginThrottle(now: () => number = Date.now) {
+  const attempts = new Map<string, LoginAttempts>();
+
+  return {
+    retryAfterSeconds(key: string): number | null {
+      const entry = attempts.get(key);
+
+      if (!entry || entry.resetAt <= now()) {
+        attempts.delete(key);
+        return null;
+      }
+
+      return entry.failures >= LOGIN_MAX_FAILURES ? Math.ceil((entry.resetAt - now()) / 1000) : null;
+    },
+    recordFailure(key: string): void {
+      const existing = attempts.get(key);
+      const entry = existing && existing.resetAt > now() ? existing : { failures: 0, resetAt: now() + LOGIN_WINDOW_MS };
+
+      entry.failures += 1;
+      attempts.set(key, entry);
+
+      if (attempts.size > LOGIN_THROTTLE_MAX_KEYS) {
+        for (const [candidate, value] of attempts) {
+          if (value.resetAt <= now()) {
+            attempts.delete(candidate);
+          }
+        }
+      }
+    },
+    reset(key: string): void {
+      attempts.delete(key);
+    },
+  };
+}
+
 export function createAuthRouter(auth: DockLiteAuth) {
   const router = Router();
+  const loginThrottle = createLoginThrottle();
 
   router.get("/session", async (request, response, next) => {
     try {
@@ -31,6 +87,19 @@ export function createAuthRouter(auth: DockLiteAuth) {
 
   router.post("/login", async (request, response, next) => {
     try {
+      const clientKey = request.ip ?? request.socket.remoteAddress ?? "unknown";
+      const retryAfter = loginThrottle.retryAfterSeconds(clientKey);
+
+      if (retryAfter !== null) {
+        response.status(429).set("Retry-After", String(retryAfter)).json({
+          error: {
+            code: "too_many_login_attempts",
+            message: `Too many failed sign-in attempts. Try again in ${retryAfter} second(s).`,
+          },
+        });
+        return;
+      }
+
       const resolved = await auth.resolveExpressRequest(request);
       const payload = loginSchema.parse(request.body);
 
@@ -38,6 +107,7 @@ export function createAuthRouter(auth: DockLiteAuth) {
         payload.username !== resolved.config.adminUsername ||
         !(await verifyPassword(resolved.config.adminPasswordHash, payload.password))
       ) {
+        loginThrottle.recordFailure(clientKey);
         response.status(401).json({
           error: {
             code: "invalid_credentials",
@@ -47,6 +117,7 @@ export function createAuthRouter(auth: DockLiteAuth) {
         return;
       }
 
+      loginThrottle.reset(clientKey);
       response.json(auth.issueAuthResponse(resolved.config));
     } catch (error) {
       next(error);

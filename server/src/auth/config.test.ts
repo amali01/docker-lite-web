@@ -1,11 +1,21 @@
-import { chmod, mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { AuthConfigStore } from "./config";
+import { AuthConfigStore, DEFAULT_ADMIN_PASSWORD, DEFAULT_ADMIN_USERNAME } from "./config";
 import { verifyPassword } from "./password";
 
 const fixedNow = "2026-04-03T12:00:00.000Z";
+
+const validStoredConfig = {
+  adminUsername: "bootstrap-admin",
+  adminPasswordHash: "$argon2id$v=19$m=65536,t=3,p=1$c2FsdA$aGFzaA",
+  authVersion: 1,
+  jwtSecret: "bootstrap-secret",
+  defaultCredentialsActive: false,
+  loginRequired: true,
+  updatedAt: fixedNow,
+};
 
 async function createStore() {
   const dir = await mkdtemp(join(tmpdir(), "docklite-auth-config-"));
@@ -43,7 +53,9 @@ describe("AuthConfigStore", () => {
     const initial = await store.read();
 
     expect(initial.adminUsername).toBe("bootstrap-admin");
-    expect(initial.defaultCredentialsActive).toBe(true);
+    // The operator supplied a real DOCKLITE_ADMIN_PASSWORD, so the built-in
+    // default is not in play.
+    expect(initial.defaultCredentialsActive).toBe(false);
     // A fresh install defaults to login-off (local desktop convenience); the
     // loopback bind gate is what actually keeps this safe.
     expect(initial.loginRequired).toBe(false);
@@ -85,6 +97,93 @@ describe("AuthConfigStore", () => {
     expect(config.adminUsername).toBe("bootstrap-admin");
     expect(config.jwtSecret).toBe("bootstrap-secret");
     await expect(verifyPassword(config.adminPasswordHash, "bootstrap-pass")).resolves.toBe(true);
+  });
+
+  it("marks default credentials active only when the seeded password is the built-in default", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "docklite-auth-config-"));
+    tmpDirs.push(dir);
+
+    const store = new AuthConfigStore({
+      filePath: join(dir, "auth", "auth-config.json"),
+      now: () => fixedNow,
+      env: { DOCKLITE_AUTH_JWT_SECRET: "bootstrap-secret" },
+    });
+
+    const config = await store.read();
+
+    expect(config.adminUsername).toBe(DEFAULT_ADMIN_USERNAME);
+    expect(config.defaultCredentialsActive).toBe(true);
+    await expect(verifyPassword(config.adminPasswordHash, DEFAULT_ADMIN_PASSWORD)).resolves.toBe(true);
+  });
+
+  it.each([
+    ["not valid JSON", "{ not json"],
+    [
+      "an empty jwtSecret",
+      JSON.stringify({ ...validStoredConfig, jwtSecret: "" }),
+    ],
+    [
+      "a truncated jwtSecret",
+      JSON.stringify({ ...validStoredConfig, jwtSecret: "short" }),
+    ],
+    [
+      "a missing adminPasswordHash",
+      JSON.stringify({ ...validStoredConfig, adminPasswordHash: undefined }),
+    ],
+    [
+      "an empty adminUsername",
+      JSON.stringify({ ...validStoredConfig, adminUsername: "   " }),
+    ],
+  ])("refuses to load a config with %s instead of falling back to an open session", async (_label, contents) => {
+    const { dir, filePath, store } = await createStore();
+    tmpDirs.push(dir);
+
+    await mkdir(dirname(filePath), { recursive: true });
+    await writeFile(filePath, contents, "utf8");
+
+    await expect(store.read()).rejects.toMatchObject({
+      status: 500,
+      code: "auth_config_invalid",
+    });
+  });
+
+  it("recovers from an unusable config once the file is removed", async () => {
+    const { dir, filePath, store } = await createStore();
+    tmpDirs.push(dir);
+
+    await mkdir(dirname(filePath), { recursive: true });
+    await writeFile(filePath, JSON.stringify({ ...validStoredConfig, jwtSecret: "" }), "utf8");
+    await expect(store.read()).rejects.toMatchObject({ code: "auth_config_invalid" });
+
+    await rm(filePath);
+
+    const config = await store.read();
+
+    expect(config.jwtSecret).toBe("bootstrap-secret");
+    expect(config.loginRequired).toBe(false);
+  });
+
+  it("keeps login required when the stored flag is missing or malformed", async () => {
+    const { dir, filePath, store } = await createStore();
+    tmpDirs.push(dir);
+
+    await mkdir(dirname(filePath), { recursive: true });
+    await writeFile(filePath, JSON.stringify({ ...validStoredConfig, loginRequired: "nope" }), "utf8");
+
+    await expect(store.read()).resolves.toMatchObject({ loginRequired: true });
+  });
+
+  it("rejects a too-short DOCKLITE_AUTH_JWT_SECRET at seed time", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "docklite-auth-config-"));
+    tmpDirs.push(dir);
+
+    const store = new AuthConfigStore({
+      filePath: join(dir, "auth", "auth-config.json"),
+      now: () => fixedNow,
+      env: { DOCKLITE_AUTH_JWT_SECRET: "too-short" },
+    });
+
+    await expect(store.read()).rejects.toMatchObject({ code: "auth_config_invalid" });
   });
 
   it("warns or rejects insecure auth storage paths", async () => {

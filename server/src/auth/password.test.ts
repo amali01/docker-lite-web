@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { assertPasswordPolicy, hashPassword, validatePasswordPolicy, verifyPassword } from "./password";
+import {
+  MIN_PASSWORD_LENGTH,
+  assertPasswordPolicy,
+  hashPassword,
+  validatePasswordPolicy,
+  verifyPassword,
+} from "./password";
 
 describe("password auth helpers", () => {
   it("hashes with argon2id and verifies passwords", async () => {
@@ -21,5 +27,11 @@ describe("password auth helpers", () => {
 
     expect(() => assertPasswordPolicy("")).toThrow(/required/i);
     expect(() => assertPasswordPolicy("docklite-pass-2026")).not.toThrow();
+  });
+
+  it("rejects passwords shorter than the minimum length", () => {
+    expect(MIN_PASSWORD_LENGTH).toBe(8);
+    expect(() => assertPasswordPolicy("a".repeat(MIN_PASSWORD_LENGTH - 1))).toThrow(/at least 8 characters/i);
+    expect(() => assertPasswordPolicy("a".repeat(MIN_PASSWORD_LENGTH))).not.toThrow();
   });
 });

@@ -3,6 +3,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { dirname, join } from "node:path";
 import { BackendError } from "../types";
 import { hashSeedPassword } from "./password";
+import { MIN_JWT_SECRET_LENGTH, authConfigSchema } from "./types";
 import type { AuthConfig, AuthPathSecurityWarning } from "./types";
 
 export const DEFAULT_ADMIN_USERNAME = "admin";
@@ -52,6 +53,34 @@ async function inspectPath(path: string): Promise<AuthPathSecurityWarning[]> {
   }
 }
 
+function invalidAuthConfig(filePath: string, detail: string): BackendError {
+  return new BackendError(
+    500,
+    "auth_config_invalid",
+    `${filePath} is not a usable auth config (${detail}). DockLite will not fall back to an unauthenticated session. ` +
+      `Repair the file, or delete it and restart to seed a new one from DOCKLITE_ADMIN_USERNAME / DOCKLITE_ADMIN_PASSWORD.`,
+  );
+}
+
+function parseAuthConfig(contents: string, filePath: string): AuthConfig {
+  let raw: unknown;
+
+  try {
+    raw = JSON.parse(contents);
+  } catch {
+    throw invalidAuthConfig(filePath, "the file is not valid JSON");
+  }
+
+  const parsed = authConfigSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    const detail = parsed.error.issues.map((issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`).join("; ");
+    throw invalidAuthConfig(filePath, detail);
+  }
+
+  return parsed.data;
+}
+
 export function getDefaultAuthConfigPath() {
   return process.env.DOCKLITE_AUTH_CONFIG_PATH ?? join(process.cwd(), "server", "data", "auth-config.json");
 }
@@ -75,22 +104,26 @@ export class AuthConfigStore {
 
     await this.ensureStorageDirectory();
 
+    let contents: string;
+
     try {
-      const raw = JSON.parse(await readFile(this.filePath, "utf8")) as AuthConfig;
-      // Fail closed: a pre-feature config (or any missing/malformed value) means
-      // login is required. Only an explicit `false` disables it.
-      const normalized: AuthConfig = { ...raw, loginRequired: raw.loginRequired !== false };
-      this.snapshot = normalized;
-      return normalized;
+      contents = await readFile(this.filePath, "utf8");
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
         throw error;
       }
+
+      const seeded = await this.write(await this.createInitialConfig());
+      this.snapshot = seeded;
+      return seeded;
     }
 
-    const seeded = await this.write(await this.createInitialConfig());
-    this.snapshot = seeded;
-    return seeded;
+    // An unreadable config is refused, never re-seeded: auto-seeding would
+    // reset the admin password to the built-in default, which on a remote
+    // instance is a fail-open. The thrown error names the file and the fix.
+    const parsed = parseAuthConfig(contents, this.filePath);
+    this.snapshot = parsed;
+    return parsed;
   }
 
   async write(config: AuthConfig): Promise<AuthConfig> {
@@ -129,14 +162,28 @@ export class AuthConfigStore {
   private async createInitialConfig(): Promise<AuthConfig> {
     const adminUsername = normalizeUsername(this.env.DOCKLITE_ADMIN_USERNAME);
     const adminPassword = normalizePassword(this.env.DOCKLITE_ADMIN_PASSWORD);
-    const jwtSecret = this.env[DEFAULT_AUTH_JWT_SECRET_ENV_KEY] || randomBytes(32).toString("hex");
+    const envSecret = this.env[DEFAULT_AUTH_JWT_SECRET_ENV_KEY];
+
+    // Reject a too-short env secret here rather than writing a config that
+    // read() would refuse on the next boot.
+    if (envSecret && envSecret.length < MIN_JWT_SECRET_LENGTH) {
+      throw new BackendError(
+        500,
+        "auth_config_invalid",
+        `${DEFAULT_AUTH_JWT_SECRET_ENV_KEY} must be at least ${MIN_JWT_SECRET_LENGTH} characters long.`,
+      );
+    }
+
+    const jwtSecret = envSecret || randomBytes(32).toString("hex");
 
     return {
       adminUsername,
       adminPasswordHash: await hashSeedPassword(adminPassword),
       authVersion: 1,
       jwtSecret,
-      defaultCredentialsActive: true,
+      // Only true when the seeded password really is the built-in default —
+      // an operator-supplied DOCKLITE_ADMIN_PASSWORD is not "default".
+      defaultCredentialsActive: adminPassword === DEFAULT_ADMIN_PASSWORD,
       // DockLite ships as a local desktop app: a fresh install skips the login
       // wall for zero-friction access. This is honored only on a loopback bind
       // (see runtime `allowAuthBypass`); a network-exposed instance still
