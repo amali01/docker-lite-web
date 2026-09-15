@@ -31,7 +31,20 @@ test("creates and removes a volume", async ({ page }) => {
   const volumeRow = page.locator("tr", { hasText: volumeName });
   await expect(volumeRow).toBeVisible();
 
+  // Deleting a volume is permanent data loss, so it goes through a
+  // confirmation. Cancel first: the row must survive.
   await volumeRow.locator("button").last().click();
+
+  const confirmation = page.getByRole("alertdialog");
+  await expect(confirmation.getByText("Delete volume?")).toBeVisible();
+  await expect(confirmation.getByText(volumeName)).toBeVisible();
+  await confirmation.getByRole("button", { name: "Cancel" }).click();
+
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
+  await expect(volumeRow).toHaveCount(1);
+
+  await volumeRow.locator("button").last().click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "Delete volume" }).click();
 
   await expect(volumeRow).toHaveCount(0);
 });

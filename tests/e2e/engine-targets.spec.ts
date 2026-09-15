@@ -37,6 +37,12 @@ test("manages engine targets from settings", async ({ page }) => {
   await expect(page.getByRole("textbox", { name: /^Label$/ })).toHaveValue("");
 
   await targetCard.getByRole("button", { name: "Delete" }).click();
+
+  const confirmation = page.getByRole("alertdialog");
+  await expect(confirmation.getByText("Delete engine target?")).toBeVisible();
+  await expect(confirmation.getByText(targetName)).toBeVisible();
+  await confirmation.getByRole("button", { name: "Delete target" }).click();
+
   await expect(notifications.getByText(`Removed ${targetName}`)).toBeVisible();
   await expect(page.getByRole("group", { name: `Engine target ${targetName}` })).toHaveCount(0);
 });
